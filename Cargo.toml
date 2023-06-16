@@ -1,0 +1,2 @@
+[workspace]
+members = ["xcp-metrics", "xcp-metrics-common"]
