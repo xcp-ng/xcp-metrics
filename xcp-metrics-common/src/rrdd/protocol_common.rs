@@ -156,7 +156,7 @@ impl DataSourceValue {
 
 /// A non-parsed (strings) data source metadata structure.
 /// Unusable unless converted to [DataSourceMetadata].
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DataSourceMetadataRaw {
     pub description: Option<String>,
     pub units: Option<String>,
@@ -183,41 +183,43 @@ pub struct DataSourceMetadata {
     pub default: bool,
 }
 
-impl TryFrom<DataSourceMetadataRaw> for DataSourceMetadata {
+impl TryFrom<&DataSourceMetadataRaw> for DataSourceMetadata {
     type Error = DataSourceParseError;
 
-    fn try_from(raw: DataSourceMetadataRaw) -> Result<Self, Self::Error> {
-        let description = raw.description.unwrap_or_default().into();
-        let units = raw.units.unwrap_or_default().into();
+    fn try_from(raw: &DataSourceMetadataRaw) -> Result<Self, Self::Error> {
+        let description = raw.description.as_deref().unwrap_or_default().into();
+        let units = raw.units.as_deref().unwrap_or_default().into();
 
-        let ds_type = raw.ds_type.map_or_else(
+        let ds_type = raw.ds_type.as_deref().map_or_else(
             || Ok(DataSourceType::Absolute),
-            |s| DataSourceType::try_from(s.as_ref()),
+            |s| DataSourceType::try_from(s),
         )?;
 
         let value = raw
             .value_type
+            .as_deref()
             .map_or(Ok(DataSourceValue::Undefined), |value_type| {
                 DataSourceValue::parse(&value_type, raw.value.as_deref())
             })?;
 
-        let min = raw.min.map_or(Ok(f32::NEG_INFINITY), |s| {
+        let min = raw.min.as_deref().map_or(Ok(f32::NEG_INFINITY), |s| {
             s.parse().or(Err(DataSourceParseError::InvalidPayload(
                 "Unable to parse 'min'",
             )))
         })?;
 
-        let max = raw.max.map_or(Ok(f32::INFINITY), |s| {
+        let max = raw.max.as_deref().map_or(Ok(f32::INFINITY), |s| {
             s.parse().or(Err(DataSourceParseError::InvalidPayload(
                 "Unable to parse 'max'",
             )))
         })?;
 
-        let owner = raw.owner.map_or(Ok(DataSourceOwner::Host), |s| {
-            DataSourceOwner::try_from(s.as_ref())
-        })?;
+        let owner = raw
+            .owner
+            .as_deref()
+            .map_or(Ok(DataSourceOwner::Host), |s| DataSourceOwner::try_from(s))?;
 
-        let default = raw.default.map_or(Ok(false), |s| {
+        let default = raw.default.as_deref().map_or(Ok(false), |s| {
             s.parse().or(Err(DataSourceParseError::InvalidPayload(
                 "Unable to parse 'default",
             )))
@@ -236,17 +238,17 @@ impl TryFrom<DataSourceMetadataRaw> for DataSourceMetadata {
     }
 }
 
-impl From<DataSourceMetadata> for DataSourceMetadataRaw {
-    fn from(val: DataSourceMetadata) -> Self {
+impl From<&DataSourceMetadata> for DataSourceMetadataRaw {
+    fn from(val: &DataSourceMetadata) -> Self {
         let description = if val.description.is_empty() {
             None
         } else {
-            Some(val.description.into())
+            Some(val.description.as_ref().into())
         };
 
-        let units = Some(val.units.into());
+        let units = Some(val.units.as_ref().into());
 
-        let ds_type = Some(Into::<&str>::into(val.ds_type).to_string());
+        let ds_type = Some(Into::<&str>::into(val.ds_type.clone()).to_string());
 
         let value = match val.value {
             DataSourceValue::Int64(v) => Some(v.to_string()),
@@ -260,7 +262,7 @@ impl From<DataSourceMetadata> for DataSourceMetadataRaw {
         let min = Some(val.min.to_string());
         let max = Some(val.max.to_string());
 
-        let owner = Some(Into::<Box<str>>::into(val.owner).into());
+        let owner = Some(Into::<Box<str>>::into(val.owner.clone()).into());
 
         Self {
             description,

@@ -25,7 +25,7 @@ fn main() {
     if let Ok(header) = header {
         // Test headers
         let mut header_emited = vec![];
-        header.emit_to(&mut header_emited).unwrap();
+        header.write(&mut header_emited).unwrap();
 
         println!("{header_emited:?}");
 
@@ -49,18 +49,17 @@ fn main() {
         println!("{metadata_raw:#?}");
 
         for ds in metadata_raw.datasources {
-            let metadata = DataSourceMetadata::try_from(ds.1);
+            let metadata = DataSourceMetadata::try_from(&ds.1);
             println!("{metadata:#?}");
 
             if let Ok(metadata) = metadata {
                 // Invariance test
                 let metadata_serialized =
-                    serde_json::to_string(&Into::<DataSourceMetadataRaw>::into(metadata.clone()))
-                        .unwrap();
+                    serde_json::to_string(&Into::<DataSourceMetadataRaw>::into(&metadata)).unwrap();
 
                 let metadata_analyzed: DataSourceMetadataRaw =
                     serde_json::from_str(&metadata_serialized).unwrap();
-                let metadata_reparsed = DataSourceMetadata::try_from(metadata_analyzed);
+                let metadata_reparsed = DataSourceMetadata::try_from(&metadata_analyzed);
 
                 println!("{metadata_reparsed:#?}");
                 assert_eq!(metadata, metadata_reparsed.unwrap());
