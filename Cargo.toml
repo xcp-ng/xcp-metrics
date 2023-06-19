@@ -1,2 +1,2 @@
 [workspace]
-members = ["xcp-metrics", "xcp-metrics-common"]
+members = ["xcp-metrics", "xcp-metrics-common", "xcp-metrics-test"]

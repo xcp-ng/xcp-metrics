@@ -1,6 +1,6 @@
 //! xcp-rrdd protocol v2 implementation.
 use std::{
-    io::{self, ErrorKind, IoSliceMut, Read},
+    io::{self, ErrorKind, IoSliceMut, Read, Write},
     time::{self, Duration, SystemTime},
 };
 
@@ -20,11 +20,10 @@ impl From<io::Error> for RrddProtocolError {
     }
 }
 
-#[derive(Debug)]
+#[derive(PartialEq, Eq, Debug)]
 pub struct RrddMessageHeader {
     pub data_checksum: u32,
     pub metadata_checksum: u32,
-    pub datasource_count: u32,
     pub timestamp: SystemTime,
     pub datasource_values_raw: Box<[[u8; 8]]>,
     pub metadata_length: u32,
@@ -32,6 +31,15 @@ pub struct RrddMessageHeader {
 }
 
 const HEADER: &str = "DATASOURCES";
+
+/// Size of the first part of the header (before data source values and metadata length)
+const RRDD_HEADER_LENGTH_PART1: usize =
+    HEADER.len()
+    + 4 /* data checksum */
+    + 4 /* metadata checksum */
+    + 4 /* number of data source */
+    + 8 /* timestamp */
+    ;
 
 /// Read::read_vectored wrapper that makes sure that the buffer has been entirely readed.
 fn read_vectored_exact<R: Read>(
@@ -109,11 +117,42 @@ impl RrddMessageHeader {
         Ok(Self {
             data_checksum,
             metadata_checksum,
-            datasource_count,
             timestamp,
             datasource_values_raw: datasource_values_buffers.into_boxed_slice(),
             metadata_length,
             header_size,
         })
+    }
+
+    pub fn emit_to<W: Write>(&self, output: &mut W) -> Result<(), RrddProtocolError> {
+        let mut buffer = Vec::with_capacity(
+            RRDD_HEADER_LENGTH_PART1
+            + 4 /* metadata length */
+            + 8 * self.datasource_values_raw.len(), /* datasource values */
+        );
+
+        buffer.write_all(HEADER.as_bytes())?;
+        buffer.write_all(&self.data_checksum.to_be_bytes())?;
+        buffer.write_all(&self.metadata_checksum.to_be_bytes())?;
+        buffer.write_all(&(self.datasource_values_raw.len() as u32).to_be_bytes())?;
+
+        buffer.write_all(
+            &self
+                .timestamp
+                .duration_since(time::UNIX_EPOCH)
+                .expect("Timestamp not representable (before epoch) ?")
+                .as_secs()
+                .to_be_bytes(),
+        )?;
+
+        for value in self.datasource_values_raw.iter() {
+            buffer.write_all(value)?;
+        }
+
+        buffer.write_all(&self.metadata_length.to_be_bytes())?;
+
+        output.write_all(&buffer)?;
+
+        Ok(())
     }
 }

@@ -1,4 +1,6 @@
 //! xcp-rrdd JSON data source parser.
+use std::borrow::Cow;
+
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -11,13 +13,12 @@ pub enum DataSourceParseError {
 }
 
 /// Type of a data source.
-#[derive(Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub enum DataSourceType {
     Gauge,
     Absolute,
     Derive,
 }
-
 
 /// Try to parse a data source type.
 impl TryFrom<&str> for DataSourceType {
@@ -35,8 +36,24 @@ impl TryFrom<&str> for DataSourceType {
     }
 }
 
+impl From<DataSourceType> for &'static str {
+    fn from(val: DataSourceType) -> Self {
+        match val {
+            DataSourceType::Gauge => "gauge",
+            DataSourceType::Absolute => "absolute",
+            DataSourceType::Derive => "derive",
+        }
+    }
+}
+
+impl From<DataSourceType> for Cow<'static, str> {
+    fn from(value: DataSourceType) -> Self {
+        Cow::Borrowed(value.into())
+    }
+}
+
 /// Owner of the data source.
-#[derive(Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub enum DataSourceOwner {
     Host,
     VM(Uuid),
@@ -76,9 +93,19 @@ impl TryFrom<&str> for DataSourceOwner {
     }
 }
 
+impl From<DataSourceOwner> for Box<str> {
+    fn from(value: DataSourceOwner) -> Self {
+        match value {
+            DataSourceOwner::Host => "host".into(),
+            DataSourceOwner::VM(uuid) => format!("vm {}", uuid.as_hyphenated()).into(),
+            DataSourceOwner::SR(uuid) => format!("sr {}", uuid.as_hyphenated()).into(),
+        }
+    }
+}
+
 /// A data source value.
 /// May be [DataSourceValue::Undefined] variant if missing or unexpected.
-#[derive(Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum DataSourceValue {
     Int64(i64),
     Float(f64),
@@ -91,19 +118,9 @@ impl DataSourceValue {
     fn parse(
         value_type_str: &str,
         // v1 compatibility, Option<String> to prevent dangling &str compilation error.
-        value_str: &Option<String>,
+        value_str: Option<&str>,
     ) -> Result<Self, DataSourceParseError> {
         Ok(match value_type_str {
-            "float" => {
-                if let Some(v) = value_str {
-                    // Protocol v1 compatibility
-                    DataSourceValue::Float(v.parse().or(Err(
-                        DataSourceParseError::InvalidPayload("Unable to parse 'value'"),
-                    ))?)
-                } else {
-                    DataSourceValue::Float(0.0)
-                }
-            }
             "int64" => {
                 if let Some(v) = value_str {
                     // Protocol v1 compatibility
@@ -114,9 +131,26 @@ impl DataSourceValue {
                     DataSourceValue::Int64(0)
                 }
             }
-
+            "float" => {
+                if let Some(v) = value_str {
+                    // Protocol v1 compatibility
+                    DataSourceValue::Float(v.parse().or(Err(
+                        DataSourceParseError::InvalidPayload("Unable to parse 'value'"),
+                    ))?)
+                } else {
+                    DataSourceValue::Float(0.0)
+                }
+            }
             _ => DataSourceValue::Undefined,
         })
+    }
+
+    fn get_type_str(&self) -> Option<String> {
+        match self {
+            DataSourceValue::Int64(_) => Some("int64".into()),
+            DataSourceValue::Float(_) => Some("float".into()),
+            DataSourceValue::Undefined => None,
+        }
     }
 }
 
@@ -137,10 +171,10 @@ pub struct DataSourceMetadataRaw {
 }
 
 /// A metadata source.
-#[derive(Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct DataSourceMetadata {
-    pub description: String,
-    pub units: String,
+    pub description: Box<str>,
+    pub units: Box<str>,
     pub ds_type: DataSourceType,
     pub value: DataSourceValue,
     pub min: f32,
@@ -153,18 +187,18 @@ impl TryFrom<DataSourceMetadataRaw> for DataSourceMetadata {
     type Error = DataSourceParseError;
 
     fn try_from(raw: DataSourceMetadataRaw) -> Result<Self, Self::Error> {
-        let description = raw.description.unwrap_or_default();
-        let units = raw.units.unwrap_or_default();
+        let description = raw.description.unwrap_or_default().into();
+        let units = raw.units.unwrap_or_default().into();
 
         let ds_type = raw.ds_type.map_or_else(
             || Ok(DataSourceType::Absolute),
-            |s| DataSourceType::try_from(s.as_str()),
+            |s| DataSourceType::try_from(s.as_ref()),
         )?;
 
         let value = raw
             .value_type
             .map_or(Ok(DataSourceValue::Undefined), |value_type| {
-                DataSourceValue::parse(&value_type, &raw.value)
+                DataSourceValue::parse(&value_type, raw.value.as_deref())
             })?;
 
         let min = raw.min.map_or(Ok(f32::NEG_INFINITY), |s| {
@@ -180,7 +214,7 @@ impl TryFrom<DataSourceMetadataRaw> for DataSourceMetadata {
         })?;
 
         let owner = raw.owner.map_or(Ok(DataSourceOwner::Host), |s| {
-            DataSourceOwner::try_from(s.as_str())
+            DataSourceOwner::try_from(s.as_ref())
         })?;
 
         let default = raw.default.map_or(Ok(false), |s| {
@@ -202,11 +236,51 @@ impl TryFrom<DataSourceMetadataRaw> for DataSourceMetadata {
     }
 }
 
+impl From<DataSourceMetadata> for DataSourceMetadataRaw {
+    fn from(val: DataSourceMetadata) -> Self {
+        let description = if val.description.is_empty() {
+            None
+        } else {
+            Some(val.description.into())
+        };
+
+        let units = Some(val.units.into());
+
+        let ds_type = Some(Into::<&str>::into(val.ds_type).to_string());
+
+        let value = match val.value {
+            DataSourceValue::Int64(v) => Some(v.to_string()),
+            DataSourceValue::Float(v) => Some(v.to_string()),
+            DataSourceValue::Undefined => None,
+        };
+        let value_type = val.value.get_type_str();
+
+        let default = Some(val.default.to_string());
+
+        let min = Some(val.min.to_string());
+        let max = Some(val.max.to_string());
+
+        let owner = Some(Into::<Box<str>>::into(val.owner).into());
+
+        Self {
+            description,
+            default,
+            ds_type,
+            units,
+            value,
+            value_type,
+            min,
+            max,
+            owner,
+        }
+    }
+}
+
 impl Default for DataSourceMetadata {
     fn default() -> Self {
         Self {
-            description: String::default(),
-            units: String::default(),
+            description: Default::default(),
+            units: Default::default(),
             ds_type: DataSourceType::Absolute,
             value: DataSourceValue::Undefined,
             min: f32::NEG_INFINITY,
