@@ -1,5 +1,5 @@
 use dxr::{MethodCall, TryToValue};
-use std::io::Write;
+use std::fmt::Write;
 
 macro_rules! rpc_method {
     ($struct:ty, $name:stmt) => {
@@ -24,7 +24,7 @@ where
     M: TryToValue + XcpRpcMethodNamed,
 {
     fn write_xmlrpc<W: Write>(&self, w: &mut W) -> anyhow::Result<()> {
-        w.write_all(r#"<?xml version="1.0"?>"#.as_bytes())?;
+        w.write_str(r#"<?xml version="1.0"?>"#)?;
 
         let method = MethodCall::new(M::get_method_name().into(), vec![self.try_to_value()?]);
         quick_xml::se::to_writer(w, &method)?;

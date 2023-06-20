@@ -24,7 +24,7 @@ fn main() {
 
     let mut stream = xapi::connect_to_socket("xcp-rrdd").unwrap();
 
-    let mut xmlrpc_raw = vec![];
+    let mut xmlrpc_raw = String::default();
     println!("{:?}", request.write_xmlrpc(&mut xmlrpc_raw));
 
     // TODO: hardcoded for now, should use a proper http library instead
@@ -34,7 +34,7 @@ fn main() {
     );
 
     stream.write_all(http_start.as_bytes()).unwrap();
-    stream.write_all(&xmlrpc_raw).unwrap();
+    stream.write_all(xmlrpc_raw.as_bytes()).unwrap();
 
     // Check response
     let mut s = String::default();
