@@ -1,4 +1,4 @@
-//! xcp-rrdd JSON data source parser.
+//! xcp-rrdd JSON data source parser and writer.
 use std::borrow::Cow;
 
 use serde::{Deserialize, Serialize};
@@ -181,6 +181,15 @@ pub struct DataSourceMetadata {
     pub max: f32,
     pub owner: DataSourceOwner,
     pub default: bool,
+}
+
+impl Serialize for DataSourceMetadata {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        Into::<DataSourceMetadataRaw>::into(self).serialize(serializer)
+    }
 }
 
 impl TryFrom<&DataSourceMetadataRaw> for DataSourceMetadata {
