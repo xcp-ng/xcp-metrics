@@ -5,7 +5,7 @@ use std::{
 use xcp_metrics_common::{
     rrdd::{
         protocol_common::{DataSourceMetadata, DataSourceOwner, DataSourceType, DataSourceValue},
-        protocol_v2::{RrddMessageHeader, RrddMetadata},
+        protocol_v2::{RrddMessageHeader, RrddMetadata}, self,
     },
     xapi::{self, hyper::body::HttpBody},
     xmlrpc::PluginLocalRegister,
@@ -63,7 +63,7 @@ async fn main() {
 
     let values = [[1u8; 8], [2u8; 8]];
 
-    let (rrdd_header, metadata) = RrddMessageHeader::generate(&values, metadata);
+    let (mut rrdd_header, metadata) = RrddMessageHeader::generate(&values, metadata);
 
     let mut options = OpenOptions::new();
     options.truncate(false);
@@ -87,7 +87,8 @@ async fn main() {
             }
             Err(e) => println!("{e:?}"),
         }
-
-        thread::sleep(Duration::from_secs(5));
+        
+        rrdd_header.update_values(&values).unwrap();
+        thread::sleep(Duration::from_secs(1));
     }
 }
