@@ -5,7 +5,7 @@ use xcp_metrics_common::{
         protocol_common::{DataSourceMetadata, DataSourceOwner, DataSourceType, DataSourceValue},
         protocol_v2::{RrddMessageHeader, RrddMetadata},
     },
-    xapi,
+    xapi::{self, hyper::body::HttpBody},
     xmlrpc::PluginLocalRegister,
 };
 
@@ -17,10 +17,15 @@ async fn main() {
         uid: "xcp-metrics-plugin-xen".into(),
     };
 
-    println!(
-        "{:#?}",
-        xapi::send_xmlrpc_at("xcp-rrdd", "POST", &request, "xcp-metrics").await
-    );
+    let response = xapi::send_xmlrpc_at("xcp-rrdd", "POST", &request, "xcp-metrics").await;
+
+    println!("{:#?}", response);
+
+    if let Ok(mut body) = response.map(|r| r.into_body()) {
+        if let Some(Ok(content)) = body.data().await {
+            println!("{}", String::from_utf8_lossy(&content.to_vec()));
+        }
+    }
 
     let metadata = RrddMetadata {
         datasources: [
@@ -58,7 +63,9 @@ async fn main() {
     options.create(true);
 
     {
-        let mut file = options.open("/dev/shm/metrics/xcp-metrics-plugin-xen").unwrap();
+        let mut file = options
+            .open("/dev/shm/metrics/xcp-metrics-plugin-xen")
+            .unwrap();
 
         rrdd_header.write(&mut file).unwrap();
         file.write_all(metadata.as_bytes()).unwrap();
