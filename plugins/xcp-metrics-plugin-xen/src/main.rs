@@ -19,7 +19,7 @@ async fn main() {
         uid: "xcp-metrics-plugin-xen".into(),
     };
 
-    let response = xapi::send_xmlrpc_at("xcp-rrdd", "POST", &request, "xcp-metrics").await;
+    let response = xapi::send_xmlrpc_at("xcp-rrdd", "POST", &request, "xcp-metrics-plugin-xen").await;
 
     println!("{:#?}", response);
 
