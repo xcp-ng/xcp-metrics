@@ -36,7 +36,7 @@ async fn main() {
                 description: "something".into(),
                 units: "unit_test".into(),
                 ds_type: DataSourceType::Gauge,
-                value: DataSourceValue::Float(1.0),
+                value: DataSourceValue::Int64(1),
                 min: f32::NEG_INFINITY,
                 max: f32::INFINITY,
                 owner: DataSourceOwner::Host,
@@ -49,7 +49,7 @@ async fn main() {
                 description: "something_else".into(),
                 units: "unit test".into(),
                 ds_type: DataSourceType::Gauge,
-                value: DataSourceValue::Float(1.0),
+                value: DataSourceValue::Int64(1),
                 min: f32::NEG_INFINITY,
                 max: f32::INFINITY,
                 owner: DataSourceOwner::Host,
@@ -60,7 +60,7 @@ async fn main() {
 
     let metadata = RrddMetadata { datasources };
 
-    let values = [42f64.to_be_bytes(), 100f64.to_be_bytes()];
+    let values = [42u64.to_be_bytes(), 100u64.to_be_bytes()];
 
     let (mut rrdd_header, metadata) = RrddMessageHeader::generate(&values, metadata);
 
