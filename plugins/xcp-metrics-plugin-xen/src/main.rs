@@ -1,10 +1,7 @@
-use std::{
-    collections::BTreeMap, f32::INFINITY, fs::OpenOptions, io::Write, thread, time::Duration,
-};
+use std::{collections::BTreeMap, fs::OpenOptions, io::Write, thread, time::Duration};
 
 use xcp_metrics_common::{
     rrdd::{
-        self,
         protocol_common::{DataSourceMetadata, DataSourceOwner, DataSourceType, DataSourceValue},
         protocol_v2::{RrddMessageHeader, RrddMetadata},
     },
@@ -40,8 +37,8 @@ async fn main() {
                 units: "unit_test".into(),
                 ds_type: DataSourceType::Gauge,
                 value: DataSourceValue::Float(1.0),
-                min: 0.0,
-                max: 100.0,
+                min: f32::NEG_INFINITY,
+                max: f32::INFINITY,
                 owner: DataSourceOwner::Host,
                 default: true,
             },
@@ -53,8 +50,8 @@ async fn main() {
                 units: "unit test".into(),
                 ds_type: DataSourceType::Gauge,
                 value: DataSourceValue::Float(1.0),
-                min: 0.0,
-                max: 100.0,
+                min: f32::NEG_INFINITY,
+                max: f32::INFINITY,
                 owner: DataSourceOwner::Host,
                 default: true,
             },
