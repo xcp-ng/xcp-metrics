@@ -1,6 +1,3 @@
-use hyper::{body::Incoming, client::conn::http1};
-use tokio::net::UnixStream;
-
 use crate::xmlrpc::XcpRpcMethod;
 use std::{path::PathBuf, str::FromStr};
 
@@ -17,22 +14,22 @@ pub async fn send_xmlrpc_at<M: XcpRpcMethod>(
     http_method: &str,
     rpc_method: &M,
     user_agent: &str,
-) -> anyhow::Result<hyper::Response<Incoming>> {
-    let module_path = get_module_path(name);
-    let stream = UnixStream::connect(module_path).await?;
+) -> anyhow::Result<hyper::Response<hyper::Body>> {
+    let module_uri = hyperlocal::Uri::new(get_module_path(name), "/");
 
     let mut rpc = String::default();
     rpc_method.write_xmlrpc(&mut rpc)?;
 
     let request = hyper::Request::builder()
+        .uri(Into::<hyper::Uri>::into(module_uri))
         .method(http_method)
         .header("User-agent", user_agent)
         .header("content-length", rpc.len())
         .header("host", "localhost")
         .body(rpc)?;
 
-    let (mut send, _) = http1::handshake(stream).await?;
-
-    let response = send.send_request(request).await?;
-    Ok(response)
+    Ok(hyper::Client::builder()
+        .build(hyperlocal::UnixConnector)
+        .request(request)
+        .await?)
 }

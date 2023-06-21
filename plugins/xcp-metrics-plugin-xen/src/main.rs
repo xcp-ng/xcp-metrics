@@ -17,9 +17,10 @@ async fn main() {
         uid: "xcp-metrics-plugin-xen".into(),
     };
 
-    xapi::send_xmlrpc_at("xcp-rrdd", "POST", &request, "xcp-metrics")
-        .await
-        .unwrap();
+    println!(
+        "{:#?}",
+        xapi::send_xmlrpc_at("xcp-rrdd", "POST", &request, "xcp-metrics").await
+    );
 
     let mut options = OpenOptions::new();
     options.truncate(false);
@@ -56,7 +57,7 @@ async fn main() {
     let (rrdd_header, metadata) = RrddMessageHeader::generate(&values, metadata);
 
     {
-        let mut file = options.open("/dev/shm/xcp-metrics-plugin-xen").unwrap();
+        let mut file = options.open("/dev/shm/metrics/xcp-metrics-plugin-xen").unwrap();
 
         rrdd_header.write(&mut file).unwrap();
         file.write_all(metadata.as_bytes()).unwrap();
@@ -64,7 +65,7 @@ async fn main() {
 
     // Expose protocol v2
     loop {
-        match options.open("/dev/shm/xcp-metrics-plugin-xen") {
+        match options.open("/dev/shm/metrics/xcp-metrics-plugin-xen") {
             Ok(mut file) => {
                 rrdd_header.write(&mut file).unwrap();
             }
