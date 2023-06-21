@@ -4,8 +4,9 @@ use std::{
 
 use xcp_metrics_common::{
     rrdd::{
+        self,
         protocol_common::{DataSourceMetadata, DataSourceOwner, DataSourceType, DataSourceValue},
-        protocol_v2::{RrddMessageHeader, RrddMetadata}, self,
+        protocol_v2::{RrddMessageHeader, RrddMetadata},
     },
     xapi::{self, hyper::body::HttpBody},
     xmlrpc::PluginLocalRegister,
@@ -19,7 +20,8 @@ async fn main() {
         uid: "xcp-metrics-plugin-xen".into(),
     };
 
-    let response = xapi::send_xmlrpc_at("xcp-rrdd", "POST", &request, "xcp-metrics-plugin-xen").await;
+    let response =
+        xapi::send_xmlrpc_at("xcp-rrdd", "POST", &request, "xcp-metrics-plugin-xen").await;
 
     println!("{:#?}", response);
 
@@ -37,9 +39,9 @@ async fn main() {
                 description: "something".into(),
                 units: "unit_test".into(),
                 ds_type: DataSourceType::Gauge,
-                value: DataSourceValue::Int64(42),
+                value: DataSourceValue::Float(1.0),
                 min: 0.0,
-                max: 100000.0,
+                max: 100.0,
                 owner: DataSourceOwner::Host,
                 default: true,
             },
@@ -50,9 +52,9 @@ async fn main() {
                 description: "something_else".into(),
                 units: "unit test".into(),
                 ds_type: DataSourceType::Gauge,
-                value: DataSourceValue::Int64(42),
+                value: DataSourceValue::Float(1.0),
                 min: 0.0,
-                max: 100000.0,
+                max: 100.0,
                 owner: DataSourceOwner::Host,
                 default: true,
             },
@@ -61,7 +63,7 @@ async fn main() {
 
     let metadata = RrddMetadata { datasources };
 
-    let values = [[1u8; 8], [2u8; 8]];
+    let values = [42f64.to_be_bytes(), 100f64.to_be_bytes()];
 
     let (mut rrdd_header, metadata) = RrddMessageHeader::generate(&values, metadata);
 
@@ -87,7 +89,7 @@ async fn main() {
             }
             Err(e) => println!("{e:?}"),
         }
-        
+
         rrdd_header.update_values(&values).unwrap();
         thread::sleep(Duration::from_secs(1));
     }
