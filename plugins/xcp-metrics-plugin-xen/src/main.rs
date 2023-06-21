@@ -22,10 +22,6 @@ async fn main() {
         xapi::send_xmlrpc_at("xcp-rrdd", "POST", &request, "xcp-metrics").await
     );
 
-    let mut options = OpenOptions::new();
-    options.truncate(false);
-    options.write(true);
-
     let metadata = RrddMetadata {
         datasources: [
             DataSourceMetadata {
@@ -55,6 +51,11 @@ async fn main() {
     let values = [[1u8; 8], [2u8; 8]];
 
     let (rrdd_header, metadata) = RrddMessageHeader::generate(&values, metadata);
+
+    let mut options = OpenOptions::new();
+    options.truncate(false);
+    options.write(true);
+    options.create(true);
 
     {
         let mut file = options.open("/dev/shm/metrics/xcp-metrics-plugin-xen").unwrap();
