@@ -1,5 +1,6 @@
 //! xcp-rrdd protocol v2 implementation.
 use std::{
+    collections::HashMap,
     io::{self, Read, Write},
     time::{self, Duration, SystemTime},
 };
@@ -201,7 +202,7 @@ impl RrddMessageHeader {
 
 #[derive(Serialize, Deserialize)]
 pub struct RrddMetadataRaw {
-    pub datasources: Box<[DataSourceMetadataRaw]>,
+    pub datasources: HashMap<String, DataSourceMetadataRaw>,
 }
 
 impl From<RrddMetadata> for RrddMetadataRaw {
@@ -209,8 +210,8 @@ impl From<RrddMetadata> for RrddMetadataRaw {
         Self {
             datasources: value
                 .datasources
-                .iter()
-                .map(|ds| Into::<DataSourceMetadataRaw>::into(ds))
+                .into_iter()
+                .map(|(name, ds)| (name, (&ds).into()))
                 .collect(),
         }
     }
@@ -218,21 +219,20 @@ impl From<RrddMetadata> for RrddMetadataRaw {
 
 #[derive(Clone, Debug)]
 pub struct RrddMetadata {
-    pub datasources: Box<[DataSourceMetadata]>,
+    pub datasources: HashMap<String, DataSourceMetadata>,
 }
 
 impl TryFrom<RrddMetadataRaw> for RrddMetadata {
     type Error = DataSourceParseError;
 
     fn try_from(value: RrddMetadataRaw) -> Result<Self, Self::Error> {
-        let mut datasources = Vec::with_capacity(value.datasources.len());
+        let mut datasources: HashMap<String, DataSourceMetadata> =
+            HashMap::with_capacity(value.datasources.len());
 
-        for ds in value.datasources.into_iter() {
-            datasources.push(ds.try_into()?);
+        for (name, ds) in value.datasources.into_iter() {
+            datasources.insert(name, (&ds).try_into()?);
         }
 
-        Ok(Self {
-            datasources: datasources.into_boxed_slice(),
-        })
+        Ok(Self { datasources })
     }
 }
