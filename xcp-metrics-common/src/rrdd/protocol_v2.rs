@@ -216,6 +216,7 @@ impl From<RrddMetadata> for RrddMetadataRaw {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct RrddMetadata {
     pub datasources: Box<[DataSourceMetadata]>,
 }
