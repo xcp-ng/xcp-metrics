@@ -1,5 +1,6 @@
 [package]
 name = "xcp-metrics-tools"
+description = "Various xcp-metrics utilities"
 version = "0.1.0"
 edition = "2021"
 

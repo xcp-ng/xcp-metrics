@@ -1,5 +1,6 @@
 [package]
 name = "xcp-metrics"
+description = "Main xcp-metrics daemon"
 version = "0.1.0"
 edition = "2021"
 

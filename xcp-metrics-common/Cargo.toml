@@ -1,5 +1,6 @@
 [package]
 name = "xcp-metrics-common"
+description = "Library related to xcp-metrics and rrdd"
 version = "0.1.0"
 edition = "2021"
 

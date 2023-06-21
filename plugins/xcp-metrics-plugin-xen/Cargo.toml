@@ -1,5 +1,6 @@
 [package]
 name = "xcp-metrics-plugin-xen"
+description = "Xen monitoring rrdd-compatible plugin"
 version = "0.1.0"
 edition = "2021"
 
