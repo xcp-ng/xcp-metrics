@@ -1,4 +1,6 @@
-use std::{f32::INFINITY, fs::OpenOptions, io::Write, thread, time::Duration};
+use std::{
+    collections::HashMap, f32::INFINITY, fs::OpenOptions, io::Write, thread, time::Duration,
+};
 
 use xcp_metrics_common::{
     rrdd::{
@@ -21,16 +23,18 @@ async fn main() {
 
     println!("{:#?}", response);
 
-    if let Ok(mut body) = response.map(|r| r.into_body()) {
+    if let Ok(mut body) = response.map(|r: xapi::hyper::Response<xapi::hyper::Body>| r.into_body())
+    {
         if let Some(Ok(content)) = body.data().await {
             println!("{}", String::from_utf8_lossy(&content.to_vec()));
         }
     }
 
-    let metadata = RrddMetadata {
-        datasources: [
+    let datasources = HashMap::from([
+        (
+            "nice metrics".into(),
             DataSourceMetadata {
-                description: "a".into(),
+                description: "something".into(),
                 units: "unit test".into(),
                 ds_type: DataSourceType::Absolute,
                 value: DataSourceValue::Int64(0),
@@ -39,8 +43,11 @@ async fn main() {
                 owner: DataSourceOwner::Host,
                 default: true,
             },
+        ),
+        (
+            "that's great".into(),
             DataSourceMetadata {
-                description: "b".into(),
+                description: "something else".into(),
                 units: "unit test".into(),
                 ds_type: DataSourceType::Absolute,
                 value: DataSourceValue::Int64(0),
@@ -49,9 +56,10 @@ async fn main() {
                 owner: DataSourceOwner::Host,
                 default: true,
             },
-        ]
-        .into(),
-    };
+        ),
+    ]);
+
+    let metadata = RrddMetadata { datasources };
 
     let values = [[1u8; 8], [2u8; 8]];
 
