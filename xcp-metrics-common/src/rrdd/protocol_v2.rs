@@ -1,6 +1,6 @@
 //! xcp-rrdd protocol v2 implementation.
 use std::{
-    collections::HashMap,
+    collections::BTreeMap,
     io::{self, Read, Write},
     time::{self, Duration, SystemTime},
 };
@@ -202,7 +202,7 @@ impl RrddMessageHeader {
 
 #[derive(Serialize, Deserialize)]
 pub struct RrddMetadataRaw {
-    pub datasources: HashMap<String, DataSourceMetadataRaw>,
+    pub datasources: BTreeMap<String, DataSourceMetadataRaw>,
 }
 
 impl From<RrddMetadata> for RrddMetadataRaw {
@@ -219,15 +219,14 @@ impl From<RrddMetadata> for RrddMetadataRaw {
 
 #[derive(Clone, Debug)]
 pub struct RrddMetadata {
-    pub datasources: HashMap<String, DataSourceMetadata>,
+    pub datasources: BTreeMap<String, DataSourceMetadata>,
 }
 
 impl TryFrom<RrddMetadataRaw> for RrddMetadata {
     type Error = DataSourceParseError;
 
     fn try_from(value: RrddMetadataRaw) -> Result<Self, Self::Error> {
-        let mut datasources: HashMap<String, DataSourceMetadata> =
-            HashMap::with_capacity(value.datasources.len());
+        let mut datasources: BTreeMap<String, DataSourceMetadata> = BTreeMap::new();
 
         for (name, ds) in value.datasources.into_iter() {
             datasources.insert(name, (&ds).try_into()?);

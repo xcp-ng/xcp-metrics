@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap, f32::INFINITY, fs::OpenOptions, io::Write, thread, time::Duration,
+    collections::BTreeMap, f32::INFINITY, fs::OpenOptions, io::Write, thread, time::Duration,
 };
 
 use xcp_metrics_common::{
@@ -30,7 +30,7 @@ async fn main() {
         }
     }
 
-    let datasources = HashMap::from([
+    let datasources = BTreeMap::from([
         (
             "nice metrics".into(),
             DataSourceMetadata {
