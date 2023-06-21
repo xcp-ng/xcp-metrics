@@ -32,10 +32,10 @@ async fn main() {
 
     let datasources = BTreeMap::from([
         (
-            "nice metrics".into(),
+            "nice_metrics".into(),
             DataSourceMetadata {
                 description: "something".into(),
-                units: "unit test".into(),
+                units: "unit_test".into(),
                 ds_type: DataSourceType::Absolute,
                 value: DataSourceValue::Int64(0),
                 min: 0.0,
@@ -45,9 +45,9 @@ async fn main() {
             },
         ),
         (
-            "that's great".into(),
+            "thats_great".into(),
             DataSourceMetadata {
-                description: "something else".into(),
+                description: "something_else".into(),
                 units: "unit test".into(),
                 ds_type: DataSourceType::Absolute,
                 value: DataSourceValue::Int64(0),
