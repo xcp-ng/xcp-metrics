@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 xcp-metrics-common = { path = "../../xcp-metrics-common" }
+tokio = { version = "1", features = ["full"] }

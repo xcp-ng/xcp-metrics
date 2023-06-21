@@ -1,10 +1,4 @@
-use std::{
-    f32::INFINITY,
-    fs::OpenOptions,
-    io::{Read, Write},
-    thread,
-    time::Duration,
-};
+use std::{f32::INFINITY, fs::OpenOptions, io::Write, thread, time::Duration};
 
 use xcp_metrics_common::{
     rrdd::{
@@ -12,34 +6,20 @@ use xcp_metrics_common::{
         protocol_v2::{RrddMessageHeader, RrddMetadata},
     },
     xapi,
-    xmlrpc::{PluginLocalRegister, XcpRpcMethod},
+    xmlrpc::PluginLocalRegister,
 };
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let request = PluginLocalRegister {
         info: "Five_Seconds".into(),
         protocol: "V2".into(),
         uid: "xcp-metrics-plugin-xen".into(),
     };
 
-    let mut stream = xapi::connect_to_socket("xcp-rrdd").unwrap();
-
-    let mut xmlrpc_raw = String::default();
-    println!("{:?}", request.write_xmlrpc(&mut xmlrpc_raw));
-
-    // TODO: hardcoded for now, should use a proper http library instead
-    let http_start = format!(
-        "POST /var/lib/xcp/xcp-rrdd HTTP/1.1\r\nUser-agent: xcp-metrics-plugin-xen\r\ncontent-length: {}\r\nhost: localhost\r\n\r\n",
-        xmlrpc_raw.len()
-    );
-
-    stream.write_all(http_start.as_bytes()).unwrap();
-    stream.write_all(xmlrpc_raw.as_bytes()).unwrap();
-
-    // Check response
-    let mut s = String::default();
-    println!("{:?}", stream.read_to_string(&mut s));
-    println!("{s}");
+    xapi::send_xmlrpc_at("xcp-rrdd", "POST", &request, "xcp-metrics")
+        .await
+        .unwrap();
 
     let mut options = OpenOptions::new();
     options.truncate(false);
