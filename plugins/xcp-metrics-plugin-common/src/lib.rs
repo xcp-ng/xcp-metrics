@@ -112,6 +112,7 @@ impl RrddPlugin {
 
         let mut header_buffer = vec![];
         self.header.write(&mut header_buffer)?;
+        file.write_all(&header_buffer).await?;
 
         if let Some(raw_metadata) = raw_metadata {
             file.write_all(raw_metadata.as_bytes()).await?;
