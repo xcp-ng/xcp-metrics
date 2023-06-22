@@ -4,6 +4,7 @@ use std::{path::PathBuf, str::FromStr};
 const XAPI_SOCKET_PATH: &str = "/var/lib/xcp";
 
 pub use hyper;
+pub use hyperlocal;
 
 pub fn get_module_path(name: &str) -> PathBuf {
     PathBuf::from_str(XAPI_SOCKET_PATH)

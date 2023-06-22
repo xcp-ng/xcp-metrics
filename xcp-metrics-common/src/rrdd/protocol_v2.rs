@@ -212,7 +212,7 @@ impl RrddMessageHeader {
 
 #[derive(Serialize, Deserialize)]
 pub struct RrddMetadataRaw {
-    pub datasources: IndexMap<String, DataSourceMetadataRaw>,
+    pub datasources: IndexMap<Box<str>, DataSourceMetadataRaw>,
 }
 
 impl From<RrddMetadata> for RrddMetadataRaw {
@@ -229,14 +229,14 @@ impl From<RrddMetadata> for RrddMetadataRaw {
 
 #[derive(Clone, Debug)]
 pub struct RrddMetadata {
-    pub datasources: IndexMap<String, DataSourceMetadata>,
+    pub datasources: IndexMap<Box<str>, DataSourceMetadata>,
 }
 
 impl TryFrom<RrddMetadataRaw> for RrddMetadata {
     type Error = DataSourceParseError;
 
     fn try_from(value: RrddMetadataRaw) -> Result<Self, Self::Error> {
-        let mut datasources: IndexMap<String, DataSourceMetadata> = IndexMap::default();
+        let mut datasources: IndexMap<Box<str>, DataSourceMetadata> = IndexMap::default();
 
         for (name, ds) in value.datasources.into_iter() {
             datasources.insert(name, (&ds).try_into()?);

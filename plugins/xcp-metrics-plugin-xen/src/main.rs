@@ -10,7 +10,7 @@ use xcp_metrics_plugin_common::RrddPlugin;
 #[tokio::main]
 async fn main() {
     let datasources = indexmap! {
-        "nice_metrics".to_string() =>DataSourceMetadata {
+        "nice_metrics".into() => DataSourceMetadata {
             description: "something".into(),
             units: "unit_test".into(),
             ds_type: DataSourceType::Gauge,
@@ -20,7 +20,7 @@ async fn main() {
             owner: DataSourceOwner::Host,
             default: true,
         },
-        "thats_great".to_string() => DataSourceMetadata {
+        "thats_great".into() => DataSourceMetadata {
             description: "something_else".into(),
             units: "unit test".into(),
             ds_type: DataSourceType::Gauge,

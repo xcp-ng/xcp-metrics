@@ -7,10 +7,18 @@ use uuid::Uuid;
 pub use serde_json;
 
 /// Errors that can happen while parsing a data source.
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub enum DataSourceParseError {
     InvalidPayload(&'static str),
 }
+
+impl std::fmt::Display for DataSourceParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self:?}")
+    }
+}
+
+impl std::error::Error for DataSourceParseError {}
 
 /// Type of a data source.
 #[derive(Clone, PartialEq, Eq, Debug)]
