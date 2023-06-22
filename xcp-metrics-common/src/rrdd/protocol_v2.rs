@@ -5,9 +5,12 @@ use std::{
     time::{self, Duration, SystemTime},
 };
 
+use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
 use super::protocol_common::{DataSourceMetadata, DataSourceMetadataRaw, DataSourceParseError};
+
+pub use indexmap;
 
 #[derive(Debug)]
 pub enum RrddProtocolError {
@@ -18,6 +21,14 @@ pub enum RrddProtocolError {
     NonMatchingLength,
     InvalidChecksum,
 }
+
+impl std::fmt::Display for RrddProtocolError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self:?}")
+    }
+}
+
+impl std::error::Error for RrddProtocolError {}
 
 impl From<io::Error> for RrddProtocolError {
     fn from(value: io::Error) -> Self {
@@ -202,7 +213,7 @@ impl RrddMessageHeader {
 
 #[derive(Serialize, Deserialize)]
 pub struct RrddMetadataRaw {
-    pub datasources: BTreeMap<String, DataSourceMetadataRaw>,
+    pub datasources: IndexMap<String, DataSourceMetadataRaw>,
 }
 
 impl From<RrddMetadata> for RrddMetadataRaw {
@@ -219,14 +230,14 @@ impl From<RrddMetadata> for RrddMetadataRaw {
 
 #[derive(Clone, Debug)]
 pub struct RrddMetadata {
-    pub datasources: BTreeMap<String, DataSourceMetadata>,
+    pub datasources: IndexMap<String, DataSourceMetadata>,
 }
 
 impl TryFrom<RrddMetadataRaw> for RrddMetadata {
     type Error = DataSourceParseError;
 
     fn try_from(value: RrddMetadataRaw) -> Result<Self, Self::Error> {
-        let mut datasources: BTreeMap<String, DataSourceMetadata> = BTreeMap::new();
+        let mut datasources: IndexMap<String, DataSourceMetadata> = IndexMap::default();
 
         for (name, ds) in value.datasources.into_iter() {
             datasources.insert(name, (&ds).try_into()?);
