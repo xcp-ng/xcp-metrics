@@ -1,6 +1,5 @@
 //! xcp-rrdd protocol v2 implementation.
 use std::{
-    collections::BTreeMap,
     io::{self, Read, Write},
     time::{self, Duration, SystemTime},
 };

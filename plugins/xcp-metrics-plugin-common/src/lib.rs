@@ -1,9 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use tokio::{
-    fs::{self, OpenOptions},
-    io::AsyncWriteExt,
-};
+use tokio::{fs::OpenOptions, io::AsyncWriteExt};
 use xcp_metrics_common::{
     rrdd::{
         protocol_common::DataSourceValue,
@@ -17,32 +14,21 @@ pub struct RrddPlugin {
     uid: Box<str>,
     header: RrddMessageHeader,
     metrics_path: PathBuf,
+    metadata: RrddMetadata,
 }
 
 const METRICS_SHM_PATH: &str = "/dev/shm/metrics/";
 
 /// Update `header` values with ones provided by `values`.
-fn update_header_value(
-    header: &mut RrddMessageHeader,
-    values: &[DataSourceValue],
-) -> anyhow::Result<()> {
-    if header.values.len() != values.len() {
-        anyhow::bail!("Header value count and values count doesn't match");
-    }
-
-    header
-        .values
-        .iter_mut()
-        .zip(values.iter())
-        .for_each(|(buffer, value)| {
-            *buffer = match value {
-                DataSourceValue::Int64(n) => (*n).to_be_bytes(),
-                DataSourceValue::Float(f) => (*f).to_be_bytes(),
-                DataSourceValue::Undefined => [0; 8],
-            }
-        });
-
-    Ok(())
+fn values_to_raw(values: &[DataSourceValue]) -> Box<[[u8; 8]]> {
+    values
+        .iter()
+        .map(|value| match value {
+            DataSourceValue::Int64(n) => (*n).to_be_bytes(),
+            DataSourceValue::Float(f) => (*f).to_be_bytes(),
+            DataSourceValue::Undefined => [0; 8],
+        })
+        .collect()
 }
 
 impl RrddPlugin {
@@ -51,12 +37,14 @@ impl RrddPlugin {
         metadata: RrddMetadata,
         initial_values: Option<&[DataSourceValue]>,
     ) -> anyhow::Result<Self> {
-        let (header, metadata_str) = Self::regenerate_metadata(metadata, initial_values)?;
+        let (header, metadata_str) =
+            Self::generate_initial_header(metadata.clone(), initial_values)?;
 
         let plugin = Self {
             uid: uid.into(),
             header,
             metrics_path: Path::new(METRICS_SHM_PATH).join(uid),
+            metadata,
         };
 
         plugin.reset_file(Some(&metadata_str)).await?;
@@ -66,9 +54,11 @@ impl RrddPlugin {
     }
 
     pub async fn update_values(&mut self, new_values: &[DataSourceValue]) -> anyhow::Result<()> {
-        update_header_value(&mut self.header, new_values)?;
+        let (header, metadata_str) =
+            RrddMessageHeader::generate(&values_to_raw(new_values), self.metadata.clone());
 
-        self.reset_file(None).await
+        self.header = header;
+        self.reset_file(Some(&metadata_str)).await
     }
 
     pub async fn advertise_plugin(&self) -> anyhow::Result<()> {
@@ -96,7 +86,7 @@ impl RrddPlugin {
         metadata: RrddMetadata,
         initial_values: Option<&[DataSourceValue]>,
     ) -> anyhow::Result<()> {
-        let (header, metadata_str) = Self::regenerate_metadata(metadata, initial_values)?;
+        let (header, metadata_str) = Self::generate_initial_header(metadata, initial_values)?;
 
         self.header = header;
         self.reset_file(Some(&metadata_str)).await
@@ -121,23 +111,16 @@ impl RrddPlugin {
         Ok(())
     }
 
-    fn regenerate_metadata(
+    fn generate_initial_header(
         metadata: RrddMetadata,
         initial_values: Option<&[DataSourceValue]>,
     ) -> anyhow::Result<(RrddMessageHeader, Box<str>)> {
-        let values = initial_values.map(|v| v.to_vec()).unwrap_or_else(|| {
-            metadata
-                .datasources
-                .iter()
-                .map(|(_, ds)| ds.value)
-                .collect()
-        });
+        let raw_values = if let Some(init) = initial_values {
+            values_to_raw(init)
+        } else {
+            vec![[0; 8]; metadata.datasources.len()].into_boxed_slice()
+        };
 
-        let raw_values = vec![[0; 8]; values.len()];
-        let (mut header, metadata_str) = RrddMessageHeader::generate(&raw_values, metadata);
-
-        update_header_value(&mut header, &values)?;
-
-        Ok((header, metadata_str))
+        Ok(RrddMessageHeader::generate(&raw_values, metadata))
     }
 }
