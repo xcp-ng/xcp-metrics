@@ -105,7 +105,7 @@ impl From<DataSourceOwner> for Box<str> {
 
 /// A data source value.
 /// May be [DataSourceValue::Undefined] variant if missing or unexpected.
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub enum DataSourceValue {
     Int64(i64),
     Float(f64),

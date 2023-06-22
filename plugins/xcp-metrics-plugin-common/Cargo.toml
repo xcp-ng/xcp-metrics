@@ -1,12 +1,12 @@
 [package]
-name = "xcp-metrics-plugin-xen"
-description = "Xen monitoring rrdd-compatible plugin"
+name = "xcp-metrics-plugin-common"
+description = "Library that helps making plugins for xcp-metrics and xcp-rrdd"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow = "1.0"
 xcp-metrics-common = { path = "../../xcp-metrics-common" }
-xcp-metrics-plugin-common = { path = "../xcp-metrics-plugin-common" }
-tokio = { version = "1", features = ["full"] }
+tokio = "1"
