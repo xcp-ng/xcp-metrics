@@ -96,7 +96,7 @@ impl MetricsHub {
     async fn update(&mut self, mut message: UpdateMetrics) {
         let metrics = Arc::make_mut(&mut self.metrics);
 
-        // TODO: Do types checks.
+        // TODO: Do some checks.
 
         for (_, family) in metrics.families.iter_mut() {
             if let Some(metrics) = family.metrics.get_mut(&message.uuid) {

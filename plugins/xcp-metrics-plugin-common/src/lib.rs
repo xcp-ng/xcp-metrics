@@ -14,7 +14,6 @@ pub struct RrddPlugin {
     uid: Box<str>,
     header: RrddMessageHeader,
     metrics_path: PathBuf,
-    metadata: RrddMetadata,
 }
 
 const METRICS_SHM_PATH: &str = "/dev/shm/metrics/";
@@ -37,28 +36,23 @@ impl RrddPlugin {
         metadata: RrddMetadata,
         initial_values: Option<&[DataSourceValue]>,
     ) -> anyhow::Result<Self> {
-        let (header, metadata_str) =
-            Self::generate_initial_header(metadata.clone(), initial_values)?;
+        let (header, metadata_str) = Self::generate_initial_header(metadata, initial_values)?;
 
         let plugin = Self {
             uid: uid.into(),
             header,
             metrics_path: Path::new(METRICS_SHM_PATH).join(uid),
-            metadata,
         };
 
         plugin.reset_file(Some(&metadata_str)).await?;
-        plugin.advertise_plugin().await?;
+        //plugin.advertise_plugin().await?;
 
         Ok(plugin)
     }
 
     pub async fn update_values(&mut self, new_values: &[DataSourceValue]) -> anyhow::Result<()> {
-        let (header, metadata_str) =
-            RrddMessageHeader::generate(&values_to_raw(new_values), self.metadata.clone());
-
-        self.header = header;
-        self.reset_file(Some(&metadata_str)).await
+        self.header.update_values(&values_to_raw(new_values))?;
+        self.reset_file(None).await
     }
 
     pub async fn advertise_plugin(&self) -> anyhow::Result<()> {
@@ -86,7 +80,8 @@ impl RrddPlugin {
         metadata: RrddMetadata,
         initial_values: Option<&[DataSourceValue]>,
     ) -> anyhow::Result<()> {
-        let (header, metadata_str) = Self::generate_initial_header(metadata, initial_values)?;
+        let (header, metadata_str) =
+            Self::generate_initial_header(metadata.clone(), initial_values)?;
 
         self.header = header;
         self.reset_file(Some(&metadata_str)).await
