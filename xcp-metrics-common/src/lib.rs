@@ -1,3 +1,4 @@
+pub mod metrics;
 pub mod rrdd;
-pub mod xmlrpc;
 pub mod xapi;
+pub mod xmlrpc;

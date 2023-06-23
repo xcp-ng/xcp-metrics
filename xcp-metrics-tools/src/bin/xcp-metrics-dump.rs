@@ -27,7 +27,7 @@ fn main() -> Result<()> {
             Err(e) => eprintln!("{e:?}"),
         }
     } else {
-      println!("Usage: xcp-metrics-dump /dev/shm/metrics/<file>");
+        println!("Usage: xcp-metrics-dump /dev/shm/metrics/<file>");
     }
 
     Ok(())

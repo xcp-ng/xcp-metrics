@@ -116,7 +116,7 @@ impl RrddMessageHeader {
         // Check data checksum
         let mut data_checksum_hasher = crc32fast::Hasher::new();
         data_checksum_hasher.update(&timestamp_buffer);
-        data_checksum_hasher.update(&values_buffer);
+        data_checksum_hasher.update(values_buffer);
 
         if data_checksum != data_checksum_hasher.finalize() {
             return Err(RrddProtocolError::InvalidChecksum);

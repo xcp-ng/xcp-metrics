@@ -78,7 +78,7 @@ impl TryFrom<&str> for DataSourceOwner {
     fn try_from(value: &str) -> Result<Self, DataSourceParseError> {
         let splitted: Vec<&str> = value.split_whitespace().collect();
 
-        if let Some(kind) = splitted.get(0) {
+        if let Some(kind) = splitted.first() {
             match kind.to_ascii_lowercase().as_str() {
                 "host" => Ok(Self::Host),
                 "vm" => Ok(Self::VM(
@@ -94,9 +94,9 @@ impl TryFrom<&str> for DataSourceOwner {
                 _ => Err(DataSourceParseError::InvalidPayload("Unknown owner kind")),
             }
         } else {
-            return Err(DataSourceParseError::InvalidPayload(
+            Err(DataSourceParseError::InvalidPayload(
                 "Unexpected owner value",
-            ));
+            ))
         }
     }
 }
@@ -207,16 +207,16 @@ impl TryFrom<&DataSourceMetadataRaw> for DataSourceMetadata {
         let description = raw.description.as_deref().unwrap_or_default().into();
         let units = raw.units.as_deref().unwrap_or_default().into();
 
-        let ds_type = raw.ds_type.as_deref().map_or_else(
-            || Ok(DataSourceType::Absolute),
-            |s| DataSourceType::try_from(s),
-        )?;
+        let ds_type = raw
+            .ds_type
+            .as_deref()
+            .map_or_else(|| Ok(DataSourceType::Absolute), DataSourceType::try_from)?;
 
         let value = raw
             .value_type
             .as_deref()
             .map_or(Ok(DataSourceValue::Undefined), |value_type| {
-                DataSourceValue::parse(&value_type, raw.value.as_deref())
+                DataSourceValue::parse(value_type, raw.value.as_deref())
             })?;
 
         let min = raw.min.as_deref().map_or(Ok(f32::NEG_INFINITY), |s| {
@@ -234,7 +234,7 @@ impl TryFrom<&DataSourceMetadataRaw> for DataSourceMetadata {
         let owner = raw
             .owner
             .as_deref()
-            .map_or(Ok(DataSourceOwner::Host), |s| DataSourceOwner::try_from(s))?;
+            .map_or(Ok(DataSourceOwner::Host), DataSourceOwner::try_from)?;
 
         let default = raw.default.as_deref().map_or(Ok(false), |s| {
             s.parse().or(Err(DataSourceParseError::InvalidPayload(

@@ -13,8 +13,6 @@ use xcp_metrics_common::xapi::{
 
 pub struct XapiDaemon {}
 
-type HookFn = Box<dyn Fn(Request<Body>) -> Option<Box<dyn Future<Output = Response<Body>>>>>;
-
 pub struct XapiDaemonInternal {
     hooks: Vec<HookFn>,
 }

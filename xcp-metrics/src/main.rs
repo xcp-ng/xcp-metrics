@@ -2,6 +2,8 @@
 //mod rrdd;
 //mod xapi;
 
+pub mod hub;
+
 use std::{path::Path, sync::Arc};
 
 use dashmap::DashMap;
@@ -77,6 +79,6 @@ async fn main() {
             join_set.spawn_blocking(|| collect_plugin_metrics(name, state));
         });
 
-        while let Some(_) = join_set.join_next().await {}
+        while join_set.join_next().await.is_some() {}
     }
 }
