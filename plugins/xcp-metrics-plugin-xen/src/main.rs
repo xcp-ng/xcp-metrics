@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{time::Duration, f64};
 use tokio::time;
 
 use xcp_metrics_common::rrdd::{
@@ -36,7 +36,7 @@ async fn main() {
 
     let values = [
         DataSourceValue::Int64(42),
-        DataSourceValue::Float(3.14159265),
+        DataSourceValue::Float(f64::consts::PI),
     ];
 
     let mut plugin = RrddPlugin::new("xcp-metrics-plugin-xen", metadata, Some(&values))
