@@ -227,7 +227,7 @@ impl From<RrddMetadata> for RrddMetadataRaw {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct RrddMetadata {
     pub datasources: IndexMap<Box<str>, DataSourceMetadata>,
 }
