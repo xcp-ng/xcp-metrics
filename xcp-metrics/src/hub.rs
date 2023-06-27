@@ -1,67 +1,83 @@
 use std::sync::Arc;
 
-use tokio::sync::mpsc;
+use tokio::{
+    sync::mpsc,
+    task::{self, JoinHandle},
+};
 use xcp_metrics_common::metrics::{Metric, MetricPoint, MetricSet};
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct RegisterMetrics {
-    family: Box<str>,
-    metrics: Metric,
-    uuid: uuid::Uuid,
+    pub family: Box<str>,
+    pub metrics: Metric,
+    pub uuid: uuid::Uuid,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct UnregisterMetrics {
-    uuid: uuid::Uuid,
+    pub uuid: uuid::Uuid,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct UpdateMetrics {
-    uuid: uuid::Uuid,
-    new_values: Box<[MetricPoint]>,
+    pub uuid: uuid::Uuid,
+    pub new_values: Box<[MetricPoint]>,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct PullMetrics(pub mpsc::UnboundedSender<HubPullResponse>);
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum HubPushMessage {
-    CreateFamily(/* ? */),
     RegisterMetrics(RegisterMetrics),
     UnregisterMetrics(UnregisterMetrics),
     UpdateMetrics(UpdateMetrics),
     PullMetrics(PullMetrics),
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum HubPullResponse {
     Metrics(Arc<MetricSet>),
 }
 
-#[derive(Clone, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct MetricsHub {
     metrics: Arc<MetricSet>,
 }
 
 impl MetricsHub {
-    pub async fn start(self) -> mpsc::UnboundedSender<HubPushMessage> {
+    pub async fn start(self) -> (JoinHandle<()>, mpsc::UnboundedSender<HubPushMessage>) {
         let (sender, receiver) = mpsc::unbounded_channel();
+        let mut rendez_vous = mpsc::channel(1);
 
-        tokio::task::spawn(async move { self.run(receiver).await });
+        let handle = task::spawn(async move { self.run(receiver, rendez_vous.0).await });
 
-        sender
+        rendez_vous.1.recv().await;
+
+        (handle, sender)
     }
 
-    async fn run(mut self, mut receiver: mpsc::UnboundedReceiver<HubPushMessage>) {
+    async fn run(
+        mut self,
+        mut receiver: mpsc::UnboundedReceiver<HubPushMessage>,
+        rendez_vous: mpsc::Sender<()>,
+    ) {
+        rendez_vous.send(()).await.unwrap();
+
         while let Some(msg) = receiver.recv().await {
+            println!("Hub: {msg:?}");
             match msg {
-                HubPushMessage::CreateFamily() => todo!(),
                 HubPushMessage::RegisterMetrics(message) => self.register(message).await,
                 HubPushMessage::UnregisterMetrics(message) => self.unregister(message).await,
                 HubPushMessage::UpdateMetrics(message) => self.update(message).await,
                 HubPushMessage::PullMetrics(message) => self.pull_metrics(message).await,
             }
+
+            println!("Hub: Metrics status:");
+            println!("{:#?}", self.metrics);
         }
+
+        println!("Stopped hub")
     }
 
     async fn register(&mut self, message: RegisterMetrics) {

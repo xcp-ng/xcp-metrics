@@ -1,36 +1,30 @@
-use std::future::Future;
-
-use tokio::net::UnixStream;
+use tokio::{net::UnixStream, task::AbortHandle};
 use xcp_metrics_common::xapi::{
     self,
     hyper::{
         self,
         service::{make_service_fn, service_fn},
-        Body, Request, Response,
+        Body,
     },
     hyperlocal::UnixServerExt,
 };
 
-pub struct XapiDaemon {}
+use crate::rpc::rpc;
 
-pub struct XapiDaemonInternal {
-    hooks: Vec<HookFn>,
-}
-
-impl Default for XapiDaemonInternal {
-    fn default() -> Self {
-        Self { hooks: vec![] }
-    }
-}
+pub struct XapiDaemon;
 
 impl XapiDaemon {
-    async fn new(daemon_name: &str) -> anyhow::Result<Self> {
+    pub async fn new(daemon_name: &str) -> anyhow::Result<AbortHandle> {
         let socket_path = xapi::get_module_path(daemon_name);
 
         let make_service = make_service_fn(|socket: &UnixStream| {
             println!("{socket:?}");
 
-            async move { anyhow::Ok(service_fn(move |request: hyper::Request<Body>| ())) }
+            async move {
+                anyhow::Ok(service_fn(move |request: hyper::Request<Body>| {
+                    rpc::rpc_entrypoint(request)
+                }))
+            }
         });
 
         let server_task = tokio::task::spawn(async move {
@@ -41,6 +35,6 @@ impl XapiDaemon {
                 .unwrap();
         });
 
-        Ok(server_task)
+        Ok(server_task.abort_handle())
     }
 }

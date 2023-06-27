@@ -1,10 +1,12 @@
 //! xcp-rrdd JSON data source parser and writer.
-use std::borrow::Cow;
+use std::{borrow::Cow, time::SystemTime};
 
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 pub use serde_json;
+
+use crate::metrics::{Label, MetricPoint, MetricValue, NumberValue};
 
 /// Errors that can happen while parsing a data source.
 #[derive(Copy, Clone, Debug)]
@@ -61,7 +63,7 @@ impl From<DataSourceType> for Cow<'static, str> {
 }
 
 /// Owner of the data source.
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum DataSourceOwner {
     Host,
     VM(Uuid),
@@ -306,6 +308,29 @@ impl Default for DataSourceMetadata {
             max: f32::INFINITY,
             owner: DataSourceOwner::Host,
             default: false,
+        }
+    }
+}
+
+impl From<(&DataSourceMetadata, &DataSourceValue)> for crate::metrics::Metric {
+    fn from((metadata, value): (&DataSourceMetadata, &DataSourceValue)) -> Self {
+        Self {
+            labels: vec![Label("owner".into(), metadata.owner.into())].into_boxed_slice(),
+            metrics_point: vec![MetricPoint {
+                timestamp: SystemTime::now(),
+                value: MetricValue::Gauge(value.into()),
+            }]
+            .into_boxed_slice(),
+        }
+    }
+}
+
+impl From<&DataSourceValue> for NumberValue {
+    fn from(value: &DataSourceValue) -> Self {
+        match value {
+            DataSourceValue::Int64(val) => Self::Int64(*val),
+            DataSourceValue::Float(val) => Self::Double(*val),
+            DataSourceValue::Undefined => Self::Undefined,
         }
     }
 }

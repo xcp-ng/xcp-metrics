@@ -2,7 +2,7 @@
 use std::{collections::HashMap, time::SystemTime};
 
 /// Top level metric data structure.
-#[derive(Clone, Default, PartialEq)]
+#[derive(Clone, Default, PartialEq, Debug)]
 pub struct MetricSet {
     pub families: HashMap<Box<str>, MetricFamily>,
 }
