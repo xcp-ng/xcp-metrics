@@ -32,7 +32,7 @@ async fn main() {
         },
     };
 
-    let mut metadata = RrddMetadata { datasources };
+    let metadata = RrddMetadata { datasources };
 
     let mut counter = 1;
     let mut values = vec![
@@ -40,7 +40,7 @@ async fn main() {
         DataSourceValue::Float(f64::consts::PI),
     ];
 
-    let mut plugin = RrddPlugin::new("xcp-metrics-plugin-xen", metadata.clone(), Some(&values))
+    let mut plugin = RrddPlugin::new("xcp-metrics-plugin-xen", metadata, Some(&values))
         .await
         .unwrap();
 
@@ -49,25 +49,6 @@ async fn main() {
         counter += 1;
         values[0] = DataSourceValue::Int64(counter);
 
-        metadata.datasources.insert(
-            format!("Idontknowwhatiamdoing{counter}").into(),
-            DataSourceMetadata {
-                description: "wtf".into(),
-                units: "is".into(),
-                ds_type: DataSourceType::Absolute,
-                value: DataSourceValue::Int64(0),
-                min: f32::NEG_INFINITY,
-                max: f32::INFINITY,
-                owner: DataSourceOwner::Host,
-                default: true,
-            },
-        );
-        values.push(DataSourceValue::Int64(counter));
-
-        plugin
-            .reset_metadata(metadata.clone(), Some(&values))
-            .await
-            .unwrap();
         plugin.update_values(&values).await.unwrap();
         time::sleep(Duration::from_secs(1)).await;
     }
