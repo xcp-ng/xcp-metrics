@@ -1,16 +1,20 @@
-use providers::{protocol_v2::ProtocolV2Provider, Provider};
+use rpc::xapi;
+use tokio::select;
 
-mod rpc;
-//mod rrdd;
-//mod xapi;
 pub mod hub;
 pub mod providers;
+pub mod publishers;
+mod rpc;
 
 #[tokio::main]
 async fn main() {
-    let (handle, channel) = hub::MetricsHub::default().start().await;
+    let (hub, channel) = hub::MetricsHub::default().start().await;
+    let socket = xapi::XapiDaemon::new("xcp-rrdd", channel).await.unwrap();
 
-    ProtocolV2Provider::new("xcp-metrics-plugin-xen").start_provider(channel);
+    select! {
+        res = hub => println!("Hub returned: {res:?}"),
+        res = socket => println!("RPC Socket returned: {res:?}")
+    };
 
-    handle.await.unwrap();
+    println!("Stopping");
 }

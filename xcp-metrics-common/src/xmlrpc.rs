@@ -1,5 +1,6 @@
-use dxr::{MethodCall, TryToValue};
 use std::fmt::Write;
+
+use dxr::{MethodCall, TryFromValue, TryToValue};
 
 macro_rules! rpc_method {
     ($struct:ty, $name:stmt) => {
@@ -15,13 +16,14 @@ trait XcpRpcMethodNamed {
     fn get_method_name() -> &'static str;
 }
 
-pub trait XcpRpcMethod {
+pub trait XcpRpcMethod: Sized {
     fn write_xmlrpc<W: Write>(&self, w: &mut W) -> anyhow::Result<()>;
+    fn try_from_method(call: MethodCall) -> Option<Self>;
 }
 
 impl<M> XcpRpcMethod for M
 where
-    M: TryToValue + XcpRpcMethodNamed,
+    M: TryToValue + TryFromValue + XcpRpcMethodNamed,
 {
     fn write_xmlrpc<W: Write>(&self, w: &mut W) -> anyhow::Result<()> {
         w.write_str(r#"<?xml version="1.0"?>"#)?;
@@ -31,9 +33,21 @@ where
 
         Ok(())
     }
+
+    fn try_from_method(method: MethodCall) -> Option<Self> {
+        if method.name() == M::get_method_name() {
+            M::try_from_value(method.params().first()?).ok()
+        } else {
+            None
+        }
+    }
 }
 
-#[derive(Clone, TryToValue)]
+pub fn parse_method(s: &str) -> anyhow::Result<MethodCall> {
+    Ok(quick_xml::de::from_str(s)?)
+}
+
+#[derive(Debug, Clone, TryToValue, TryFromValue)]
 pub struct PluginLocalRegister {
     pub protocol: String,
     pub info: String,

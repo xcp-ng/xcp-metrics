@@ -45,7 +45,7 @@ impl RrddPlugin {
         };
 
         plugin.reset_file(Some(&metadata_str)).await?;
-        //plugin.advertise_plugin().await?;
+        plugin.advertise_plugin().await?;
 
         Ok(plugin)
     }
