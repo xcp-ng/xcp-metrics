@@ -11,3 +11,9 @@ edition = "2021"
 xcp-metrics-common = { path = "../xcp-metrics-common" }
 anyhow = "*"
 serde_json = "1.0"
+
+tokio = { version = "1", features = ["full"] }
+
+[dependencies.quick-xml]
+version = "*"
+features = ["serialize"]

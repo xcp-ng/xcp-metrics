@@ -74,7 +74,7 @@ impl MetricsHub {
             }
 
             println!("Hub: Metrics status:");
-            println!("{:#?}", self.metrics);
+            //println!("{:#?}", self.metrics);
         }
 
         println!("Stopped hub")

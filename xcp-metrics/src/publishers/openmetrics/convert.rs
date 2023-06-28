@@ -6,7 +6,7 @@ use xcp_metrics_common::metrics::{
 
 // NOTE: `slice::into_vec` is used to have values instead of references for `into_iter`.
 
-mod openmetrics {
+pub mod openmetrics {
     include!(concat!(env!("OUT_DIR"), "/openmetrics.rs"));
 }
 

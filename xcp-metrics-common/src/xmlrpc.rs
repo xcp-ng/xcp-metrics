@@ -2,6 +2,8 @@ use std::fmt::Write;
 
 use dxr::{MethodCall, TryFromValue, TryToValue};
 
+pub use dxr;
+
 macro_rules! rpc_method {
     ($struct:ty, $name:stmt) => {
         impl XcpRpcMethodNamed for $struct {
@@ -12,7 +14,7 @@ macro_rules! rpc_method {
     };
 }
 
-trait XcpRpcMethodNamed {
+pub trait XcpRpcMethodNamed {
     fn get_method_name() -> &'static str;
 }
 
