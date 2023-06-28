@@ -1,4 +1,7 @@
-use std::{io::{Read, Write}, time::{SystemTime, Duration}};
+use std::{
+    io::{Read, Write},
+    time::{Duration, SystemTime},
+};
 
 use indexmap::indexmap;
 
@@ -32,7 +35,11 @@ fn test_protocol_v2_invariance() {
     let (mut header, metadata_str) = RrddMessageHeader::generate(&values, metadata.clone());
 
     // Remove subsec ns precision
-    let ns_diff = header.timestamp.duration_since(SystemTime::UNIX_EPOCH).unwrap().subsec_nanos();
+    let ns_diff = header
+        .timestamp
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap()
+        .subsec_nanos();
     header.timestamp -= Duration::from_nanos(ns_diff as u64);
 
     let mut buffer = vec![];
