@@ -10,4 +10,6 @@ edition = "2021"
 [dependencies]
 xcp-metrics-common = { path = "../../xcp-metrics-common" }
 xcp-metrics-plugin-common = { path = "../xcp-metrics-plugin-common" }
+xenctrl = "0.4"
+
 tokio = { version = "1", features = ["full"] }

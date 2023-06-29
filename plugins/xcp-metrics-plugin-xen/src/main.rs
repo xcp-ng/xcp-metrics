@@ -9,6 +9,20 @@ use xcp_metrics_plugin_common::RrddPlugin;
 
 #[tokio::main]
 async fn main() {
+    let xen = xenctrl::XenControl::default().unwrap();
+
+    for domid in 0.. {
+        match xen.domain_getinfo(domid) {
+            Ok(dominfo) => {
+                println!("{dominfo:#?}");
+            },
+            Err(e) => {
+                eprintln!("{e}");
+                break;
+            }
+        }
+    }
+
     let datasources = indexmap! {
         "nice_metrics".into() => DataSourceMetadata {
             description: "something".into(),
