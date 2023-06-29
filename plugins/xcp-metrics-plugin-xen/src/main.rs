@@ -16,7 +16,7 @@ async fn main() {
             Ok(Some(dominfo)) => {
                 println!("{dominfo:#?}");
 
-                for vcpuid in 0.. {
+                for vcpuid in 0..dominfo.max_vcpu_id {
                     match xen.vcpu_getinfo(domid, vcpuid) {
                         Ok(vcpuinfo) => println!("{vcpuinfo:#?}"),
                         Err(e) => {
