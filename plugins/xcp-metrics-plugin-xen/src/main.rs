@@ -11,7 +11,7 @@ use xcp_metrics_plugin_common::RrddPlugin;
 async fn main() {
     let xen = xenctrl::XenControl::default().unwrap();
 
-    for domid in 0.. {
+    for domid in 0..32 {
         match xen.domain_getinfo(domid) {
             Ok(dominfo) => {
                 println!("{dominfo:#?}");
