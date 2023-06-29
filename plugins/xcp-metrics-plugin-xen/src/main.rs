@@ -15,6 +15,16 @@ async fn main() {
         match xen.domain_getinfo(domid) {
             Ok(Some(dominfo)) => {
                 println!("{dominfo:#?}");
+
+                for vcpuid in 0.. {
+                    match xen.vcpu_getinfo(domid, vcpuid) {
+                        Ok(vcpuinfo) => println!("{vcpuinfo:#?}"),
+                        Err(e) => {
+                            println!("{e:?}");
+                            break;
+                        }
+                    }
+                }
             }
             Err(e) => {
                 eprintln!("{e}");
