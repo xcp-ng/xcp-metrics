@@ -1,4 +1,4 @@
-use std::{f64, time::Duration};
+use std::{f64, time::Duration, mem::MaybeUninit};
 use tokio::time;
 
 use xcp_metrics_common::rrdd::{
@@ -39,6 +39,16 @@ async fn main() {
             }
             _ => break,
         }
+    }
+
+    let physinfo = xen.physinfo();
+    println!("{physinfo:#?}");
+
+    if let Ok(physinfo) = physinfo {
+        let mut cpuinfos = vec![MaybeUninit::uninit(); physinfo.nr_cpus as usize];
+        let infos = xen.get_cpuinfo(&mut cpuinfos);
+
+        println!("{infos:#?}");
     }
 
     let datasources = indexmap! {
