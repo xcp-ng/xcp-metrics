@@ -18,7 +18,14 @@ async fn main() {
 
                 for vcpuid in 0..dominfo.max_vcpu_id {
                     match xen.vcpu_getinfo(domid, vcpuid) {
-                        Ok(vcpuinfo) => println!("{vcpuinfo:#?}"),
+                        Ok(vcpuinfo) => {
+                            // xcp-rrdd: Workaround for Xen leaking the flag XEN_RUNSTATE_UPDATE; using a mask of its complement ~(1 << 63)
+                            let mut cputime = (vcpuinfo.cpu_time & !(1u64 << 63)) as f64;
+                            // Convert from nanoseconds to seconds
+                            cputime /= 1.0e9;
+
+                            println!("{vcpuinfo:#?} {cputime}");
+                        }
                         Err(e) => {
                             println!("{e:?}");
                             break;
