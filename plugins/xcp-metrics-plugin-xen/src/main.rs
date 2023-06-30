@@ -1,11 +1,24 @@
-use std::{f64, time::Duration, mem::MaybeUninit};
-use tokio::time;
+use std::{f64, mem::MaybeUninit, time::Duration};
+use tokio::{fs, time};
 
 use xcp_metrics_common::rrdd::{
     protocol_common::{DataSourceMetadata, DataSourceOwner, DataSourceType, DataSourceValue},
     protocol_v2::{indexmap::indexmap, RrddMetadata},
 };
 use xcp_metrics_plugin_common::RrddPlugin;
+
+async fn get_loadavg() -> f64 {
+    let proc_loadavg = fs::read_to_string("/proc/loadavg")
+        .await
+        .expect("Unable to read /proc/loadavg");
+
+    proc_loadavg
+        .split_once(' ')
+        .expect("No first element in /proc/loadavg ?")
+        .0
+        .parse()
+        .expect("First part of /proc/loadavg not a number ?")
+}
 
 #[tokio::main]
 async fn main() {
@@ -50,6 +63,8 @@ async fn main() {
 
         println!("{infos:#?}");
     }
+
+    println!("{:.2?}", get_loadavg().await);
 
     let datasources = indexmap! {
         "nice_metrics".into() => DataSourceMetadata {
