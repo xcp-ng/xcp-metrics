@@ -11,5 +11,8 @@ edition = "2021"
 xcp-metrics-common = { path = "../../xcp-metrics-common" }
 xcp-metrics-plugin-common = { path = "../xcp-metrics-plugin-common" }
 xenctrl = { git = "https://github.com/TSnake41/xenctrl", branch = "more_functions" }
+xenctrl-sys = "*"
 
 tokio = { version = "1", features = ["full"] }
+uuid = "1.4.0"
+anyhow = "1.0.71"

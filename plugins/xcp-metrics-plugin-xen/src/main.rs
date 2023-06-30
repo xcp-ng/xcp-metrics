@@ -1,101 +1,105 @@
-use std::{f64, mem::MaybeUninit, time::Duration};
-use tokio::{fs, time};
+mod domain;
+mod host;
+
+use domain::{DomainMemory, VCpuTime};
+use host::LoadAvg;
+use std::{borrow::Cow, iter, rc::Rc, time::Duration};
+use tokio::time;
 
 use xcp_metrics_common::rrdd::{
     protocol_common::{DataSourceMetadata, DataSourceOwner, DataSourceType, DataSourceValue},
-    protocol_v2::{indexmap::indexmap, RrddMetadata},
+    protocol_v2::{
+        indexmap::{indexmap, IndexMap},
+        RrddMetadata,
+    },
 };
 use xcp_metrics_plugin_common::RrddPlugin;
+use xenctrl::XenControl;
+use xenctrl_sys::xc_dominfo_t;
 
-async fn get_loadavg() -> f64 {
-    let proc_loadavg = fs::read_to_string("/proc/loadavg")
-        .await
-        .expect("Unable to read /proc/loadavg");
+pub trait XenMetric {
+    /// Generate metadata for this metric.
+    fn generate_metadata(&self) -> anyhow::Result<DataSourceMetadata>;
 
-    proc_loadavg
-        .split_once(' ')
-        .expect("No first element in /proc/loadavg ?")
-        .0
-        .parse()
-        .expect("First part of /proc/loadavg not a number ?")
+    /// Check if this metric still exists.
+    fn update(&mut self) -> bool;
+
+    /// Get the value of this metric.
+    fn get_value(&self) -> DataSourceValue;
+
+    /// Get the name of the metric.
+    fn get_name(&self) -> Cow<str>;
 }
 
-#[tokio::main]
-async fn main() {
-    let xen = xenctrl::XenControl::default().unwrap();
+const XEN_PAGE_SIZE: usize = 4096; // 4 KiB
+
+fn discover_xen_metrics(xc: Rc<XenControl>) -> Box<[Box<dyn XenMetric>]> {
+    let mut metrics: Vec<Box<dyn XenMetric>> = vec![];
+
+    // Add loadavg metric.
+    metrics.push(Box::new(LoadAvg::default()));
 
     for domid in 0.. {
-        match xen.domain_getinfo(domid) {
-            Ok(Some(dominfo)) => {
-                println!("{dominfo:#?}");
+        match xc.domain_getinfo(domid) {
+            Ok(Some(xc_dominfo_t {
+                handle,
+                max_vcpu_id,
+                ..
+            })) => {
+                // Domain exists
 
-                for vcpuid in 0..dominfo.max_vcpu_id {
-                    match xen.vcpu_getinfo(domid, vcpuid) {
-                        Ok(vcpuinfo) => {
-                            // xcp-rrdd: Workaround for Xen leaking the flag XEN_RUNSTATE_UPDATE; using a mask of its complement ~(1 << 63)
-                            let mut cputime = (vcpuinfo.cpu_time & !(1u64 << 63)) as f64;
-                            // Convert from nanoseconds to seconds
-                            cputime /= 1.0e9;
+                // Domain memory
+                let dom_uuid = uuid::Uuid::from_bytes(handle);
 
-                            println!("{vcpuinfo:#?} {cputime}");
-                        }
-                        Err(e) => {
-                            println!("{e:?}");
-                            break;
-                        }
-                    }
+                metrics.push(Box::new(DomainMemory::new(xc.clone(), domid, dom_uuid)));
+
+                // vCPUs
+                for vcpuid in 0..=max_vcpu_id {
+                    metrics.push(Box::new(VCpuTime::new(xc.clone(), vcpuid, domid, dom_uuid)));
                 }
-            }
-            Err(e) => {
-                eprintln!("{e}");
-                break;
             }
             _ => break,
         }
     }
 
-    let physinfo = xen.physinfo();
-    println!("{physinfo:#?}");
+    metrics.into_boxed_slice()
+}
 
-    if let Ok(physinfo) = physinfo {
-        let mut cpuinfos = vec![MaybeUninit::uninit(); physinfo.nr_cpus as usize];
-        let infos = xen.get_cpuinfo(&mut cpuinfos);
+fn regenerate_data_sources(xc: Rc<XenControl>) -> (Box<[Box<dyn XenMetric>]>, RrddMetadata) {
+    let metrics = discover_xen_metrics(xc);
 
-        println!("{infos:#?}");
-    }
+    let datasources: IndexMap<Box<str>, DataSourceMetadata> = metrics
+        .iter()
+        .map(|metric| {
+            (
+                metric.get_name().into(),
+                metric.generate_metadata().unwrap_or_default(),
+            )
+        })
+        .collect();
 
-    println!("{:.2?}", get_loadavg().await);
+    (metrics, RrddMetadata { datasources })
+}
 
-    let datasources = indexmap! {
-        "nice_metrics".into() => DataSourceMetadata {
-            description: "something".into(),
-            units: "unit_test".into(),
-            ds_type: DataSourceType::Gauge,
-            value: DataSourceValue::Int64(1),
-            min: f32::NEG_INFINITY,
-            max: f32::INFINITY,
-            owner: DataSourceOwner::Host,
-            default: true,
-        },
-        "thats_great".into() => DataSourceMetadata {
-            description: "something_else".into(),
-            units: "unit test".into(),
-            ds_type: DataSourceType::Gauge,
-            value: DataSourceValue::Float(1.0),
-            min: f32::NEG_INFINITY,
-            max: f32::INFINITY,
-            owner: DataSourceOwner::Host,
-            default: true,
-        },
-    };
+fn generate_values(sources: &mut [Box<dyn XenMetric>]) -> Box<[DataSourceValue]> {
+    sources.iter_mut().map(|src| src.get_value()).collect()
+}
 
-    let metadata = RrddMetadata { datasources };
+fn generate_values_inplace(sources: &mut [Box<dyn XenMetric>], values: &mut [DataSourceValue]) {
+    iter::zip(sources.iter_mut(), values.iter_mut()).for_each(|(src, val)| *val = src.get_value());
+}
 
-    let mut counter = 1;
-    let mut values = vec![
-        DataSourceValue::Int64(42),
-        DataSourceValue::Float(f64::consts::PI),
-    ];
+#[tokio::main]
+async fn main() {
+    let xc = Rc::new(xenctrl::XenControl::default().unwrap());
+    let (mut sources, mut metadata) = regenerate_data_sources(xc.clone());
+
+    sources.iter_mut().for_each(|src| {
+        src.update(); // assume success
+    });
+
+    // NOTE: some could be undefined values
+    let mut values = generate_values(&mut sources);
 
     let mut plugin = RrddPlugin::new("xcp-metrics-plugin-xen", metadata, Some(&values))
         .await
@@ -103,8 +107,27 @@ async fn main() {
 
     // Expose protocol v2
     loop {
-        counter += 1;
-        values[0] = DataSourceValue::Int64(counter);
+        // Update sources
+
+        //TODO: Detect new metrics.
+        if sources.iter_mut().map(|src| src.update()).any(|b| !b) {
+            // A update has failed, rediscover and regenerate metadata.
+            (sources, metadata) = regenerate_data_sources(xc.clone());
+
+            sources.iter_mut().for_each(|src| {
+                src.update(); // assume success
+            });
+
+            let values = generate_values(&mut sources);
+
+            plugin
+                .reset_metadata(metadata, Some(&values))
+                .await
+                .unwrap();
+        } else {
+            // Update
+            generate_values_inplace(&mut sources, &mut values);
+        }
 
         plugin.update_values(&values).await.unwrap();
         time::sleep(Duration::from_secs(1)).await;
