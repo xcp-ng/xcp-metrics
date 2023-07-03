@@ -1,69 +1,15 @@
-mod domain;
-mod host;
+mod metrics;
 
-use domain::{DomainMemory, VCpuTime};
-use host::LoadAvg;
-use std::{borrow::Cow, iter, rc::Rc, time::Duration};
+use metrics::{discover_xen_metrics, XenMetric};
+use std::{iter, rc::Rc, time::Duration};
 use tokio::time;
 
 use xcp_metrics_common::rrdd::{
-    protocol_common::{DataSourceMetadata, DataSourceOwner, DataSourceType, DataSourceValue},
-    protocol_v2::{
-        indexmap::{indexmap, IndexMap},
-        RrddMetadata,
-    },
+    protocol_common::{DataSourceMetadata, DataSourceValue},
+    protocol_v2::{indexmap::IndexMap, RrddMetadata},
 };
 use xcp_metrics_plugin_common::RrddPlugin;
 use xenctrl::XenControl;
-use xenctrl_sys::xc_dominfo_t;
-
-pub trait XenMetric {
-    /// Generate metadata for this metric.
-    fn generate_metadata(&self) -> anyhow::Result<DataSourceMetadata>;
-
-    /// Check if this metric still exists.
-    fn update(&mut self) -> bool;
-
-    /// Get the value of this metric.
-    fn get_value(&self) -> DataSourceValue;
-
-    /// Get the name of the metric.
-    fn get_name(&self) -> Cow<str>;
-}
-
-const XEN_PAGE_SIZE: usize = 4096; // 4 KiB
-
-fn discover_xen_metrics(xc: Rc<XenControl>) -> Box<[Box<dyn XenMetric>]> {
-    let mut metrics: Vec<Box<dyn XenMetric>> = vec![];
-
-    // Add loadavg metric.
-    metrics.push(Box::new(LoadAvg::default()));
-
-    for domid in 0.. {
-        match xc.domain_getinfo(domid) {
-            Ok(Some(xc_dominfo_t {
-                handle,
-                max_vcpu_id,
-                ..
-            })) => {
-                // Domain exists
-
-                // Domain memory
-                let dom_uuid = uuid::Uuid::from_bytes(handle);
-
-                metrics.push(Box::new(DomainMemory::new(xc.clone(), domid, dom_uuid)));
-
-                // vCPUs
-                for vcpuid in 0..=max_vcpu_id {
-                    metrics.push(Box::new(VCpuTime::new(xc.clone(), vcpuid, domid, dom_uuid)));
-                }
-            }
-            _ => break,
-        }
-    }
-
-    metrics.into_boxed_slice()
-}
 
 fn regenerate_data_sources(xc: Rc<XenControl>) -> (Box<[Box<dyn XenMetric>]>, RrddMetadata) {
     let metrics = discover_xen_metrics(xc);

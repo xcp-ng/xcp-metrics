@@ -6,7 +6,9 @@ use xcp_metrics_common::rrdd::protocol_common::{
 use xenctrl::XenControl;
 use xenctrl_sys::{xc_dominfo_t, xc_vcpuinfo_t};
 
-use crate::{XenMetric, XEN_PAGE_SIZE};
+use crate::XenMetric;
+
+use super::XEN_PAGE_SIZE;
 
 pub struct VCpuTime {
     xc: Rc<XenControl>,
