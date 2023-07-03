@@ -11,8 +11,14 @@ use xcp_metrics_common::rrdd::{
 use xcp_metrics_plugin_common::RrddPlugin;
 use xenctrl::XenControl;
 
-fn regenerate_data_sources(xc: Rc<XenControl>) -> (Box<[Box<dyn XenMetric>]>, RrddMetadata) {
-    let metrics = discover_xen_metrics(xc);
+pub struct XenMetricsStatus {
+    pub dom_count: u32,
+}
+
+fn regenerate_data_sources(
+    xc: Rc<XenControl>,
+) -> (Box<[Box<dyn XenMetric>]>, RrddMetadata, XenMetricsStatus) {
+    let (metrics, status) = discover_xen_metrics(xc);
 
     let datasources: IndexMap<Box<str>, DataSourceMetadata> = metrics
         .iter()
@@ -24,7 +30,7 @@ fn regenerate_data_sources(xc: Rc<XenControl>) -> (Box<[Box<dyn XenMetric>]>, Rr
         })
         .collect();
 
-    (metrics, RrddMetadata { datasources })
+    (metrics, RrddMetadata { datasources }, status)
 }
 
 fn generate_values(sources: &mut [Box<dyn XenMetric>]) -> Box<[DataSourceValue]> {
@@ -35,10 +41,15 @@ fn generate_values_inplace(sources: &mut [Box<dyn XenMetric>], values: &mut [Dat
     iter::zip(sources.iter_mut(), values.iter_mut()).for_each(|(src, val)| *val = src.get_value());
 }
 
+fn check_new_metrics(xc: Rc<XenControl>, status: &XenMetricsStatus) -> bool {
+    // Check next domain
+    matches!(xc.domain_getinfo(status.dom_count + 1), Ok(Some(_)))
+}
+
 #[tokio::main]
 async fn main() {
     let xc = Rc::new(xenctrl::XenControl::default().unwrap());
-    let (mut sources, mut metadata) = regenerate_data_sources(xc.clone());
+    let (mut sources, mut metadata, mut status) = regenerate_data_sources(xc.clone());
 
     sources.iter_mut().for_each(|src| {
         src.update(); // assume success
@@ -55,10 +66,11 @@ async fn main() {
     loop {
         // Update sources
 
-        //TODO: Detect new metrics.
-        if sources.iter_mut().map(|src| src.update()).any(|b| !b) {
-            // A update has failed, rediscover and regenerate metadata.
-            (sources, metadata) = regenerate_data_sources(xc.clone());
+        if check_new_metrics(xc.clone(), &status)
+            || sources.iter_mut().map(|src| src.update()).any(|b| !b)
+        {
+            // New metrics found or an update has failed, rediscover and regenerate metadata.
+            (sources, metadata, status) = regenerate_data_sources(xc.clone());
 
             sources.iter_mut().for_each(|src| {
                 src.update(); // assume success
