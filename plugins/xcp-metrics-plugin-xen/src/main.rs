@@ -68,11 +68,14 @@ async fn main() {
     // Expose protocol v2
     loop {
         // Update sources
+        println!("Update sources");
 
         token = Uuid::new_v4();
         if check_new_metrics(xc.clone(), &status)
             || sources.iter_mut().map(|src| src.update(token)).any(|b| !b)
         {
+            println!("Rediscovering metrics...");
+
             // New metrics found or an update has failed, rediscover and regenerate metadata.
             (sources, metadata, status) = regenerate_data_sources(xc.clone());
 
@@ -82,6 +85,7 @@ async fn main() {
             });
 
             let values = generate_values(&mut sources);
+            println!("Values vector: {values:?}");
 
             plugin
                 .reset_metadata(metadata, Some(&values))
