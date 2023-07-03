@@ -101,7 +101,7 @@ impl XenMetric for PCpuTime {
 
     fn get_value(&self) -> DataSourceValue {
         match self.info {
-            Some(info) => DataSourceValue::Float(1.0 - ((info.idletime as f64) / 1.0e9)),
+            Some(info) => DataSourceValue::Float((info.idletime as f64) / 1.0e9),
             None => DataSourceValue::Undefined,
         }
     }
