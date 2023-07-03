@@ -1,6 +1,6 @@
 [package]
 name = "xcp-metrics-test"
-version = "0.1.0"
+version.workspace = true
 license = "AGPL-3.0-only"
 edition = "2021"
 

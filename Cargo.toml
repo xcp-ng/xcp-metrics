@@ -1,4 +1,8 @@
 [workspace]
+package.version = "0.1.0"
+package.repository = "https://github.com/xcp-ng/xcp-metrics"
+package.categories = ["virtualization"]
+
 members = [
   "xcp-metrics",
   "xcp-metrics-common",
@@ -6,4 +10,9 @@ members = [
   "plugins/xcp-metrics-plugin-common",
   "plugins/xcp-metrics-plugin-xen",
   "xcp-metrics-tools",
+]
+default-members = [
+  "xcp-metrics",
+  "xcp-metrics-common",
+  "plugins/xcp-metrics-plugin-common",
 ]
