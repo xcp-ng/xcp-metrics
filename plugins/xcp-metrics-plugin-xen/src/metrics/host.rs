@@ -23,7 +23,7 @@ impl XenMetric for LoadAvg {
         })
     }
 
-    fn update(&mut self) -> bool {
+    fn update(&mut self, _: uuid::Uuid) -> bool {
         let proc_loadavg =
             std::fs::read_to_string("/proc/loadavg").expect("Unable to read /proc/loadavg");
 

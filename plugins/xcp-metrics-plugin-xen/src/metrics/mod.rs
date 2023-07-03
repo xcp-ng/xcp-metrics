@@ -1,14 +1,15 @@
-use std::{borrow::Cow, rc::Rc};
+use std::{borrow::Cow, mem::MaybeUninit, rc::Rc};
 
 use xcp_metrics_common::rrdd::protocol_common::{DataSourceMetadata, DataSourceValue};
 use xenctrl::XenControl;
 use xenctrl_sys::xc_dominfo_t;
 
-use crate::XenMetricsStatus;
+use crate::{update_once::UpdateOnce, XenMetricsStatus};
 
 use self::{
     domain::{DomainMemory, VCpuTime},
     host::LoadAvg,
+    physical::{PCpuTime, SharedPCpuSlice},
 };
 
 mod domain;
@@ -19,8 +20,8 @@ pub trait XenMetric {
     /// Generate metadata for this metric.
     fn generate_metadata(&self) -> anyhow::Result<DataSourceMetadata>;
 
-    /// Check if this metric still exists.
-    fn update(&mut self) -> bool;
+    /// Check if this metric still exists (token is unique per update).
+    fn update(&mut self, token: uuid::Uuid) -> bool;
 
     /// Get the value of this metric.
     fn get_value(&self) -> DataSourceValue;
@@ -60,6 +61,23 @@ pub fn discover_xen_metrics(xc: Rc<XenControl>) -> (Box<[Box<dyn XenMetric>]>, X
                 }
             }
             _ => break,
+        }
+    }
+
+    let physinfo = xc.physinfo();
+
+    if let Ok(physinfo) = physinfo {
+        let pcpu_slice = Rc::new(UpdateOnce::new(SharedPCpuSlice::new(
+            xc.clone(),
+            physinfo.nr_cpus as usize,
+        )));
+
+        let mut cpuinfos = vec![MaybeUninit::zeroed(); physinfo.nr_cpus as usize];
+
+        if let Ok(infos) = xc.get_cpuinfo(&mut cpuinfos) {
+            infos.iter().enumerate().for_each(|(cpu_index, _)| {
+                metrics.push(Box::new(PCpuTime::new(cpu_index, pcpu_slice.clone())));
+            })
         }
     }
 

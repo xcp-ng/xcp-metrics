@@ -1,8 +1,10 @@
 mod metrics;
+pub mod update_once;
 
 use metrics::{discover_xen_metrics, XenMetric};
 use std::{iter, rc::Rc, time::Duration};
 use tokio::time;
+use uuid::Uuid;
 
 use xcp_metrics_common::rrdd::{
     protocol_common::{DataSourceMetadata, DataSourceValue},
@@ -51,8 +53,9 @@ async fn main() {
     let xc = Rc::new(xenctrl::XenControl::default().unwrap());
     let (mut sources, mut metadata, mut status) = regenerate_data_sources(xc.clone());
 
+    let mut token = Uuid::new_v4();
     sources.iter_mut().for_each(|src| {
-        src.update(); // assume success
+        src.update(token); // assume success
     });
 
     // NOTE: some could be undefined values
@@ -66,14 +69,16 @@ async fn main() {
     loop {
         // Update sources
 
+        token = Uuid::new_v4();
         if check_new_metrics(xc.clone(), &status)
-            || sources.iter_mut().map(|src| src.update()).any(|b| !b)
+            || sources.iter_mut().map(|src| src.update(token)).any(|b| !b)
         {
             // New metrics found or an update has failed, rediscover and regenerate metadata.
             (sources, metadata, status) = regenerate_data_sources(xc.clone());
 
+            token = Uuid::new_v4();
             sources.iter_mut().for_each(|src| {
-                src.update(); // assume success
+                src.update(token); // assume success
             });
 
             let values = generate_values(&mut sources);

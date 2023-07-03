@@ -46,7 +46,7 @@ impl XenMetric for VCpuTime {
         })
     }
 
-    fn update(&mut self) -> bool {
+    fn update(&mut self, _: uuid::Uuid) -> bool {
         match self.xc.vcpu_getinfo(self.domid, self.vcpuid) {
             Ok(info) => {
                 self.vcpu_info.replace(info);
@@ -112,7 +112,7 @@ impl XenMetric for DomainMemory {
         })
     }
 
-    fn update(&mut self) -> bool {
+    fn update(&mut self, _: uuid::Uuid) -> bool {
         match self.xc.domain_getinfo(self.domid) {
             Ok(Some(info)) => {
                 self.dominfo.replace(info);
