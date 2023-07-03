@@ -10,7 +10,7 @@ use xenctrl_sys::{xc_physinfo_t, xen_sysctl_cpuinfo_t};
 
 use crate::update_once::{Updatable, UpdateOnce};
 
-use super::XenMetric;
+use super::{XenMetric, XEN_PAGE_SIZE};
 
 /// A shared cpuinfo slice.
 pub struct SharedPCpuSlice {
@@ -44,6 +44,12 @@ impl<'a> SharedPCpuSlice {
 pub struct SharedPhysInfo {
     xc: Rc<XenControl>,
     physinfo: Option<xc_physinfo_t>,
+}
+
+impl SharedPhysInfo {
+    pub fn new(xc: Rc<XenControl>) -> Self {
+        Self { xc, physinfo: None }
+    }
 }
 
 impl Updatable for SharedPhysInfo {
@@ -108,5 +114,89 @@ impl XenMetric for PCpuTime {
 
     fn get_name(&self) -> Cow<str> {
         format!("cpu{}", self.cpu_index).into()
+    }
+}
+
+pub struct MemoryTotal(Rc<UpdateOnce<SharedPhysInfo>>);
+
+impl MemoryTotal {
+    pub fn new(physinfo: Rc<UpdateOnce<SharedPhysInfo>>) -> Self {
+        Self(physinfo)
+    }
+}
+
+impl XenMetric for MemoryTotal {
+    fn generate_metadata(&self) -> anyhow::Result<DataSourceMetadata> {
+        Ok(DataSourceMetadata {
+            description: "Total amount of memory in the host".into(),
+            units: "KiB".into(),
+            ds_type: DataSourceType::Gauge,
+            value: DataSourceValue::Int64(0),
+            min: 0.0,
+            max: f32::INFINITY,
+            owner: DataSourceOwner::Host,
+            default: true,
+        })
+    }
+
+    fn update(&mut self, token: uuid::Uuid) -> bool {
+        self.0.update(token);
+
+        true
+    }
+
+    fn get_value(&self) -> DataSourceValue {
+        match self.0.borrow().physinfo {
+            Some(physinfo) => {
+                DataSourceValue::Int64(physinfo.total_pages as i64 * XEN_PAGE_SIZE as i64 / 1024)
+            }
+            None => DataSourceValue::Undefined,
+        }
+    }
+
+    fn get_name(&self) -> Cow<str> {
+        Cow::Borrowed("memory_total_kib")
+    }
+}
+
+pub struct MemoryFree(Rc<UpdateOnce<SharedPhysInfo>>);
+
+impl MemoryFree {
+    pub fn new(physinfo: Rc<UpdateOnce<SharedPhysInfo>>) -> Self {
+        Self(physinfo)
+    }
+}
+
+impl XenMetric for MemoryFree {
+    fn generate_metadata(&self) -> anyhow::Result<DataSourceMetadata> {
+        Ok(DataSourceMetadata {
+            description: "Total amount of free memory".into(),
+            units: "KiB".into(),
+            ds_type: DataSourceType::Gauge,
+            value: DataSourceValue::Int64(0),
+            min: 0.0,
+            max: f32::INFINITY,
+            owner: DataSourceOwner::Host,
+            default: true,
+        })
+    }
+
+    fn update(&mut self, token: uuid::Uuid) -> bool {
+        self.0.update(token);
+
+        true
+    }
+
+    fn get_value(&self) -> DataSourceValue {
+        match self.0.borrow().physinfo {
+            Some(physinfo) => {
+                DataSourceValue::Int64(physinfo.free_pages as i64 * XEN_PAGE_SIZE as i64 / 1024)
+            }
+            None => DataSourceValue::Undefined,
+        }
+    }
+
+    fn get_name(&self) -> Cow<str> {
+        Cow::Borrowed("memory_free_kib")
     }
 }

@@ -9,7 +9,7 @@ use crate::{update_once::UpdateOnce, XenMetricsStatus};
 use self::{
     domain::{DomainMemory, VCpuTime},
     host::LoadAvg,
-    physical::{PCpuTime, SharedPCpuSlice},
+    physical::{MemoryFree, MemoryTotal, PCpuTime, SharedPCpuSlice, SharedPhysInfo},
 };
 
 mod domain;
@@ -64,6 +64,7 @@ pub fn discover_xen_metrics(xc: Rc<XenControl>) -> (Box<[Box<dyn XenMetric>]>, X
         }
     }
 
+    // pcpu infos
     let physinfo = xc.physinfo();
 
     if let Ok(physinfo) = physinfo {
@@ -80,6 +81,12 @@ pub fn discover_xen_metrics(xc: Rc<XenControl>) -> (Box<[Box<dyn XenMetric>]>, X
             })
         }
     }
+
+    // Memory infos
+    let shared_physinfo = Rc::new(UpdateOnce::new(SharedPhysInfo::new(xc.clone())));
+
+    metrics.push(Box::new(MemoryTotal::new(shared_physinfo.clone())));
+    metrics.push(Box::new(MemoryFree::new(shared_physinfo)));
 
     (metrics.into_boxed_slice(), XenMetricsStatus { dom_count })
 }
