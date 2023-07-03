@@ -281,7 +281,7 @@ impl From<&DataSourceMetadata> for DataSourceMetadataRaw {
         let min = Some(val.min.to_string());
         let max = Some(val.max.to_string());
 
-        let owner = Some(Into::<Box<str>>::into(val.owner.clone()).into());
+        let owner = Some(Into::<Box<str>>::into(val.owner).into());
 
         Self {
             description,

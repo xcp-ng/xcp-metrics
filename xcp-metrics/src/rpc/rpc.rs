@@ -27,11 +27,9 @@ pub async fn rpc_route(
             // Start protocol v2 provider
             ProtocolV2Provider::new(&register_rpc.uid).start_provider(hub_channel.clone());
 
-            Ok(Response::builder().body("Working".into())?.into())
+            Ok(Response::builder().body("Working".into())?)
         } else {
-            Ok(Response::builder()
-                .body("Invalid register RPC".into())?
-                .into())
+            Ok(Response::builder().body("Invalid register RPC".into())?)
         };
     }
 
@@ -40,7 +38,7 @@ pub async fn rpc_route(
 
         let body = OpenMetricsRoute::run(hub_channel.clone()).await?;
 
-        return Ok(Response::builder().body(body)?.into());
+        return Ok(Response::builder().body(body)?);
     }
 
     Ok(Response::builder()

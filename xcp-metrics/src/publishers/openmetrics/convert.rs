@@ -155,7 +155,7 @@ impl From<MetricValue> for openmetrics::metric_point::Value {
             } => Self::SummaryValue(openmetrics::SummaryValue {
                 count,
                 sum: Some(sum.into()),
-                quantile: quantile.into_iter().map(Into::into).collect(),
+                quantile: quantile.iter().map(Into::into).collect(),
                 created: Some(created.into()),
             }),
         }

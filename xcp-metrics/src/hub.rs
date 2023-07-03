@@ -102,7 +102,7 @@ impl MetricsHub {
         let metrics = Arc::make_mut(&mut self.metrics);
 
         for (_, family) in metrics.families.iter_mut() {
-            if let Some(_) = family.metrics.remove(&message.uuid) {
+            if family.metrics.remove(&message.uuid).is_some() {
                 println!("Unregistered {}", message.uuid);
                 break;
             }
