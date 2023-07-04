@@ -9,5 +9,6 @@ members = [
   "xcp-metrics-test",
   "plugins/xcp-metrics-plugin-common",
   "plugins/xcp-metrics-plugin-xen",
+  "plugins/xcp-metrics-plugin-tests",
   "xcp-metrics-tools",
 ]
