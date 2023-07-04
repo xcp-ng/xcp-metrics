@@ -11,8 +11,3 @@ members = [
   "plugins/xcp-metrics-plugin-xen",
   "xcp-metrics-tools",
 ]
-default-members = [
-  "xcp-metrics",
-  "xcp-metrics-common",
-  "plugins/xcp-metrics-plugin-common",
-]
