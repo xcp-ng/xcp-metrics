@@ -13,7 +13,7 @@ use xcp_metrics_common::{
 
 use crate::{
     hub::{HubPullResponse, HubPushMessage, PullMetrics},
-    rpc::XcpRpcRoute,
+    rpc::routes::XcpRpcRoute,
 };
 
 use self::convert::openmetrics;

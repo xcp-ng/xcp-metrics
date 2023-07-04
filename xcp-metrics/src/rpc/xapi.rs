@@ -13,7 +13,7 @@ use xcp_metrics_common::xapi::{
     hyperlocal::UnixServerExt,
 };
 
-use crate::{hub::HubPushMessage, rpc::rpc};
+use crate::{hub::HubPushMessage, rpc};
 
 pub struct XapiDaemon;
 
@@ -30,7 +30,7 @@ impl XapiDaemon {
 
             async move {
                 anyhow::Ok(service_fn(move |request: hyper::Request<Body>| {
-                    rpc::rpc_entrypoint(hub_channel.clone(), request)
+                    rpc::entrypoint(hub_channel.clone(), request)
                 }))
             }
         });

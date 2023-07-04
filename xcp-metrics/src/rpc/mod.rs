@@ -1,56 +1,54 @@
-mod rpc;
+pub mod routes;
 pub mod xapi;
 
-use futures::future::BoxFuture;
+use std::collections::HashMap;
+
+use anyhow::bail;
 use tokio::sync::mpsc;
 use xcp_metrics_common::{
-    xapi::hyper::{Body, Response},
-    xmlrpc::{
-        dxr::{MethodCall, TryFromValue},
-        PluginLocalRegister,
-    },
+    xapi::hyper::{body::HttpBody, Body, Request, Response},
+    xmlrpc::{dxr::MethodCall, parse_method},
 };
 
-use crate::{
-    hub::HubPushMessage,
-    providers::{protocol_v2::ProtocolV2Provider, Provider},
-};
+use crate::{hub::HubPushMessage, rpc::routes::generate_routes};
 
-pub trait XcpRpcRoute: 'static + Sync + Send {
-    fn run(
-        &self,
-        hub_channel: mpsc::UnboundedSender<HubPushMessage>,
-        method: MethodCall,
-    ) -> BoxFuture<'static, anyhow::Result<Response<Body>>>;
+use self::routes::XcpRpcRoute;
 
-    fn make_route() -> Box<dyn XcpRpcRoute>
-    where
-        Self: Default,
-    {
-        Box::new(Self::default())
+pub async fn route(
+    hub_channel: mpsc::UnboundedSender<HubPushMessage>,
+    method: MethodCall,
+    rpc_routes: &HashMap<&str, Box<dyn XcpRpcRoute>>,
+) -> anyhow::Result<Response<Body>> {
+    println!("RPC: {method:?}");
+
+    if let Some(route) = rpc_routes.get(method.name()) {
+        route.run(hub_channel, method).await
+    } else {
+        Ok(Response::builder()
+            .body("Unknown RPC method".into())?
+            .into())
     }
 }
 
-#[derive(Clone, Copy, Default)]
-pub struct PluginLocalRegisterRoute;
+pub async fn entrypoint(
+    hub_channel: mpsc::UnboundedSender<HubPushMessage>,
+    req: Request<Body>,
+) -> anyhow::Result<Response<Body>> {
+    let rpc_routes = generate_routes();
 
-impl XcpRpcRoute for PluginLocalRegisterRoute {
-    fn run(
-        &self,
-        hub_channel: mpsc::UnboundedSender<HubPushMessage>,
-        method: MethodCall,
-    ) -> BoxFuture<'static, anyhow::Result<Response<Body>>> {
-        Box::pin(async move {
-            let register_rpc = PluginLocalRegister::try_from_value(
-                method
-                    .params()
-                    .first()
-                    .ok_or_else(|| anyhow::anyhow!("No value provided"))?,
-            )?;
+    println!("RPC: {req:#?}");
 
-            ProtocolV2Provider::new(&register_rpc.uid).start_provider(hub_channel.clone());
+    if let Some(Ok(bytes)) = req.into_body().data().await {
+        let buffer = bytes.to_vec();
+        let str = String::from_utf8_lossy(&buffer);
 
-            Ok(Response::builder().body("Working".into())?)
-        })
+        let method = parse_method(&str);
+        println!("RPC: {method:#?}");
+
+        if let Ok(method) = method {
+            return route(hub_channel, method, &rpc_routes).await;
+        }
     }
+
+    bail!("Unexpected request")
 }
