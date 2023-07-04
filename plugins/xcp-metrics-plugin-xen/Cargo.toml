@@ -14,5 +14,5 @@ xenctrl = { git = "https://github.com/TSnake41/xenctrl", branch = "more_function
 xenctrl-sys = "*"
 
 tokio = { version = "1", features = ["full"] }
-uuid = "1.4.0"
-anyhow = "1.0.71"
+uuid = "1.4"
+anyhow = "1.0"
