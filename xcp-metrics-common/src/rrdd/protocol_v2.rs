@@ -6,6 +6,7 @@ use std::{
 
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
+use tokio::io::AsyncRead;
 
 use super::protocol_common::{DataSourceMetadata, DataSourceMetadataRaw, DataSourceParseError};
 
@@ -108,6 +109,81 @@ impl RrddMessageHeader {
         let mut second_part_buffer =
             vec![0u8; (8 * values_count + 4/* metadata length */) as usize];
         input.read_exact(&mut second_part_buffer)?;
+
+        // Split values and metadata
+        let (values_buffer, metadata_length_buffer) =
+            second_part_buffer.split_at(8 * values_count as usize);
+
+        // Check data checksum
+        let mut data_checksum_hasher = crc32fast::Hasher::new();
+        data_checksum_hasher.update(&timestamp_buffer);
+        data_checksum_hasher.update(values_buffer);
+
+        if data_checksum != data_checksum_hasher.finalize() {
+            return Err(RrddProtocolError::InvalidChecksum);
+        }
+
+        // TODO: Consider using slice::array_chunks when stabilized.
+        // https://github.com/rust-lang/rust/issues/74985
+        let values: Box<[[u8; 8]]> = values_buffer
+            .chunks_exact(8)
+            .map(|slice| slice.try_into().unwrap())
+            .collect();
+
+        let metadata_length =
+            u32::from_be_bytes(TryInto::<[u8; 4]>::try_into(metadata_length_buffer).unwrap());
+
+        Ok(Self {
+            data_checksum,
+            header_size: first_part_buffer.len() + second_part_buffer.len(),
+            metadata_checksum,
+            metadata_length,
+            timestamp,
+            values,
+        })
+    }
+
+    /// Parse a message header from a readable source.
+    pub async fn parse_async<R: AsyncRead + Unpin>(
+        input: &mut R,
+    ) -> Result<Self, RrddProtocolError> {
+        let mut header_buffer = [0u8; HEADER.len()];
+        let mut data_checksum_buffer = [0u8; 4];
+        let mut metadata_checksum_buffer = [0u8; 4];
+        let mut values_count_buffer = [0u8; 4];
+        let mut timestamp_buffer = [0u8; 8];
+
+        // Read the first part (all fields until datasource values)
+        let mut first_part_buffer = [0u8; RRDD_HEADER_LENGTH_PART1];
+        tokio::io::AsyncReadExt::read_exact(input, &mut first_part_buffer).await?;
+
+        // note: slices implements Read.
+        let mut first_part_slice = first_part_buffer.as_slice();
+
+        first_part_slice.read_exact(&mut header_buffer)?;
+
+        if HEADER.as_bytes() != header_buffer {
+            return Err(RrddProtocolError::InvalidConstantString);
+        }
+
+        first_part_slice.read_exact(&mut data_checksum_buffer)?;
+        let data_checksum = u32::from_be_bytes(data_checksum_buffer);
+
+        first_part_slice.read_exact(&mut metadata_checksum_buffer)?;
+        let metadata_checksum = u32::from_be_bytes(metadata_checksum_buffer);
+
+        first_part_slice.read_exact(&mut values_count_buffer)?;
+        let values_count = u32::from_be_bytes(values_count_buffer);
+
+        first_part_slice.read_exact(&mut timestamp_buffer)?;
+        let timestamp_epoch = u64::from_be_bytes(timestamp_buffer);
+
+        let timestamp = time::UNIX_EPOCH + Duration::from_secs(timestamp_epoch);
+
+        // Second part (values and metadata length)
+        let mut second_part_buffer =
+            vec![0u8; (8 * values_count + 4/* metadata length */) as usize];
+        tokio::io::AsyncReadExt::read_exact(input, &mut second_part_buffer).await?;
 
         // Split values and metadata
         let (values_buffer, metadata_length_buffer) =

@@ -1,12 +1,13 @@
 //! Protocol v2 plugin provider
 use std::{
     collections::HashMap,
-    io::Read,
     path::{Path, PathBuf},
     time::{Duration, SystemTime},
 };
 
 use tokio::{
+    fs::File,
+    io::AsyncReadExt,
     sync::mpsc,
     task::{self, AbortHandle},
     time,
@@ -52,9 +53,9 @@ impl ProtocolV2Provider {
     }
 
     // TODO: This is blocking, port it to async.
-    fn collect_plugin_metrics(&mut self) -> anyhow::Result<bool> {
-        let mut file = std::fs::File::open(&self.path)?;
-        let header = RrddMessageHeader::parse_from(&mut file);
+    async fn collect_plugin_metrics(&mut self) -> anyhow::Result<bool> {
+        let mut file = File::open(&self.path).await?;
+        let header = RrddMessageHeader::parse_async(&mut file).await;
         let mut updated_metadata = false;
 
         println!("{}: Readed {header:?}", self.name);
@@ -76,7 +77,7 @@ impl ProtocolV2Provider {
 
                     // Read metadata
                     let mut metadata_string = vec![0u8; header.metadata_length as usize];
-                    file.read_exact(&mut metadata_string)?;
+                    file.read_exact(&mut metadata_string).await?;
                     let metadata: RrddMetadata =
                         serde_json::from_slice::<RrddMetadataRaw>(&metadata_string)?.try_into()?;
 
@@ -165,7 +166,7 @@ impl Provider for ProtocolV2Provider {
         Some(
             task::spawn(async move {
                 loop {
-                    let updated_metadata = self.collect_plugin_metrics();
+                    let updated_metadata = self.collect_plugin_metrics().await;
                     println!("{}: Updated metadata: {:?}", self.name, updated_metadata);
                     println!("{}: {:?}", self.name, self.state);
 
