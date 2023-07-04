@@ -2,10 +2,14 @@
 mod convert;
 
 use anyhow::bail;
-use async_trait::async_trait;
+use futures::future::BoxFuture;
 use prost::Message;
 use tokio::sync::mpsc;
-use xcp_metrics_common::{metrics::MetricSet, xapi::hyper::Body};
+use xcp_metrics_common::{
+    metrics::MetricSet,
+    xapi::hyper::{Body, Response},
+    xmlrpc::dxr::MethodCall,
+};
 
 use crate::{
     hub::{HubPullResponse, HubPushMessage, PullMetrics},
@@ -18,21 +22,31 @@ fn generate_openmetrics_message(metrics: MetricSet) -> Vec<u8> {
     openmetrics::MetricSet::from(metrics).encode_to_vec()
 }
 
+#[derive(Copy, Clone, Default)]
 pub struct OpenMetricsRoute;
 
-#[async_trait]
 impl XcpRpcRoute for OpenMetricsRoute {
-    async fn run(hub_channel: mpsc::UnboundedSender<HubPushMessage>) -> anyhow::Result<Body> {
-        let (sender, mut receiver) = mpsc::unbounded_channel();
+    fn run(
+        &self,
+        hub_channel: mpsc::UnboundedSender<HubPushMessage>,
+        _method: MethodCall,
+    ) -> BoxFuture<'static, anyhow::Result<Response<Body>>> {
+        println!("RPC: Open Metrics query");
 
-        hub_channel.send(HubPushMessage::PullMetrics(PullMetrics(sender)))?;
+        Box::pin(async move {
+            let (sender, mut receiver) = mpsc::unbounded_channel();
 
-        let Some(HubPullResponse::Metrics(metrics)) = receiver.recv().await else {
-        bail!("Unable to fetch metrics from hub")
-      };
+            hub_channel.send(HubPushMessage::PullMetrics(PullMetrics(sender)))?;
 
-        let message = generate_openmetrics_message((*metrics).clone());
+            let Some(HubPullResponse::Metrics(metrics)) = receiver.recv().await else {
+                bail!("Unable to fetch metrics from hub")
+            };
 
-        Ok(message.into())
+            let message = generate_openmetrics_message((*metrics).clone());
+
+            Ok(Response::builder()
+                .header("content-type", "application/x-protobuf")
+                .body(message.into())?)
+        })
     }
 }
