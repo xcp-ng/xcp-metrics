@@ -100,12 +100,25 @@ impl MetricsHub {
 
     async fn unregister(&mut self, message: UnregisterMetrics) {
         let metrics = Arc::make_mut(&mut self.metrics);
+        let mut deprecated_family = None;
 
-        for (_, family) in metrics.families.iter_mut() {
+        for (family_name, family) in metrics.families.iter_mut() {
             if family.metrics.remove(&message.uuid).is_some() {
                 println!("Unregistered {}", message.uuid);
+
+                // Remove metric family if now empty.
+                if family.metrics.is_empty() {
+                    deprecated_family.replace(family_name.clone());
+                }
+
                 break;
             }
+
+        }
+
+        if let Some(name) = &deprecated_family {
+            println!("Unregistered empty metric family {name}");
+            metrics.families.remove(name);
         }
     }
 

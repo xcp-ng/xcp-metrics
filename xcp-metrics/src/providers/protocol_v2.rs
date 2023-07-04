@@ -20,7 +20,7 @@ use xcp_metrics_common::{
     },
 };
 
-use crate::hub::{HubPushMessage, RegisterMetrics, UpdateMetrics};
+use crate::hub::{HubPushMessage, RegisterMetrics, UnregisterMetrics, UpdateMetrics};
 
 use super::Provider;
 
@@ -52,7 +52,6 @@ impl ProtocolV2Provider {
         }
     }
 
-    // TODO: This is blocking, port it to async.
     async fn collect_plugin_metrics(&mut self) -> anyhow::Result<bool> {
         let mut file = File::open(&self.path).await?;
         let header = RrddMessageHeader::parse_async(&mut file).await;
@@ -156,6 +155,26 @@ impl ProtocolV2Provider {
             },
         );
     }
+
+    fn check_metrics(&mut self, hub_channel: &mpsc::UnboundedSender<HubPushMessage>) {
+        let Some(state) = &self.state else { return };
+
+        self.registered_metrics.retain(|key, uuid| {
+            // Check if the key exists in the new metadata.
+            if !state.metadata.datasources.contains_key(key) {
+                // missing: unregister
+                hub_channel
+                    .send(HubPushMessage::UnregisterMetrics(UnregisterMetrics {
+                        uuid: *uuid,
+                    }))
+                    .ok();
+
+                false
+            } else {
+                true
+            }
+        })
+    }
 }
 
 impl Provider for ProtocolV2Provider {
@@ -170,9 +189,13 @@ impl Provider for ProtocolV2Provider {
                     println!("{}: Updated metadata: {:?}", self.name, updated_metadata);
                     println!("{}: {:?}", self.name, self.state);
 
-                    // TODO:
-                    //  - detect updated metadata (use metadata_updated)
-                    //  - Handle removal of outdated metrics
+                    match updated_metadata {
+                        // Check for removed metrics
+                        Ok(true) => self.check_metrics(&hub_channel),
+                        Ok(false) => (),
+                        Err(e) => eprintln!("{}: {e:?}", self.name),
+                    }
+
                     self.send_values(&hub_channel).await;
 
                     time::sleep(Duration::from_secs(5)).await
