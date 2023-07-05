@@ -6,7 +6,7 @@ use xcp_metrics_common::{
         protocol_common::DataSourceValue,
         protocol_v2::{RrddMessageHeader, RrddMetadata},
     },
-    xapi::{self, hyper::body::HttpBody},
+    xapi::{self, hyper::body::HttpBody, METRICS_SHM_PATH},
     xmlrpc::PluginLocalRegister,
 };
 
@@ -15,8 +15,6 @@ pub struct RrddPlugin {
     header: RrddMessageHeader,
     metrics_path: PathBuf,
 }
-
-const METRICS_SHM_PATH: &str = "/dev/shm/metrics/";
 
 /// Update `header` values with ones provided by `values`.
 fn values_to_raw(values: &[DataSourceValue]) -> Box<[[u8; 8]]> {

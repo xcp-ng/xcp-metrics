@@ -1,7 +1,8 @@
 use crate::xmlrpc::XcpRpcMethod;
 use std::{path::PathBuf, str::FromStr};
 
-const XAPI_SOCKET_PATH: &str = "/var/lib/xcp";
+pub const XAPI_SOCKET_PATH: &str = "/var/lib/xcp";
+pub const METRICS_SHM_PATH: &str = "/dev/shm/metrics/";
 
 pub use hyper;
 pub use hyperlocal;

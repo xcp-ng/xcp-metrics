@@ -83,7 +83,7 @@ pub fn discover_xen_metrics(xc: Rc<XenControl>) -> (Box<[Box<dyn XenMetric>]>, X
     }
 
     // Memory infos
-    let shared_physinfo = Rc::new(UpdateOnce::new(SharedPhysInfo::new(xc.clone())));
+    let shared_physinfo = Rc::new(UpdateOnce::new(SharedPhysInfo::new(xc)));
 
     metrics.push(Box::new(MemoryTotal::new(shared_physinfo.clone())));
     metrics.push(Box::new(MemoryFree::new(shared_physinfo)));
