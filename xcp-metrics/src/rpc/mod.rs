@@ -6,8 +6,8 @@ use std::collections::HashMap;
 use anyhow::bail;
 use tokio::sync::mpsc;
 use xcp_metrics_common::{
-    xapi::hyper::{body::HttpBody, Body, Request, Response},
-    xmlrpc::{dxr::MethodCall, parse_method},
+    rpc::{dxr::MethodCall, parse_method_xmlrpc},
+    xapi::hyper::{body::HttpBody, http::HeaderValue, Body, Request, Response},
 };
 
 use crate::{hub::HubPushMessage, rpc::routes::generate_routes};
@@ -38,11 +38,20 @@ pub async fn entrypoint(
 
     println!("RPC: {req:#?}");
 
+    match req
+        .headers()
+        .get("content-type")
+        .map(|header| header.to_str())
+    {
+        Some(Ok(s)) => println!("RPC: Content-Type: {s}"),
+        _ => (),
+    }
+
     if let Some(Ok(bytes)) = req.into_body().data().await {
         let buffer = bytes.to_vec();
         let str = String::from_utf8_lossy(&buffer);
 
-        let method = parse_method(&str);
+        let method = parse_method_xmlrpc(&str);
         println!("RPC: {method:#?}");
 
         if let Ok(method) = method {

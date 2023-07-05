@@ -1,4 +1,4 @@
-use crate::xmlrpc::XcpRpcMethod;
+use crate::rpc::XcpRpcMethod;
 use std::{path::PathBuf, str::FromStr};
 
 pub const XAPI_SOCKET_PATH: &str = "/var/lib/xcp";

@@ -1,11 +1,11 @@
 use tokio::io::{stdout, AsyncWriteExt};
 use xcp_metrics_common::{
+    rpc::dxr::MethodCall,
     xapi::{
         get_module_path,
         hyper::{self, body, Body},
         hyperlocal,
     },
-    xmlrpc::dxr::MethodCall,
 };
 
 #[tokio::main]

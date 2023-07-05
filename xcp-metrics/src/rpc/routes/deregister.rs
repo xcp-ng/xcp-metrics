@@ -1,8 +1,8 @@
 use futures::future::BoxFuture;
 use tokio::sync::mpsc;
 use xcp_metrics_common::{
+    rpc::dxr::MethodCall,
     xapi::hyper::{Body, Response},
-    xmlrpc::dxr::MethodCall,
 };
 
 use crate::hub::HubPushMessage;

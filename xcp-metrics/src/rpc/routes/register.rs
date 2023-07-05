@@ -1,11 +1,11 @@
 use futures::future::BoxFuture;
 use tokio::sync::mpsc;
 use xcp_metrics_common::{
-    xapi::hyper::{Body, Response},
-    xmlrpc::{
+    rpc::{
         dxr::{MethodCall, TryFromValue},
-        PluginLocalRegister,
+        methods::PluginLocalRegister,
     },
+    xapi::hyper::{Body, Response},
 };
 
 use crate::{

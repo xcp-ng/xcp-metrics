@@ -7,8 +7,12 @@ use crate::{hub::HubPushMessage, publishers::openmetrics::OpenMetricsRoute};
 use futures::future::BoxFuture;
 use tokio::sync::mpsc;
 use xcp_metrics_common::{
+    rpc::{
+        dxr::MethodCall,
+        methods::{PluginLocalDeregister, PluginLocalRegister},
+        XcpRpcMethodNamed,
+    },
     xapi::hyper::{Body, Response},
-    xmlrpc::{dxr::MethodCall, PluginLocalDeregister, PluginLocalRegister, XcpRpcMethodNamed},
 };
 
 use self::{deregister::PluginLocalDeregisterRoute, register::PluginLocalRegisterRoute};

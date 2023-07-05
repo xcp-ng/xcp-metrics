@@ -7,8 +7,8 @@ use prost::Message;
 use tokio::sync::mpsc;
 use xcp_metrics_common::{
     metrics::MetricSet,
+    rpc::dxr::MethodCall,
     xapi::hyper::{Body, Response},
-    xmlrpc::dxr::MethodCall,
 };
 
 use crate::{

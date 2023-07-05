@@ -2,12 +2,12 @@ use std::path::{Path, PathBuf};
 
 use tokio::{fs::OpenOptions, io::AsyncWriteExt};
 use xcp_metrics_common::{
+    rpc::methods::PluginLocalRegister,
     rrdd::{
         protocol_common::DataSourceValue,
         protocol_v2::{RrddMessageHeader, RrddMetadata},
     },
     xapi::{self, hyper::body::HttpBody, METRICS_SHM_PATH},
-    xmlrpc::PluginLocalRegister,
 };
 
 pub struct RrddPlugin {
