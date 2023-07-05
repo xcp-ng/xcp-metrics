@@ -15,13 +15,10 @@ use xcp_metrics_common::xapi::{
 
 use crate::{hub::HubPushMessage, rpc};
 
-pub struct XapiDaemon;
-
-impl XapiDaemon {
-    pub async fn new(
-        daemon_name: &str,
-        hub_channel: mpsc::UnboundedSender<HubPushMessage>,
-    ) -> anyhow::Result<JoinHandle<()>> {
+pub async fn start_daemon(
+    daemon_name: &str,
+    hub_channel: mpsc::UnboundedSender<HubPushMessage>,
+) -> anyhow::Result<JoinHandle<()>> {
         let socket_path = xapi::get_module_path(daemon_name);
 
         let make_service = make_service_fn(move |socket: &UnixStream| {
@@ -43,6 +40,5 @@ impl XapiDaemon {
                 .unwrap();
         });
 
-        Ok(server_task)
-    }
+    Ok(server_task)
 }

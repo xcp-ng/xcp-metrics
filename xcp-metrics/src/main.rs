@@ -9,7 +9,7 @@ mod rpc;
 #[tokio::main]
 async fn main() {
     let (hub, channel) = hub::MetricsHub::default().start().await;
-    let socket = xapi::XapiDaemon::new("xcp-rrdd", channel).await.unwrap();
+    let socket = xapi::start_daemon("xcp-rrdd", channel).await.unwrap();
 
     select! {
         res = hub => println!("Hub returned: {res:?}"),
