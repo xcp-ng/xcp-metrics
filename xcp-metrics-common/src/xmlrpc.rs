@@ -57,3 +57,15 @@ pub struct PluginLocalRegister {
 }
 
 rpc_method!(PluginLocalRegister, "Plugin.Local.register");
+
+#[derive(Debug, Clone, TryToValue, TryFromValue)]
+pub struct PluginLocalDeregister {
+    pub uid: String,
+}
+
+rpc_method!(PluginLocalDeregister, "Plugin.Local.deregister");
+
+#[derive(Debug, Clone, TryToValue, TryFromValue)]
+pub struct PluginLocalNextReading {}
+
+rpc_method!(PluginLocalNextReading, "Plugin.Local.next_reading");
