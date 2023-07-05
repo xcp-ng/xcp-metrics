@@ -50,6 +50,7 @@ impl RpcRequest {
                 if let Some(Ok(bytes)) = req.into_body().data().await {
                     let buffer = bytes.to_vec();
                     let str = String::from_utf8_lossy(&buffer);
+                    println!("RPC: XML:\n{str}");
 
                     parse_method_xmlrpc(&str).map(RpcRequest::XmlRpc)
                 } else {
