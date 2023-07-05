@@ -60,7 +60,7 @@ impl RrddPlugin {
             uid: (*self.uid).into(),
         };
 
-        let response = xapi::send_xmlrpc_at(
+        let response = xapi::send_jsonrpc_at(
             "xcp-rrdd", "POST", &request, &self.uid, /* use uid as user-agent */
         )
         .await?;

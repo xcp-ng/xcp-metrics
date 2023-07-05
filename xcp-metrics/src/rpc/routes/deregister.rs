@@ -1,7 +1,7 @@
 use futures::future::BoxFuture;
 use tokio::sync::mpsc;
 use xcp_metrics_common::{
-    rpc::dxr::MethodCall,
+    rpc::message::RpcRequest,
     xapi::hyper::{Body, Response},
 };
 
@@ -15,8 +15,8 @@ pub struct PluginLocalDeregisterRoute;
 impl XcpRpcRoute for PluginLocalDeregisterRoute {
     fn run(
         &self,
-        hub_channel: mpsc::UnboundedSender<HubPushMessage>,
-        method: MethodCall,
+        _hub_channel: mpsc::UnboundedSender<HubPushMessage>,
+        _request: RpcRequest,
     ) -> BoxFuture<'static, anyhow::Result<Response<Body>>> {
         todo!()
     }

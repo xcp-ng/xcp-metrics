@@ -113,7 +113,6 @@ impl MetricsHub {
 
                 break;
             }
-
         }
 
         if let Some(name) = &deprecated_family {

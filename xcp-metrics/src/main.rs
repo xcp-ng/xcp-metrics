@@ -4,7 +4,7 @@ use tokio::select;
 pub mod hub;
 pub mod providers;
 pub mod publishers;
-mod rpc;
+pub mod rpc;
 
 #[tokio::main]
 async fn main() {

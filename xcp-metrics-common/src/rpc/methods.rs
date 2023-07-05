@@ -19,7 +19,12 @@ pub struct PluginLocalDeregister {
 
 rpc_method!(PluginLocalDeregister, "Plugin.Local.deregister");
 
-#[derive(Debug, Clone, TryToValue, TryFromValue, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, TryToValue, TryFromValue, Serialize, Deserialize)]
 pub struct PluginLocalNextReading {}
 
 rpc_method!(PluginLocalNextReading, "Plugin.Local.next_reading");
+
+#[derive(Default, Debug, Clone, TryToValue, TryFromValue, Serialize, Deserialize)]
+pub struct OpenMetricsMethod {}
+
+rpc_method!(OpenMetricsMethod, "OpenMetrics");

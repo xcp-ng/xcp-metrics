@@ -1,14 +1,13 @@
+pub mod message;
 pub mod methods;
 
 use dxr::{TryFromValue, TryToValue};
-
-pub use dxr;
 use serde::{de::DeserializeOwned, Serialize};
 
 #[macro_export]
 macro_rules! rpc_method {
     ($struct:ty, $name:stmt) => {
-        impl crate::rpc::XcpRpcMethodNamed for $struct {
+        impl $crate::rpc::XcpRpcMethodNamed for $struct {
             fn get_method_name() -> &'static str {
                 $name
             }
@@ -41,14 +40,6 @@ where
         Ok(())
     }
 
-    fn try_from_xmlrpc(method: dxr::MethodCall) -> Option<Self> {
-        if method.name() == M::get_method_name() {
-            M::try_from_value(method.params().first()?).ok()
-        } else {
-            None
-        }
-    }
-
     fn write_jsonrpc<W: std::io::Write>(&self, w: &mut W) -> anyhow::Result<()> {
         jsonrpc_base::Request {
             jsonrpc: "2.0".into(),
@@ -59,6 +50,14 @@ where
         .try_to_writer(w)
         .map(|_| ())
         .map_err(|e| anyhow::anyhow!(e.to_string()))
+    }
+
+    fn try_from_xmlrpc(method: dxr::MethodCall) -> Option<Self> {
+        if method.name() == M::get_method_name() {
+            M::try_from_value(method.params().first()?).ok()
+        } else {
+            None
+        }
     }
 
     fn try_from_jsonrpc(request: jsonrpc_base::Request) -> Option<Self> {

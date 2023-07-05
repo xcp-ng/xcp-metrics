@@ -19,26 +19,26 @@ pub async fn start_daemon(
     daemon_name: &str,
     hub_channel: mpsc::UnboundedSender<HubPushMessage>,
 ) -> anyhow::Result<JoinHandle<()>> {
-        let socket_path = xapi::get_module_path(daemon_name);
+    let socket_path = xapi::get_module_path(daemon_name);
 
-        let make_service = make_service_fn(move |socket: &UnixStream| {
-            println!("{socket:?}");
-            let hub_channel = hub_channel.clone();
+    let make_service = make_service_fn(move |socket: &UnixStream| {
+        println!("{socket:?}");
+        let hub_channel = hub_channel.clone();
 
-            async move {
-                anyhow::Ok(service_fn(move |request: hyper::Request<Body>| {
-                    rpc::entrypoint(hub_channel.clone(), request)
-                }))
-            }
-        });
+        async move {
+            anyhow::Ok(service_fn(move |request: hyper::Request<Body>| {
+                rpc::entrypoint(hub_channel.clone(), request)
+            }))
+        }
+    });
 
-        let server_task = task::spawn(async move {
-            hyper::Server::bind_unix(socket_path)
-                .expect("Unable to bind to socket")
-                .serve(make_service)
-                .await
-                .unwrap();
-        });
+    let server_task = task::spawn(async move {
+        hyper::Server::bind_unix(socket_path)
+            .expect("Unable to bind to socket")
+            .serve(make_service)
+            .await
+            .unwrap();
+    });
 
     Ok(server_task)
 }

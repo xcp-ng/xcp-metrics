@@ -1,13 +1,12 @@
 //! OpenMetrics based metrics publisher
 mod convert;
 
-use anyhow::bail;
 use futures::future::BoxFuture;
 use prost::Message;
 use tokio::sync::mpsc;
 use xcp_metrics_common::{
     metrics::MetricSet,
-    rpc::dxr::MethodCall,
+    rpc::message::RpcRequest,
     xapi::hyper::{Body, Response},
 };
 
@@ -29,7 +28,7 @@ impl XcpRpcRoute for OpenMetricsRoute {
     fn run(
         &self,
         hub_channel: mpsc::UnboundedSender<HubPushMessage>,
-        _method: MethodCall,
+        _message: RpcRequest,
     ) -> BoxFuture<'static, anyhow::Result<Response<Body>>> {
         println!("RPC: Open Metrics query");
 
@@ -39,7 +38,7 @@ impl XcpRpcRoute for OpenMetricsRoute {
             hub_channel.send(HubPushMessage::PullMetrics(PullMetrics(sender)))?;
 
             let Some(HubPullResponse::Metrics(metrics)) = receiver.recv().await else {
-                bail!("Unable to fetch metrics from hub")
+                anyhow::bail!("Unable to fetch metrics from hub")
             };
 
             let message = generate_openmetrics_message((*metrics).clone());

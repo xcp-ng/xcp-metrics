@@ -1,10 +1,7 @@
 use futures::future::BoxFuture;
 use tokio::sync::mpsc;
 use xcp_metrics_common::{
-    rpc::{
-        dxr::{MethodCall, TryFromValue},
-        methods::PluginLocalRegister,
-    },
+    rpc::{message::RpcRequest, methods::PluginLocalRegister},
     xapi::hyper::{Body, Response},
 };
 
@@ -22,15 +19,12 @@ impl XcpRpcRoute for PluginLocalRegisterRoute {
     fn run(
         &self,
         hub_channel: mpsc::UnboundedSender<HubPushMessage>,
-        method: MethodCall,
+        request: RpcRequest,
     ) -> BoxFuture<'static, anyhow::Result<Response<Body>>> {
         Box::pin(async move {
-            let register_rpc = PluginLocalRegister::try_from_value(
-                method
-                    .params()
-                    .first()
-                    .ok_or_else(|| anyhow::anyhow!("No value provided"))?,
-            )?;
+            let register_rpc: PluginLocalRegister = request
+                .try_into_method()
+                .ok_or_else(|| anyhow::anyhow!("No value provided"))?;
 
             ProtocolV2Provider::new(&register_rpc.uid).start_provider(hub_channel.clone());
 

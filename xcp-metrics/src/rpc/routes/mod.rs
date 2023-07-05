@@ -8,7 +8,7 @@ use futures::future::BoxFuture;
 use tokio::sync::mpsc;
 use xcp_metrics_common::{
     rpc::{
-        dxr::MethodCall,
+        message::RpcRequest,
         methods::{PluginLocalDeregister, PluginLocalRegister},
         XcpRpcMethodNamed,
     },
@@ -21,14 +21,14 @@ pub trait XcpRpcRoute: 'static + Sync + Send {
     fn run(
         &self,
         hub_channel: mpsc::UnboundedSender<HubPushMessage>,
-        method: MethodCall,
+        request: RpcRequest,
     ) -> BoxFuture<'static, anyhow::Result<Response<Body>>>;
 
     fn make_route() -> Box<dyn XcpRpcRoute>
     where
         Self: Default,
     {
-        Box::new(Self::default())
+        Box::<Self>::default()
     }
 }
 
