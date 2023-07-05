@@ -52,6 +52,8 @@ pub async fn send_jsonrpc_at<M: XcpRpcMethod>(
 
     let rpc = String::from_utf8(rpc_buffer)?;
 
+    println!("{rpc:?}");
+
     let request = hyper::Request::builder()
         .uri(Into::<hyper::Uri>::into(module_uri))
         .method(http_method)

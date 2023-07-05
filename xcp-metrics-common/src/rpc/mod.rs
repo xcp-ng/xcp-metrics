@@ -41,15 +41,19 @@ where
     }
 
     fn write_jsonrpc<W: std::io::Write>(&self, w: &mut W) -> anyhow::Result<()> {
-        jsonrpc_base::Request {
-            jsonrpc: "2.0".into(),
-            id: serde_json::Value::String(uuid::Uuid::new_v4().as_simple().to_string()),
-            method: Self::get_method_name().into(),
-            params: Some(serde_json::to_value(self)?),
-        }
-        .try_to_writer(w)
-        .map(|_| ())
-        .map_err(|e| anyhow::anyhow!(e.to_string()))
+        let id = serde_json::Value::String(uuid::Uuid::new_v4().as_hyphenated().to_string());
+
+        serde_json::to_writer(
+            w,
+            &jsonrpc_base::Request {
+                jsonrpc: "2.0".into(),
+                id,
+                method: Self::get_method_name().into(),
+                params: Some(serde_json::to_value(self)?),
+            },
+        )?;
+
+        Ok(())
     }
 
     fn try_from_xmlrpc(method: dxr::MethodCall) -> Option<Self> {
