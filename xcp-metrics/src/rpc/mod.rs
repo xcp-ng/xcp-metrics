@@ -3,11 +3,10 @@ pub mod xapi;
 
 use std::{collections::HashMap, sync::Arc};
 
-use anyhow::bail;
-use dashmap::DashSet;
-use tokio::sync::mpsc;
+use dashmap::DashMap;
+use tokio::{sync::mpsc, task::JoinHandle};
 use xcp_metrics_common::{
-    rpc::message::RpcRequest,
+    rpc::message::{RpcError, RpcRequest},
     xapi::hyper::{Body, Request, Response},
 };
 
@@ -15,7 +14,7 @@ use crate::{hub::HubPushMessage, rpc::routes::generate_routes};
 
 #[derive(Default)]
 pub struct RpcShared {
-    plugins: DashSet<Box<str>>,
+    pub plugins: DashMap<Box<str>, JoinHandle<()>>,
 }
 
 pub async fn route(
@@ -29,7 +28,7 @@ pub async fn route(
     if let Some(route) = rpc_routes.get(request.get_name()) {
         route.run(shared, hub_channel, request).await
     } else {
-        Ok(Response::builder().body("Unknown RPC method".into())?)
+        RpcError::respond_to::<()>(Some(&request), -32601, "Method not found", None)
     }
 }
 
@@ -45,9 +44,8 @@ pub async fn entrypoint(
     let request = RpcRequest::from_http(req).await;
     println!("RPC: Message: {request:#?}");
 
-    if let Ok(request) = request {
-        return route(shared, hub_channel, request, &rpc_routes).await;
+    match request {
+        Ok(request) => route(shared, hub_channel, request, &rpc_routes).await,
+        Err(err) => RpcError::respond_to(None, -32700, "Parse error", Some(err.to_string())),
     }
-
-    bail!("Unexpected request")
 }

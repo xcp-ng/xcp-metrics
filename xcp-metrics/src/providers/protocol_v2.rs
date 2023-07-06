@@ -9,7 +9,7 @@ use tokio::{
     fs::File,
     io::AsyncReadExt,
     sync::mpsc,
-    task::{self, AbortHandle},
+    task::{self, JoinHandle},
     time,
 };
 use xcp_metrics_common::{
@@ -40,6 +40,7 @@ pub struct ProtocolV2Provider {
     path: PathBuf,
     state: Option<PluginData>,
     registered_metrics: HashMap<Box<str>, uuid::Uuid>,
+    hub_channel: Option<mpsc::UnboundedSender<HubPushMessage>>,
 }
 
 impl ProtocolV2Provider {
@@ -49,6 +50,7 @@ impl ProtocolV2Provider {
             path: Path::new(METRICS_SHM_PATH).join(plugin_name),
             state: None,
             registered_metrics: HashMap::new(),
+            hub_channel: None,
         }
     }
 
@@ -181,27 +183,43 @@ impl Provider for ProtocolV2Provider {
     fn start_provider(
         mut self,
         hub_channel: mpsc::UnboundedSender<HubPushMessage>,
-    ) -> Option<AbortHandle> {
-        Some(
-            task::spawn(async move {
-                loop {
-                    let updated_metadata = self.collect_plugin_metrics().await;
-                    println!("{}: Updated metadata: {:?}", self.name, updated_metadata);
-                    println!("{}: {:?}", self.name, self.state);
+    ) -> JoinHandle<()> {
+        self.hub_channel.replace(hub_channel.clone());
 
-                    match updated_metadata {
-                        // Check for removed metrics
-                        Ok(true) => self.check_metrics(&hub_channel),
-                        Ok(false) => (),
-                        Err(e) => eprintln!("{}: {e:?}", self.name),
-                    }
+        task::spawn(async move {
+            loop {
+                let updated_metadata = self.collect_plugin_metrics().await;
+                println!("{}: Updated metadata: {:?}", self.name, updated_metadata);
+                println!("{}: {:?}", self.name, self.state);
 
-                    self.send_values(&hub_channel).await;
-
-                    time::sleep(Duration::from_secs(5)).await
+                match updated_metadata {
+                    // Check for removed metrics
+                    Ok(true) => self.check_metrics(&hub_channel),
+                    Ok(false) => (),
+                    Err(e) => eprintln!("{}: {e:?}", self.name),
                 }
-            })
-            .abort_handle(),
-        )
+
+                self.send_values(&hub_channel).await;
+
+                time::sleep(Duration::from_secs(5)).await
+            }
+        })
+    }
+}
+
+impl Drop for ProtocolV2Provider {
+    fn drop(&mut self) {
+        // Unregister plugins
+        if let Some(hub_channel) = &self.hub_channel {
+            self.registered_metrics.iter().for_each(|(name, uuid)| {
+                println!("{}: Unregistering {name}", self.name);
+
+                hub_channel
+                    .send(HubPushMessage::UnregisterMetrics(UnregisterMetrics {
+                        uuid: *uuid,
+                    }))
+                    .ok(); // ignore failure (destroyed hub ?)
+            });
+        }
     }
 }

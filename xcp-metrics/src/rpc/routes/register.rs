@@ -3,7 +3,11 @@ use std::sync::Arc;
 use futures::future::BoxFuture;
 use tokio::sync::mpsc;
 use xcp_metrics_common::{
-    rpc::{message::RpcRequest, methods::PluginLocalRegister},
+    rpc::{
+        message::{RpcError, RpcRequest, RpcResponse},
+        methods::PluginLocalRegister,
+        response::PluginLocalRegisterResponse,
+    },
     xapi::hyper::{Body, Response},
 };
 
@@ -27,17 +31,35 @@ impl XcpRpcRoute for PluginLocalRegisterRoute {
     ) -> BoxFuture<'static, anyhow::Result<Response<Body>>> {
         Box::pin(async move {
             let register_rpc: PluginLocalRegister = request
+                .clone()
                 .try_into_method()
                 .ok_or_else(|| anyhow::anyhow!("No value provided"))?;
 
-            if !shared.plugins.contains(register_rpc.uid.as_str()) {
-                ProtocolV2Provider::new(&register_rpc.uid).start_provider(hub_channel.clone());
-                shared.plugins.insert(register_rpc.uid.into());
-            } else {
-                println!("RPC: Plugin already registered");
-            }
+            if shared // check if plugin exists and is active
+                .plugins
+                .get(register_rpc.uid.as_str())
+                .map(|handle| !handle.is_finished())
+                .is_none()
+            {
+                let sender =
+                    ProtocolV2Provider::new(&register_rpc.uid).start_provider(hub_channel.clone());
 
-            Ok(Response::builder().body("Working".into())?)
+                shared.plugins.insert(register_rpc.uid.into(), sender);
+
+                RpcResponse::respond_to(
+                    &request,
+                    PluginLocalRegisterResponse {
+                        next_reading: 5.0, /* all provider readings are independant, thus this is always 5 */
+                    },
+                )
+            } else {
+                RpcError::respond_to::<()>(
+                    Some(&request),
+                    -32000,
+                    "Plugin already registered",
+                    None,
+                )
+            }
         })
     }
 }

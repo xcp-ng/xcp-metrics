@@ -1,5 +1,6 @@
 pub mod message;
 pub mod methods;
+pub mod response;
 
 use dxr::{TryFromValue, TryToValue};
 use serde::{de::DeserializeOwned, Serialize};

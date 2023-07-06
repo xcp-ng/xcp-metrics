@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use tokio::{fs::OpenOptions, io::AsyncWriteExt};
 use xcp_metrics_common::{
-    rpc::methods::PluginLocalRegister,
+    rpc::methods::{PluginLocalDeregister, PluginLocalRegister},
     rrdd::{
         protocol_common::DataSourceValue,
         protocol_v2::{RrddMessageHeader, RrddMetadata},
@@ -60,7 +60,7 @@ impl RrddPlugin {
             uid: (*self.uid).into(),
         };
 
-        let response = xapi::send_jsonrpc_at(
+        let response = xapi::send_xmlrpc_at(
             "xcp-rrdd", "POST", &request, &self.uid, /* use uid as user-agent */
         )
         .await?;
@@ -115,5 +115,25 @@ impl RrddPlugin {
         };
 
         Ok(RrddMessageHeader::generate(&raw_values, metadata))
+    }
+
+    pub async fn deregister_plugin(self) {
+        println!("Deregistering {}...", &self.uid);
+
+        // Unregister plugin
+        let request = PluginLocalDeregister {
+            uid: self.uid.to_string(),
+        };
+
+        let response = xapi::send_xmlrpc_at(
+            "xcp-rrdd", "POST", &request, &self.uid, /* use uid as user-agent */
+        )
+        .await
+        .unwrap();
+
+        println!("RPC Response: {response:?}");
+        if let Some(Ok(body)) = response.into_body().data().await {
+            println!("RPC Body:\n{:}", String::from_utf8_lossy(&body));
+        }
     }
 }
