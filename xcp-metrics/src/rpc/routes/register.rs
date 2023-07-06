@@ -32,6 +32,7 @@ impl XcpRpcRoute for PluginLocalRegisterRoute {
 
             if !shared.plugins.contains(register_rpc.uid.as_str()) {
                 ProtocolV2Provider::new(&register_rpc.uid).start_provider(hub_channel.clone());
+                shared.plugins.insert(register_rpc.uid.into());
             } else {
                 println!("RPC: Plugin already registered");
             }
