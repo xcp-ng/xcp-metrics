@@ -28,7 +28,8 @@ features = ["serde"]
 
 # XML-RPC stuff
 [dependencies.dxr]
-version = "0.5"
+git = "https://github.com/ironthree/dxr.git"
+rev = "72ed48961199da45e4bae472060ab7de09dbe291" # unwrapped string support
 features = ["derive"]
 default-features = false # no client/server stuff
 
