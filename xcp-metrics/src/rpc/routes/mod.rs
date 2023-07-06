@@ -1,7 +1,7 @@
 mod deregister;
 mod register;
 
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use crate::{hub::HubPushMessage, publishers::openmetrics::OpenMetricsRoute};
 use futures::future::BoxFuture;
@@ -17,9 +17,12 @@ use xcp_metrics_common::{
 
 use self::{deregister::PluginLocalDeregisterRoute, register::PluginLocalRegisterRoute};
 
+use super::RpcShared;
+
 pub trait XcpRpcRoute: 'static + Sync + Send {
     fn run(
         &self,
+        shared: Arc<RpcShared>,
         hub_channel: mpsc::UnboundedSender<HubPushMessage>,
         request: RpcRequest,
     ) -> BoxFuture<'static, anyhow::Result<Response<Body>>>;

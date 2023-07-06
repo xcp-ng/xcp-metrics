@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use futures::future::BoxFuture;
 use tokio::sync::mpsc;
 use xcp_metrics_common::{
@@ -8,6 +10,7 @@ use xcp_metrics_common::{
 use crate::{
     hub::HubPushMessage,
     providers::{protocol_v2::ProtocolV2Provider, Provider},
+    rpc::RpcShared,
 };
 
 use super::XcpRpcRoute;
@@ -18,6 +21,7 @@ pub struct PluginLocalRegisterRoute;
 impl XcpRpcRoute for PluginLocalRegisterRoute {
     fn run(
         &self,
+        shared: Arc<RpcShared>,
         hub_channel: mpsc::UnboundedSender<HubPushMessage>,
         request: RpcRequest,
     ) -> BoxFuture<'static, anyhow::Result<Response<Body>>> {
@@ -26,7 +30,11 @@ impl XcpRpcRoute for PluginLocalRegisterRoute {
                 .try_into_method()
                 .ok_or_else(|| anyhow::anyhow!("No value provided"))?;
 
-            ProtocolV2Provider::new(&register_rpc.uid).start_provider(hub_channel.clone());
+            if !shared.plugins.contains(register_rpc.uid.as_str()) {
+                ProtocolV2Provider::new(&register_rpc.uid).start_provider(hub_channel.clone());
+            } else {
+                println!("RPC: Plugin already registered");
+            }
 
             Ok(Response::builder().body("Working".into())?)
         })

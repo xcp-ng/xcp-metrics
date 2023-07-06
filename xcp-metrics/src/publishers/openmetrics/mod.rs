@@ -1,6 +1,8 @@
 //! OpenMetrics based metrics publisher
 mod convert;
 
+use std::sync::Arc;
+
 use futures::future::BoxFuture;
 use prost::Message;
 use tokio::sync::mpsc;
@@ -12,7 +14,7 @@ use xcp_metrics_common::{
 
 use crate::{
     hub::{HubPullResponse, HubPushMessage, PullMetrics},
-    rpc::routes::XcpRpcRoute,
+    rpc::{routes::XcpRpcRoute, RpcShared},
 };
 
 use self::convert::openmetrics;
@@ -27,6 +29,7 @@ pub struct OpenMetricsRoute;
 impl XcpRpcRoute for OpenMetricsRoute {
     fn run(
         &self,
+        _shared: Arc<RpcShared>,
         hub_channel: mpsc::UnboundedSender<HubPushMessage>,
         _message: RpcRequest,
     ) -> BoxFuture<'static, anyhow::Result<Response<Body>>> {
