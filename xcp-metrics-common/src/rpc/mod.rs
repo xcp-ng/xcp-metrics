@@ -20,7 +20,7 @@ pub trait XcpRpcMethodNamed {
 }
 
 pub trait XcpRpcMethod: Sized {
-    fn write_xmlrpc<W: std::fmt::Write>(&self, w: &mut W) -> anyhow::Result<()>;
+    fn write_xmlrpc<W: std::io::Write>(&self, w: &mut W) -> anyhow::Result<()>;
     fn write_jsonrpc<W: std::io::Write>(&self, w: &mut W) -> anyhow::Result<()>;
 
     fn try_from_xmlrpc(call: dxr::MethodCall) -> Option<Self>;
@@ -31,8 +31,8 @@ impl<M> XcpRpcMethod for M
 where
     M: TryToValue + TryFromValue + XcpRpcMethodNamed + Serialize + DeserializeOwned,
 {
-    fn write_xmlrpc<W: std::fmt::Write>(&self, w: &mut W) -> anyhow::Result<()> {
-        w.write_str(r#"<?xml version="1.0"?>"#)?;
+    fn write_xmlrpc<W: std::io::Write>(&self, w: &mut W) -> anyhow::Result<()> {
+        w.write_all(r#"<?xml version="1.0"?>"#.as_bytes())?;
 
         let method = dxr::MethodCall::new(M::get_method_name().into(), vec![self.try_to_value()?]);
         quick_xml::se::to_writer(w, &method)?;

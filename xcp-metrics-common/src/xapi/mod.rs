@@ -21,8 +21,9 @@ pub async fn send_xmlrpc_at<M: XcpRpcMethod>(
 ) -> anyhow::Result<hyper::Response<hyper::Body>> {
     let module_uri = hyperlocal::Uri::new(get_module_path(name), "/");
 
-    let mut rpc = String::default();
-    rpc_method.write_xmlrpc(&mut rpc)?;
+    let mut rpc_buffer = vec![];
+    rpc_method.write_xmlrpc(&mut rpc_buffer)?;
+    let rpc = String::from_utf8(rpc_buffer).unwrap();
 
     let request = hyper::Request::builder()
         .uri(Into::<hyper::Uri>::into(module_uri))
