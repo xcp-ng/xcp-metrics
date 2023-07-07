@@ -7,6 +7,7 @@ pub struct MetricSet {
     pub families: HashMap<Box<str>, MetricFamily>,
 }
 
+/// A family of [Metric] sharing a [MetricType] and `unit`.
 #[derive(Clone, Default, PartialEq, Debug)]
 pub struct MetricFamily {
     pub metric_type: MetricType,
@@ -30,7 +31,12 @@ pub enum MetricType {
 }
 
 #[derive(Clone, PartialEq, Debug)]
-pub struct Label(pub Box<str>, pub Box<str>);
+pub struct Label(
+    /// Label name
+    pub Box<str>,
+    /// Label value
+    pub Box<str>,
+);
 
 #[derive(Clone, Default, PartialEq, Debug)]
 pub struct Metric {

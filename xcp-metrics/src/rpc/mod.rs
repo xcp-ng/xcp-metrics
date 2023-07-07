@@ -1,3 +1,4 @@
+//! RPC routes and entrypoint.
 pub mod routes;
 pub mod xapi;
 

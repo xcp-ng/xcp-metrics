@@ -29,6 +29,7 @@ fn values_to_raw(values: &[DataSourceValue]) -> Box<[[u8; 8]]> {
 }
 
 impl RrddPlugin {
+    /// Create and register a new plugin.
     pub async fn new(
         uid: &'_ str,
         metadata: RrddMetadata,
@@ -48,11 +49,16 @@ impl RrddPlugin {
         Ok(plugin)
     }
 
+    /// Push new values to the shared file.
+    /// 
+    /// # Condition
+    /// The length of `new_values` must match the latest sent metadata (either by [Self::new] or [Self::reset_metadata]).
     pub async fn update_values(&mut self, new_values: &[DataSourceValue]) -> anyhow::Result<()> {
         self.header.update_values(&values_to_raw(new_values))?;
         self.reset_file(None).await
     }
 
+    /// Advertise the existence of the plugin to the main daemon.
     pub async fn advertise_plugin(&self) -> anyhow::Result<()> {
         let request = PluginLocalRegister {
             info: "Five_Seconds".into(),
@@ -73,6 +79,10 @@ impl RrddPlugin {
         Ok(())
     }
 
+    /// Replace the metadata of the shared file.
+    ///
+    /// # Condition
+    /// The length of `initial_values` must match the `metadata`.
     pub async fn reset_metadata(
         &mut self,
         metadata: RrddMetadata,
@@ -117,6 +127,7 @@ impl RrddPlugin {
         Ok(RrddMessageHeader::generate(&raw_values, metadata))
     }
 
+    /// Deregister the plugin from the daemon.
     pub async fn deregister_plugin(self) {
         println!("Deregistering {}...", &self.uid);
 

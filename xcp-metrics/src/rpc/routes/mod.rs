@@ -1,3 +1,4 @@
+//! RPC routes
 mod deregister;
 mod register;
 
@@ -35,6 +36,7 @@ pub trait XcpRpcRoute: 'static + Sync + Send {
     }
 }
 
+/// Generate default RPC routes.
 pub fn generate_routes() -> HashMap<&'static str, Box<dyn XcpRpcRoute>> {
     [
         ("OpenMetrics", OpenMetricsRoute::make_route()),

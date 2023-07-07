@@ -1,4 +1,4 @@
-//! Protocol v2 plugin provider
+//! Protocol v2 plugin metrics provider
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},

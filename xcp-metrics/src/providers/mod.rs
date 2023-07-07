@@ -1,3 +1,4 @@
+//! Metrics providers.
 use tokio::{sync::mpsc, task::JoinHandle};
 
 use crate::hub::HubPushMessage;

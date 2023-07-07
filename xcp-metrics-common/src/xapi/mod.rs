@@ -1,3 +1,4 @@
+//! XAPI utilities
 use crate::rpc::XcpRpcMethod;
 use std::{path::PathBuf, str::FromStr};
 
@@ -7,12 +8,14 @@ pub const METRICS_SHM_PATH: &str = "/dev/shm/metrics/";
 pub use hyper;
 pub use hyperlocal;
 
+/// Get the path of the socket of some module.
 pub fn get_module_path(name: &str) -> PathBuf {
     PathBuf::from_str(XAPI_SOCKET_PATH)
         .expect("Invalid XAPI_SOCKET_PATH")
         .join(name)
 }
 
+/// Send a XML-RPC request to the module `name`.
 pub async fn send_xmlrpc_at<M: XcpRpcMethod>(
     name: &str,
     http_method: &str,
@@ -40,6 +43,7 @@ pub async fn send_xmlrpc_at<M: XcpRpcMethod>(
         .await?)
 }
 
+/// Send a JSON-RPC request to the module `name`.
 pub async fn send_jsonrpc_at<M: XcpRpcMethod>(
     name: &str,
     http_method: &str,

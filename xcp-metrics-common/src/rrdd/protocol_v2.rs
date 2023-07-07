@@ -36,6 +36,7 @@ impl From<io::Error> for RrddProtocolError {
     }
 }
 
+/// A parsed Rrdd message header (v2).
 #[derive(PartialEq, Eq, Debug)]
 pub struct RrddMessageHeader {
     pub data_checksum: u32,
@@ -143,7 +144,7 @@ impl RrddMessageHeader {
         })
     }
 
-    /// Parse a message header from a readable source.
+    /// Parse a message header from a readable source (async variant).
     pub async fn parse_async<R: AsyncRead + Unpin>(
         input: &mut R,
     ) -> Result<Self, RrddProtocolError> {
@@ -286,6 +287,7 @@ impl RrddMessageHeader {
     }
 }
 
+/// A non-parsed metadata (datasource list).
 #[derive(Serialize, Deserialize)]
 pub struct RrddMetadataRaw {
     pub datasources: IndexMap<Box<str>, DataSourceMetadataRaw>,
@@ -303,6 +305,7 @@ impl From<RrddMetadata> for RrddMetadataRaw {
     }
 }
 
+/// A parsed metadata (datasource list)
 #[derive(Clone, Debug, PartialEq)]
 pub struct RrddMetadata {
     pub datasources: IndexMap<Box<str>, DataSourceMetadata>,

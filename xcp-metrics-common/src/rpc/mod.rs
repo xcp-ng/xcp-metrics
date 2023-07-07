@@ -1,6 +1,9 @@
+//! RPC utilities
 pub mod message;
 pub mod methods;
 pub mod response;
+
+use std::io::Write;
 
 use dxr::{TryFromValue, TryToValue};
 use serde::{de::DeserializeOwned, Serialize};
@@ -21,8 +24,8 @@ pub trait XcpRpcMethodNamed {
 }
 
 pub trait XcpRpcMethod: Sized {
-    fn write_xmlrpc<W: std::io::Write>(&self, w: &mut W) -> anyhow::Result<()>;
-    fn write_jsonrpc<W: std::io::Write>(&self, w: &mut W) -> anyhow::Result<()>;
+    fn write_xmlrpc<W: Write>(&self, w: &mut W) -> anyhow::Result<()>;
+    fn write_jsonrpc<W: Write>(&self, w: &mut W) -> anyhow::Result<()>;
 
     fn try_from_xmlrpc(call: dxr::MethodCall) -> Option<Self>;
     fn try_from_jsonrpc(request: jsonrpc_base::Request) -> Option<Self>;
@@ -32,7 +35,7 @@ impl<M> XcpRpcMethod for M
 where
     M: TryToValue + TryFromValue + XcpRpcMethodNamed + Serialize + DeserializeOwned,
 {
-    fn write_xmlrpc<W: std::io::Write>(&self, w: &mut W) -> anyhow::Result<()> {
+    fn write_xmlrpc<W: Write>(&self, w: &mut W) -> anyhow::Result<()> {
         w.write_all(r#"<?xml version="1.0"?>"#.as_bytes())?;
 
         let method = dxr::MethodCall::new(M::get_method_name().into(), vec![self.try_to_value()?]);
@@ -41,7 +44,7 @@ where
         Ok(())
     }
 
-    fn write_jsonrpc<W: std::io::Write>(&self, w: &mut W) -> anyhow::Result<()> {
+    fn write_jsonrpc<W: Write>(&self, w: &mut W) -> anyhow::Result<()> {
         let id = serde_json::Value::String(uuid::Uuid::new_v4().as_hyphenated().to_string());
 
         serde_json::to_writer(

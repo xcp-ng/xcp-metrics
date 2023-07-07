@@ -1,3 +1,4 @@
+//! XAPI daemon utilities.
 use std::sync::Arc;
 
 use tokio::{

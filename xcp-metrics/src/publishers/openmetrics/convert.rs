@@ -35,7 +35,7 @@ impl From<Label> for openmetrics::Label {
     }
 }
 
-/// Generate a impl From<NumberValue> for a specified sub structure 'Value' type.
+/// Generate a [impl `From<NumberValue>`] for a specified sub structure 'Value' type.
 macro_rules! impl_from_number_value {
     ($value:ty) => {
         impl From<NumberValue> for $value {

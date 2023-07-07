@@ -1,11 +1,9 @@
-use hyper::Response;
+use hyper::{body::HttpBody, Body, Request, Response};
 use serde::Serialize;
 
-use crate::{
-    rpc::{parse_method_jsonrpc, parse_method_xmlrpc, XcpRpcMethod},
-    xapi::hyper::{self, body::HttpBody, Body},
-};
+use crate::rpc::{parse_method_jsonrpc, parse_method_xmlrpc, XcpRpcMethod};
 
+/// A RPC request that can be either in XML-RPC or JSON-RPC format.
 #[derive(Clone, Debug)]
 pub enum RpcRequest {
     XmlRpc(dxr::MethodCall),
@@ -15,6 +13,7 @@ pub enum RpcRequest {
 // TODO: Make a structure that implements Error and that can convert to RpcError ?
 
 impl RpcRequest {
+    /// Deserialize the inner RPC method into a XCP RPC method.
     pub fn try_into_method<T: XcpRpcMethod>(self) -> Option<T> {
         match self {
             RpcRequest::XmlRpc(method) => T::try_from_xmlrpc(method),
@@ -24,6 +23,7 @@ impl RpcRequest {
 }
 
 impl RpcRequest {
+    /// Get the name of the inner RPC request.
     pub fn get_name(&self) -> &str {
         match self {
             RpcRequest::XmlRpc(method_call) => method_call.name(),
@@ -31,7 +31,8 @@ impl RpcRequest {
         }
     }
 
-    pub async fn from_http(req: hyper::Request<Body>) -> Result<Self, anyhow::Error> {
+    /// Parse a RPC request from a http request (either XML-RPC or JSON-RPC).
+    pub async fn from_http(req: Request<Body>) -> Result<Self, anyhow::Error> {
         match req
             .headers()
             .get("content-type")
@@ -66,6 +67,7 @@ impl RpcRequest {
     }
 }
 
+/// A RPC response that can be either in XML-RPC or JSON-RPC format.
 #[derive(Clone, Debug)]
 pub enum RpcResponse {
     XmlRpc(dxr::MethodResponse),
@@ -73,6 +75,7 @@ pub enum RpcResponse {
 }
 
 impl RpcResponse {
+    /// Make a HTTP RPC response with `message` for some RPC request.
     pub fn respond_to<M>(request: &RpcRequest, message: M) -> anyhow::Result<Response<Body>>
     where
         M: Serialize + dxr::TryToValue,
@@ -88,6 +91,7 @@ impl RpcResponse {
         Ok(builder.body(response.into_body()?)?)
     }
 
+    /// Make a RPC response object with `message` for some RPC request.
     pub fn make_response<M>(request: &RpcRequest, message: M) -> anyhow::Result<Self>
     where
         M: Serialize + dxr::TryToValue,
@@ -102,14 +106,15 @@ impl RpcResponse {
         })
     }
 
-    pub fn into_body(self) -> anyhow::Result<hyper::Body> {
-        Ok(hyper::Body::from(match self {
+    pub fn into_body(self) -> anyhow::Result<Body> {
+        Ok(Body::from(match self {
             Self::XmlRpc(response) => quick_xml::se::to_string(&response)?,
             Self::JsonRpc(response) => serde_json::to_string(&response)?,
         }))
     }
 }
 
+/// A RPC error that can be either in XML-RPC or JSON-RPC format.
 #[derive(Clone, Debug)]
 pub enum RpcError {
     XmlRpc(dxr::FaultResponse),
@@ -117,6 +122,7 @@ pub enum RpcError {
 }
 
 impl RpcError {
+    /// Make a HTTP RPC error with `code`, `message` and optional data for some RPC request.
     pub fn respond_to<D: Serialize>(
         request: Option<&RpcRequest>,
         code: i32,
@@ -134,6 +140,7 @@ impl RpcError {
         Ok(builder.body(response.into_body()?)?)
     }
 
+    /// Make a RPC error object with `code`, `message` and optional data for some RPC request.
     pub fn make_error<D: Serialize>(
         request: Option<&RpcRequest>,
         code: i32,
@@ -157,8 +164,8 @@ impl RpcError {
         })
     }
 
-    pub fn into_body(self) -> anyhow::Result<hyper::Body> {
-        Ok(hyper::Body::from(match self {
+    pub fn into_body(self) -> anyhow::Result<Body> {
+        Ok(Body::from(match self {
             Self::XmlRpc(response) => quick_xml::se::to_string(&response)?,
             Self::JsonRpc(response) => serde_json::to_string(&response)?,
         }))

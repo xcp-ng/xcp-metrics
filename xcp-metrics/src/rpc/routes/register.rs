@@ -1,3 +1,4 @@
+//! RPC route for `Plugin.Local.register`.
 use std::sync::Arc;
 
 use futures::future::BoxFuture;
