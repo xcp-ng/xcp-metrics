@@ -157,7 +157,7 @@ impl RpcError {
                     serde_json::to_value(jsonrpc_base::Error {
                         code,
                         message: message.to_string(),
-                        data: data.map(|value| serde_json::to_value(value).ok()).flatten(),
+                        data: data.and_then(|value| serde_json::to_value(value).ok()),
                     })?,
                 ))
             }
