@@ -7,5 +7,5 @@ use serde::{Deserialize, Serialize};
 pub struct PluginLocalRegisterResponse {
     /// The time before the next plugin reading.
     #[serde(rename = "$value")]
-    pub next_reading: f64
+    pub next_reading: f64,
 }

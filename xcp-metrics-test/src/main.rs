@@ -1,8 +1,8 @@
-use std::{os::unix::net::UnixListener, io::Read};
+use std::{io::Read, os::unix::net::UnixListener};
 
 fn main() {
     let socket = UnixListener::bind("/var/lib/xcp/xcp-rrdd.forwarded").unwrap();
-    
+
     while let Ok((mut socket, addr)) = socket.accept() {
         println!("{addr:?}");
         println!("Reponse:\n");

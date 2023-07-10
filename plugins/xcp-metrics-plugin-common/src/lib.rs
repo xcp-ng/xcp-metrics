@@ -50,7 +50,7 @@ impl RrddPlugin {
     }
 
     /// Push new values to the shared file.
-    /// 
+    ///
     /// # Condition
     /// The length of `new_values` must match the latest sent metadata (either by [Self::new] or [Self::reset_metadata]).
     pub async fn update_values(&mut self, new_values: &[DataSourceValue]) -> anyhow::Result<()> {

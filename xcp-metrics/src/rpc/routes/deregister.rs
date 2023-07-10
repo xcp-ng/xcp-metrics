@@ -4,7 +4,10 @@ use std::sync::Arc;
 use futures::future::BoxFuture;
 use tokio::sync::mpsc;
 use xcp_metrics_common::{
-    rpc::{message::{RpcRequest, RpcResponse}, methods::PluginLocalDeregister},
+    rpc::{
+        message::{RpcRequest, RpcResponse},
+        methods::PluginLocalDeregister,
+    },
     xapi::hyper::{Body, Response},
 };
 
