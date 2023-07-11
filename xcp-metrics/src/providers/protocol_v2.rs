@@ -13,14 +13,14 @@ use tokio::{
     time,
 };
 use xcp_metrics_common::{
-    metrics::{Metric, MetricPoint, MetricValue},
+    metrics::{Metric, MetricPoint, MetricType, MetricValue},
     rrdd::{
         protocol_common::DataSourceValue,
         protocol_v2::{RrddMessageHeader, RrddMetadata, RrddMetadataRaw},
     },
 };
 
-use crate::hub::{HubPushMessage, RegisterMetrics, UnregisterMetrics, UpdateMetrics};
+use crate::hub::{CreateFamily, HubPushMessage, RegisterMetrics, UnregisterMetrics, UpdateMetrics};
 
 use super::Provider;
 
@@ -142,12 +142,22 @@ impl ProtocolV2Provider {
                         // Not yet registered, register it.
                         let metric_uuid = uuid::Uuid::new_v4();
 
+                        // Register family
+                        hub_channel
+                            .send(HubPushMessage::CreateFamily(CreateFamily {
+                                name: name.clone(),
+                                metric_type: MetricType::from(metadata.ds_type),
+                                unit: metadata.units.clone(),
+                                help: metadata.description.clone(),
+                            }))
+                            .unwrap();
+
                         // Register metric
                         hub_channel
                             .send(HubPushMessage::RegisterMetrics(RegisterMetrics {
                                 family: name.clone(),
-                                metrics: Metric::from((metadata, value)),
                                 uuid: metric_uuid,
+                                metrics: Metric::from((metadata, value)),
                             }))
                             .unwrap();
 

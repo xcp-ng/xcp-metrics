@@ -12,7 +12,16 @@ use tokio::{
     sync::mpsc,
     task::{self, JoinHandle},
 };
-use xcp_metrics_common::metrics::{Metric, MetricPoint, MetricSet};
+use xcp_metrics_common::metrics::{Metric, MetricFamily, MetricPoint, MetricSet, MetricType};
+
+/// Register a new metric family to the hub.
+#[derive(Debug, Clone)]
+pub struct CreateFamily {
+    pub name: Box<str>,
+    pub metric_type: MetricType,
+    pub unit: Box<str>,
+    pub help: Box<str>,
+}
 
 /// Register a new metric to the hub.
 #[derive(Debug, Clone)]
@@ -42,6 +51,7 @@ pub struct PullMetrics(pub mpsc::UnboundedSender<HubPullResponse>);
 /// A message that can be sent to the hub.
 #[derive(Debug, Clone)]
 pub enum HubPushMessage {
+    CreateFamily(CreateFamily),
     RegisterMetrics(RegisterMetrics),
     UnregisterMetrics(UnregisterMetrics),
     UpdateMetrics(UpdateMetrics),
@@ -83,6 +93,7 @@ impl MetricsHub {
         while let Some(msg) = receiver.recv().await {
             println!("Hub: {msg:?}");
             match msg {
+                HubPushMessage::CreateFamily(message) => self.create_family(message).await,
                 HubPushMessage::RegisterMetrics(message) => self.register(message).await,
                 HubPushMessage::UnregisterMetrics(message) => self.unregister(message).await,
                 HubPushMessage::UpdateMetrics(message) => self.update(message).await,
@@ -96,12 +107,36 @@ impl MetricsHub {
         println!("Stopped hub")
     }
 
+    async fn create_family(
+        &mut self,
+        CreateFamily {
+            name,
+            metric_type,
+            unit,
+            help,
+        }: CreateFamily,
+    ) {
+        let metrics = Arc::make_mut(&mut self.metrics);
+
+        metrics.families.insert(
+            name,
+            MetricFamily {
+                metric_type,
+                unit,
+                help,
+                metrics: Default::default(),
+            },
+        );
+    }
+
     async fn register(&mut self, message: RegisterMetrics) {
         let metrics = Arc::make_mut(&mut self.metrics);
 
         let family = match metrics.families.get_mut(&message.family) {
             Some(f) => f,
             None => {
+                eprintln!("Missing family, create default one");
+
                 metrics
                     .families
                     .insert(message.family.clone(), Default::default());

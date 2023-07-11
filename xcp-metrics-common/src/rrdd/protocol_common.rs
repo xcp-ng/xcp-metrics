@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 pub use serde_json;
 
-use crate::metrics::{Label, MetricPoint, MetricValue, NumberValue};
+use crate::metrics::{Label, MetricPoint, MetricValue, NumberValue, MetricType};
 
 /// Errors that can happen while parsing a data source.
 #[derive(Copy, Clone, Debug)]
@@ -23,11 +23,23 @@ impl std::fmt::Display for DataSourceParseError {
 impl std::error::Error for DataSourceParseError {}
 
 /// Type of a data source.
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum DataSourceType {
     Gauge,
     Absolute,
     Derive,
+}
+
+
+// TODO: Use another system.
+impl From<DataSourceType> for MetricType {
+    fn from(value: DataSourceType) -> Self {
+        match value {
+            DataSourceType::Gauge => Self::Gauge,
+            DataSourceType::Absolute => Self::Gauge,
+            DataSourceType::Derive => Self::Gauge,
+        }
+    }
 }
 
 /// Try to parse a data source type.
