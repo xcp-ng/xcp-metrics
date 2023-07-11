@@ -26,7 +26,7 @@ async fn main() {
         let datasources: IndexMap<Box<str>, DataSourceMetadata> = (0..fastrand::usize(..10))
             .map(|i| {
                 (
-                    format!("{i}_{}", uuid::Uuid::new_v4().as_simple()).into_boxed_str(),
+                    format!("m{i}_{}", uuid::Uuid::new_v4().as_simple()).into_boxed_str(),
                     DataSourceMetadata {
                         description: format!("Test metric {i}").into(),
                         units: "".into(),
