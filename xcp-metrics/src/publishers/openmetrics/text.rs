@@ -44,17 +44,15 @@ fn write_family<W: Write>(writer: &mut W, name: &str, family: &MetricFamily) -> 
         metric_type_to_str(family.metric_type)
     )?;
 
-    assert!(!family.unit.contains(['\n']));
-    writeln!(
-        writer,
-        "# UNIT {name} {}",
-        family.unit.replace(&['(', ')'], "_")
-    )?;
+    let unit = family.unit.replace(&['(', ')', '\n'], "_").to_lowercase();
+    writeln!(writer, "# UNIT {name} {}", unit)?;
 
     writeln!(writer, "# HELP {name} {}", escaped_string(&family.help))?;
 
+    let new_name = format!("{name}_{unit}");
+
     for (_, metric) in &family.metrics {
-        write_metric(writer, name, metric)?;
+        write_metric(writer, &new_name, metric)?;
     }
 
     Ok(())
@@ -91,13 +89,13 @@ fn format_labels(labels: &[Label]) -> String {
     format!("{{{}}}", formatted_labels)
 }
 
-fn write_metric<W: Write>(writer: &mut W, family_name: &str, metric: &Metric) -> Result<()> {
+fn write_metric<W: Write>(writer: &mut W, name: &str, metric: &Metric) -> Result<()> {
     for metric_point in metric.metrics_point.iter() {
         match &metric_point.value {
             MetricValue::Unknown(value) | MetricValue::Gauge(value) => {
                 writeln!(
                     writer,
-                    "{family_name}{} {} {}",
+                    "{name}{} {} {}",
                     format_labels(&metric.labels),
                     format_number_value(value),
                     format_timestamp(&metric_point.timestamp)
