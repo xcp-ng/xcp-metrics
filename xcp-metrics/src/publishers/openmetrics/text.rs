@@ -27,6 +27,8 @@ fn escaped_string(s: &str) -> String {
 
 pub fn write_metrics_set_text<W: Write>(writer: &mut W, metrics: &MetricSet) -> Result<()> {
     for (name, family) in &metrics.families {
+        let name = name.replace('-', "_");
+
         write_family(writer, &name, &family)?;
     }
 
