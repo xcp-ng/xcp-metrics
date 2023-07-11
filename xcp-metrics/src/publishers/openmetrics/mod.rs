@@ -1,5 +1,6 @@
 //! OpenMetrics based metrics publisher
 mod convert;
+pub mod text;
 
 use std::sync::Arc;
 
@@ -23,6 +24,18 @@ fn generate_openmetrics_message(metrics: MetricSet) -> Vec<u8> {
     openmetrics::MetricSet::from(metrics).encode_to_vec()
 }
 
+fn generate_openmetrics_text_message(metrics: MetricSet) -> Vec<u8> {
+    let mut output = String::new();
+
+    text::write_metrics_set_text(&mut output, &metrics).unwrap();
+
+    output.into_bytes()
+}
+
+const OPENMETRICS_TEXT_CONTENT_TYPE: &str =
+    "application/openmetrics-text; version=1.0.0; charset=utf-8";
+const OPENMETRICS_PROTOBUF_CONTENT_TYPE: &str = "application/x-protobuf";
+
 #[derive(Copy, Clone, Default)]
 pub struct OpenMetricsRoute;
 
@@ -44,10 +57,10 @@ impl XcpRpcRoute for OpenMetricsRoute {
                 anyhow::bail!("Unable to fetch metrics from hub")
             };
 
-            let message = generate_openmetrics_message((*metrics).clone());
+            let message = generate_openmetrics_text_message((*metrics).clone());
 
             Ok(Response::builder()
-                .header("content-type", "application/x-protobuf")
+                .header("content-type", OPENMETRICS_TEXT_CONTENT_TYPE)
                 .body(message.into())?)
         })
     }
