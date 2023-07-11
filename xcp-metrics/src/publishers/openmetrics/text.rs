@@ -45,7 +45,11 @@ fn write_family<W: Write>(writer: &mut W, name: &str, family: &MetricFamily) -> 
     )?;
 
     assert!(!family.unit.contains(['\n']));
-    writeln!(writer, "# UNIT {name} {}", family.unit)?;
+    writeln!(
+        writer,
+        "# UNIT {name} {}",
+        family.unit.replace(&['(', ')'], "_")
+    )?;
 
     writeln!(writer, "# HELP {name} {}", escaped_string(&family.help))?;
 
