@@ -44,15 +44,15 @@ fn write_family<W: Write>(writer: &mut W, name: &str, family: &MetricFamily) -> 
         metric_type_to_str(family.metric_type)
     )?;
 
-    let unit = family.unit.replace(&['(', ')', '\n'], "").to_lowercase();
-    writeln!(writer, "# UNIT {name} {}", unit)?;
+    //let unit = family.unit.replace(&['(', ')', '\n'], "").to_lowercase();
+    //writeln!(writer, "# UNIT {name} {}", unit)?;
 
     writeln!(writer, "# HELP {name} {}", escaped_string(&family.help))?;
 
-    let new_name = format!("{name}_{unit}");
+    //let new_name = format!("{name}_{unit}");
 
     for (_, metric) in &family.metrics {
-        write_metric(writer, &new_name, metric)?;
+        write_metric(writer, &name, metric)?;
     }
 
     Ok(())
