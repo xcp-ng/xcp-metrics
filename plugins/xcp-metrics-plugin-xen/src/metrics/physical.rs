@@ -95,13 +95,13 @@ impl XenMetric for PCpuTime {
             .slice
             .borrow()
             .get_slice()
-            .map(|infos| infos.get(self.cpu_index))
+            .and_then(|infos| infos.get(self.cpu_index))
         {
-            Some(Some(cpuinfo)) => {
+            Some(cpuinfo) => {
                 self.info.replace(*cpuinfo);
                 true
             }
-            _ => false,
+            None => false,
         }
     }
 

@@ -36,11 +36,11 @@ fn regenerate_data_sources(
 }
 
 fn generate_values(sources: &mut [Box<dyn XenMetric>]) -> Box<[DataSourceValue]> {
-    sources.iter_mut().map(|src| src.get_value()).collect()
+    sources.iter().map(|src| src.get_value()).collect()
 }
 
 fn generate_values_inplace(sources: &mut [Box<dyn XenMetric>], values: &mut [DataSourceValue]) {
-    iter::zip(sources.iter_mut(), values.iter_mut()).for_each(|(src, val)| *val = src.get_value());
+    iter::zip(sources.iter(), values.iter_mut()).for_each(|(src, val)| *val = src.get_value());
 }
 
 fn check_new_metrics(xc: Rc<XenControl>, status: &XenMetricsStatus) -> bool {
