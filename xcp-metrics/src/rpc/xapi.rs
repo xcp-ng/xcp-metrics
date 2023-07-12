@@ -28,7 +28,7 @@ pub async fn start_daemon(
 
     let make_service = make_service_fn(move |socket: &UnixStream| {
         let shared = shared.clone();
-        tracing::trace!("Accepted unix stream {socket:?}");
+        tracing::debug!("Accepted unix stream {socket:?}");
         let hub_channel = hub_channel.clone();
 
         async move {

@@ -127,7 +127,7 @@ impl MetricsHub {
             tracing::warn!("Overriden previous family: {old_family:?}");
         }
 
-        tracing::trace!("Inserted family");
+        tracing::debug!("Inserted family");
     }
 
     #[tracing::instrument(skip(self))]
@@ -183,7 +183,7 @@ impl MetricsHub {
 
         for (_, family) in metrics.families.iter_mut() {
             if let Some(metrics) = family.metrics.get_mut(&message.uuid) {
-                tracing::info!("Metric {} properly updated", message.uuid);
+                tracing::debug!("Metric {} properly updated", message.uuid);
 
                 /* Rust wizardry */
                 std::mem::swap(&mut metrics.metrics_point, &mut message.new_values);
@@ -195,6 +195,7 @@ impl MetricsHub {
     #[tracing::instrument(skip(self))]
     async fn pull_metrics(&mut self, message: PullMetrics) {
         let sender = message.0;
+        tracing::debug!("Pulling metrics");
 
         if let Err(e) = sender.send(HubPullResponse::Metrics(Arc::clone(&self.metrics))) {
             tracing::error!("Error occured while sending metrics {e}");

@@ -46,8 +46,8 @@ impl XcpRpcRoute for OpenMetricsRoute {
         hub_channel: mpsc::UnboundedSender<HubPushMessage>,
         _message: RpcRequest,
     ) -> BoxFuture<'static, anyhow::Result<Response<Body>>> {
-        tracing::trace_span!("Open Metrics query");
-        tracing::info!("Preparing query");
+        tracing::info_span!("Open Metrics query");
+        tracing::debug!("Preparing query");
 
         Box::pin(async move {
             let (sender, mut receiver) = mpsc::unbounded_channel();

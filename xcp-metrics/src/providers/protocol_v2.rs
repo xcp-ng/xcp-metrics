@@ -59,7 +59,7 @@ impl ProtocolV2Provider {
         let header = RrddMessageHeader::parse_async(&mut file).await;
         let mut updated_metadata = false;
 
-        tracing::trace!("Readed {header:?}");
+        tracing::debug!("Readed {header:?}");
 
         if let Ok(header) = header {
             // Get the most up to date PluginData.
@@ -205,7 +205,7 @@ impl Provider for ProtocolV2Provider {
                     tracing::info!("Updated metadata");
                 }
 
-                tracing::trace!("New state: {:?}", self.state);
+                tracing::debug!("New state: {:?}", self.state);
 
                 match updated_metadata {
                     // Check for removed metrics

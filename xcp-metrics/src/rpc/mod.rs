@@ -41,7 +41,7 @@ pub async fn entrypoint(
     req: Request<Body>,
 ) -> anyhow::Result<Response<Body>> {
     let rpc_routes = generate_routes();
-    tracing::info!("RPC: {req:#?}");
+    tracing::debug!("RPC: {req:#?}");
 
     let request = RpcRequest::from_http(req).await;
 
