@@ -116,10 +116,11 @@ fn write_metric<W: Write>(writer: &mut W, name: &str, metric: &Metric) -> Result
             MetricValue::Unknown(value) | MetricValue::Gauge(value) => {
                 writeln!(
                     writer,
-                    "{name}{{{}}} {} {}",
+                    "{name}{{{}}} {}",
                     format_labels(&metric.labels),
                     format_number_value(value),
-                    format_timestamp(&metric_point.timestamp)
+                    // FIXME: timestamp breaks prometheus for some reason
+                    // format_timestamp(&metric_point.timestamp)
                 )?;
             }
             MetricValue::Counter {
