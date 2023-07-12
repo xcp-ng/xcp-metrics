@@ -187,9 +187,11 @@ impl MetricsHub {
 
                 /* Rust wizardry */
                 std::mem::swap(&mut metrics.metrics_point, &mut message.new_values);
-                break;
+                return;
             }
         }
+
+        tracing::error!("Metric not found");
     }
 
     #[tracing::instrument(skip(self))]
