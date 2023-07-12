@@ -211,7 +211,7 @@ impl Provider for ProtocolV2Provider {
                     // Check for removed metrics
                     Ok(true) => self.check_metrics(&hub_channel),
                     Ok(false) => (),
-                    Err(e) => eprintln!("{}: {e:?}", self.name),
+                    Err(e) => tracing::error!("{e}"),
                 }
 
                 self.send_values(&hub_channel).await;
