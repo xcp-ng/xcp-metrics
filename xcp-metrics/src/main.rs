@@ -10,7 +10,6 @@ pub mod rpc;
 async fn main() {
     let text_subscriber = tracing_subscriber::fmt()
         .with_ansi(true)
-        .with_max_level(tracing::Level::TRACE)
         .compact()
         .finish();
 
