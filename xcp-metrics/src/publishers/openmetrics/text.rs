@@ -93,7 +93,7 @@ fn format_timestamp(system_time: &SystemTime) -> String {
     system_time
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
-        .as_secs_f64()
+        .as_millis()
         .to_string()
 }
 
