@@ -18,6 +18,7 @@ use xcp_metrics_common::xapi::{
 
 use crate::{hub::HubPushMessage, rpc};
 
+#[tracing::instrument(skip(hub_channel))]
 pub async fn start_daemon(
     daemon_name: &str,
     hub_channel: mpsc::UnboundedSender<HubPushMessage>,
@@ -27,7 +28,7 @@ pub async fn start_daemon(
 
     let make_service = make_service_fn(move |socket: &UnixStream| {
         let shared = shared.clone();
-        println!("{socket:?}");
+        tracing::trace!("Accepted unix stream {socket:?}");
         let hub_channel = hub_channel.clone();
 
         async move {
@@ -36,6 +37,8 @@ pub async fn start_daemon(
             }))
         }
     });
+
+    tracing::info!("Starting");
 
     let server_task = task::spawn(async move {
         hyper::Server::bind_unix(socket_path)

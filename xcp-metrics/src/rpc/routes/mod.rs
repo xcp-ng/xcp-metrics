@@ -34,6 +34,16 @@ pub trait XcpRpcRoute: 'static + Sync + Send {
     {
         Box::<Self>::default()
     }
+
+    fn get_name(&self) -> &'static str {
+        "(Unammed)"
+    }
+}
+
+impl std::fmt::Debug for dyn XcpRpcRoute {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.get_name())
+    }
 }
 
 /// Generate default RPC routes.

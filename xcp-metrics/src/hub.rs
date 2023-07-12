@@ -80,6 +80,8 @@ impl MetricsHub {
 
         rendez_vous.1.recv().await;
 
+        tracing::info!("Hub ready");
+
         (handle, sender)
     }
 
@@ -91,7 +93,6 @@ impl MetricsHub {
         rendez_vous.send(()).await.unwrap();
 
         while let Some(msg) = receiver.recv().await {
-            println!("Hub: {msg:?}");
             match msg {
                 HubPushMessage::CreateFamily(message) => self.create_family(message).await,
                 HubPushMessage::RegisterMetrics(message) => self.register(message).await,
@@ -99,14 +100,10 @@ impl MetricsHub {
                 HubPushMessage::UpdateMetrics(message) => self.update(message).await,
                 HubPushMessage::PullMetrics(message) => self.pull_metrics(message).await,
             }
-
-            println!("Hub: Metrics status:");
-            //println!("{:#?}", self.metrics);
         }
-
-        println!("Stopped hub")
     }
 
+    #[tracing::instrument(skip(self))]
     async fn create_family(
         &mut self,
         CreateFamily {
@@ -117,8 +114,8 @@ impl MetricsHub {
         }: CreateFamily,
     ) {
         let metrics = Arc::make_mut(&mut self.metrics);
-
-        metrics.families.insert(
+        
+        if let Some(old_family) = metrics.families.insert(
             name,
             MetricFamily {
                 metric_type,
@@ -126,16 +123,21 @@ impl MetricsHub {
                 help,
                 metrics: Default::default(),
             },
-        );
+        ) {
+            tracing::warn!("Overriden previous family: {old_family:?}");
+        }
+
+        tracing::trace!("Inserted family");
     }
 
+    #[tracing::instrument(skip(self))]
     async fn register(&mut self, message: RegisterMetrics) {
         let metrics = Arc::make_mut(&mut self.metrics);
 
         let family = match metrics.families.get_mut(&message.family) {
             Some(f) => f,
             None => {
-                eprintln!("Missing family, create default one");
+                tracing::warn!("Missing family, creating default one");
 
                 metrics
                     .families
@@ -145,17 +147,18 @@ impl MetricsHub {
         };
 
         if let Some(old) = family.metrics.insert(message.uuid, message.metrics) {
-            eprintln!("Overriden {old:?}");
+            tracing::warn!("Overriden {old:?}");
         }
     }
 
+    #[tracing::instrument(skip(self))]
     async fn unregister(&mut self, message: UnregisterMetrics) {
         let metrics = Arc::make_mut(&mut self.metrics);
         let mut deprecated_family = None;
 
         for (family_name, family) in metrics.families.iter_mut() {
             if family.metrics.remove(&message.uuid).is_some() {
-                println!("Unregistered {}", message.uuid);
+                tracing::info!("Unregistered {}", message.uuid);
 
                 // Remove metric family if now empty.
                 if family.metrics.is_empty() {
@@ -167,11 +170,12 @@ impl MetricsHub {
         }
 
         if let Some(name) = &deprecated_family {
-            println!("Unregistered empty metric family {name}");
+            tracing::info!("Unregistered empty metric family {name}");
             metrics.families.remove(name);
         }
     }
 
+    #[tracing::instrument(skip(self))]
     async fn update(&mut self, mut message: UpdateMetrics) {
         let metrics = Arc::make_mut(&mut self.metrics);
 
@@ -179,6 +183,8 @@ impl MetricsHub {
 
         for (_, family) in metrics.families.iter_mut() {
             if let Some(metrics) = family.metrics.get_mut(&message.uuid) {
+                tracing::info!("Metric {} properly updated", message.uuid);
+
                 /* Rust wizardry */
                 std::mem::swap(&mut metrics.metrics_point, &mut message.new_values);
                 break;
@@ -186,11 +192,12 @@ impl MetricsHub {
         }
     }
 
+    #[tracing::instrument(skip(self))]
     async fn pull_metrics(&mut self, message: PullMetrics) {
         let sender = message.0;
 
         if let Err(e) = sender.send(HubPullResponse::Metrics(Arc::clone(&self.metrics))) {
-            eprintln!("Error occured in a channel {e}");
+            tracing::error!("Error occured while sending metrics {e}");
         }
     }
 }

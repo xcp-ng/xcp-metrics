@@ -30,6 +30,21 @@ pub enum MetricType {
     Summary,
 }
 
+impl std::fmt::Display for MetricType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            MetricType::Unknown => "Unknown",
+            MetricType::Gauge => "Gauge",
+            MetricType::Counter => "Counter",
+            MetricType::StateSet => "State Set",
+            MetricType::Info => "Info",
+            MetricType::Histogram => "Histogram",
+            MetricType::GaugeHistogram => "Gauge Histogram",
+            MetricType::Summary => "Summary",
+        })
+    }
+}
+
 #[derive(Clone, PartialEq, Debug)]
 pub struct Label(
     /// Label name

@@ -9,7 +9,7 @@ use prost::Message;
 use tokio::sync::mpsc;
 use xcp_metrics_common::{
     metrics::MetricSet,
-    rpc::message::RpcRequest,
+    rpc::{message::RpcRequest, methods::OpenMetricsMethod, XcpRpcMethodNamed},
     xapi::hyper::{Body, Response},
 };
 
@@ -46,7 +46,8 @@ impl XcpRpcRoute for OpenMetricsRoute {
         hub_channel: mpsc::UnboundedSender<HubPushMessage>,
         _message: RpcRequest,
     ) -> BoxFuture<'static, anyhow::Result<Response<Body>>> {
-        println!("RPC: Open Metrics query");
+        tracing::trace_span!("Open Metrics query");
+        tracing::info!("Preparing query");
 
         Box::pin(async move {
             let (sender, mut receiver) = mpsc::unbounded_channel();
@@ -63,5 +64,9 @@ impl XcpRpcRoute for OpenMetricsRoute {
                 .header("content-type", OPENMETRICS_TEXT_CONTENT_TYPE)
                 .body(message.into())?)
         })
+    }
+
+    fn get_name(&self) -> &'static str {
+        OpenMetricsMethod::get_method_name()
     }
 }

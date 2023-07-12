@@ -59,7 +59,7 @@ impl ProtocolV2Provider {
         let header = RrddMessageHeader::parse_async(&mut file).await;
         let mut updated_metadata = false;
 
-        println!("{}: Readed {header:?}", self.name);
+        tracing::trace!("Readed {header:?}");
 
         if let Ok(header) = header {
             // Get the most up to date PluginData.
@@ -73,7 +73,6 @@ impl ProtocolV2Provider {
 
                 /* Regenerate data */
                 _ => {
-                    println!("{}: Update metadata", self.name);
                     updated_metadata = true;
 
                     // Read metadata
@@ -197,10 +196,16 @@ impl Provider for ProtocolV2Provider {
         self.hub_channel.replace(hub_channel.clone());
 
         task::spawn(async move {
+            tracing::trace_span!("plugin {}", self.name);
+            
             loop {
                 let updated_metadata = self.collect_plugin_metrics().await;
-                println!("{}: Updated metadata: {:?}", self.name, updated_metadata);
-                println!("{}: {:?}", self.name, self.state);
+
+                if let Ok(true) = updated_metadata {
+                    tracing::info!("Updated metadata");
+                }
+
+                tracing::trace!("New state: {:?}", self.state);
 
                 match updated_metadata {
                     // Check for removed metrics
@@ -222,7 +227,7 @@ impl Drop for ProtocolV2Provider {
         // Unregister plugins
         if let Some(hub_channel) = &self.hub_channel {
             self.registered_metrics.iter().for_each(|(name, uuid)| {
-                println!("{}: Unregistering {name}", self.name);
+                tracing::info!("Unregistering {name}");
 
                 hub_channel
                     .send(HubPushMessage::UnregisterMetrics(UnregisterMetrics {

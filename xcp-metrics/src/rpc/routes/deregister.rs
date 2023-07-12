@@ -7,6 +7,7 @@ use xcp_metrics_common::{
     rpc::{
         message::{RpcRequest, RpcResponse},
         methods::PluginLocalDeregister,
+        XcpRpcMethodNamed,
     },
     xapi::hyper::{Body, Response},
 };
@@ -32,12 +33,16 @@ impl XcpRpcRoute for PluginLocalDeregisterRoute {
                 .ok_or_else(|| anyhow::anyhow!("No value provided"))?;
 
             if let Some((name, handle)) = shared.plugins.remove(deregister_rpc.uid.as_str()) {
-                println!("RPC: Unregistered {name}");
+                tracing::info!("RPC: Unregistered {name}");
 
                 handle.abort();
             }
 
             RpcResponse::respond_to(&request, "Done")
         })
+    }
+
+    fn get_name(&self) -> &'static str {
+        PluginLocalDeregister::get_method_name()
     }
 }

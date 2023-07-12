@@ -13,18 +13,19 @@ use xcp_metrics_common::{
 
 use crate::{hub::HubPushMessage, rpc::routes::generate_routes};
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct RpcShared {
     pub plugins: DashMap<Box<str>, JoinHandle<()>>,
 }
 
+#[tracing::instrument(skip_all)]
 pub async fn route(
     shared: Arc<RpcShared>,
     hub_channel: mpsc::UnboundedSender<HubPushMessage>,
     request: RpcRequest,
     rpc_routes: &HashMap<&str, Box<dyn routes::XcpRpcRoute>>,
 ) -> anyhow::Result<Response<Body>> {
-    println!("RPC: {:?}", &request);
+    tracing::info!("RPC: Message: {request}");
 
     if let Some(route) = rpc_routes.get(request.get_name()) {
         route.run(shared, hub_channel, request).await
@@ -33,17 +34,16 @@ pub async fn route(
     }
 }
 
+#[tracing::instrument(skip_all)]
 pub async fn entrypoint(
     shared: Arc<RpcShared>,
     hub_channel: mpsc::UnboundedSender<HubPushMessage>,
     req: Request<Body>,
 ) -> anyhow::Result<Response<Body>> {
     let rpc_routes = generate_routes();
-
-    println!("RPC: {req:#?}");
+    tracing::info!("RPC: {req:#?}");
 
     let request = RpcRequest::from_http(req).await;
-    println!("RPC: Message: {request:#?}");
 
     match request {
         Ok(request) => route(shared, hub_channel, request, &rpc_routes).await,

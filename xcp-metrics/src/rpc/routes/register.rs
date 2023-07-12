@@ -8,6 +8,7 @@ use xcp_metrics_common::{
         message::{RpcError, RpcRequest, RpcResponse},
         methods::PluginLocalRegister,
         response::PluginLocalRegisterResponse,
+        XcpRpcMethodNamed,
     },
     xapi::hyper::{Body, Response},
 };
@@ -62,5 +63,9 @@ impl XcpRpcRoute for PluginLocalRegisterRoute {
                 )
             }
         })
+    }
+
+    fn get_name(&self) -> &'static str {
+        PluginLocalRegister::get_method_name()
     }
 }

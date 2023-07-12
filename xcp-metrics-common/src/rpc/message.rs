@@ -4,10 +4,24 @@ use serde::Serialize;
 use crate::rpc::{parse_method_jsonrpc, parse_method_xmlrpc, XcpRpcMethod};
 
 /// A RPC request that can be either in XML-RPC or JSON-RPC format.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub enum RpcRequest {
     XmlRpc(dxr::MethodCall),
     JsonRpc(jsonrpc_base::Request),
+}
+
+impl std::fmt::Display for RpcRequest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Kind: {}\tMethod: {}",
+            match self {
+                RpcRequest::XmlRpc(_) => "XML-RPC",
+                RpcRequest::JsonRpc(_) => "JSON-RPC",
+            },
+            self.get_name(),
+        )
+    }
 }
 
 // TODO: Make a structure that implements Error and that can convert to RpcError ?
