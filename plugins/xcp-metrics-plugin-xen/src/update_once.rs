@@ -18,6 +18,8 @@ impl<T: Updatable> UpdateOnce<T> {
     }
 
     pub fn update(&self, token: uuid::Uuid) {
+        println!("Updating {self:p}");
+
         if self.latest_update.get() != Some(token) {
             // Update value
             self.inner.borrow_mut().update();
