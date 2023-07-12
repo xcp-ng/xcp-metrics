@@ -107,6 +107,8 @@ impl ProtocolV2Provider {
                         DataSourceValue::Undefined => DataSourceValue::Undefined,
                     }
                 });
+            
+            data.timestamp = header.timestamp;
 
             self.state.replace(data);
         }
