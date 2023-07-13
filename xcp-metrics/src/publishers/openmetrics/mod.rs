@@ -34,7 +34,7 @@ fn generate_openmetrics_text_message(metrics: MetricSet) -> Vec<u8> {
 
 const OPENMETRICS_TEXT_CONTENT_TYPE: &str =
     "application/openmetrics-text; version=1.0.0; charset=utf-8";
-const OPENMETRICS_PROTOBUF_CONTENT_TYPE: &str = "application/x-protobuf";
+const OPENMETRICS_PROTOBUF_CONTENT_TYPE: &str = "application/openmetrics-protobuf; version=1.0.0";
 
 #[derive(Copy, Clone, Default)]
 pub struct OpenMetricsRoute;
@@ -44,12 +44,16 @@ impl XcpRpcRoute for OpenMetricsRoute {
         &self,
         _shared: Arc<RpcShared>,
         hub_channel: mpsc::UnboundedSender<HubPushMessage>,
-        _message: RpcRequest,
+        message: RpcRequest,
     ) -> BoxFuture<'static, anyhow::Result<Response<Body>>> {
         tracing::info_span!("Open Metrics query");
         tracing::debug!("Preparing query");
 
         Box::pin(async move {
+            let use_protobuf = message
+                .try_into_method::<OpenMetricsMethod>()
+                .map_or(false, |method| method.protobuf);
+
             let (sender, mut receiver) = mpsc::unbounded_channel();
 
             hub_channel.send(HubPushMessage::PullMetrics(PullMetrics(sender)))?;
@@ -58,11 +62,19 @@ impl XcpRpcRoute for OpenMetricsRoute {
                 anyhow::bail!("Unable to fetch metrics from hub")
             };
 
-            let message = generate_openmetrics_text_message((*metrics).clone());
+            if use_protobuf {
+                let message = generate_openmetrics_message((*metrics).clone());
 
-            Ok(Response::builder()
-                .header("content-type", OPENMETRICS_TEXT_CONTENT_TYPE)
-                .body(message.into())?)
+                Ok(Response::builder()
+                    .header("content-type", OPENMETRICS_PROTOBUF_CONTENT_TYPE)
+                    .body(message.into())?)
+            } else {
+                let message = generate_openmetrics_text_message((*metrics).clone());
+
+                Ok(Response::builder()
+                    .header("content-type", OPENMETRICS_TEXT_CONTENT_TYPE)
+                    .body(message.into())?)
+            }
         })
     }
 

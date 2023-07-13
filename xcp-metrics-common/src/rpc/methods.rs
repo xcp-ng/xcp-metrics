@@ -31,6 +31,8 @@ rpc_method!(PluginLocalNextReading, "Plugin.Local.next_reading");
 
 /// Fetch the metrics in the OpenMetrics format.
 #[derive(Default, Debug, Clone, TryToValue, TryFromValue, Serialize, Deserialize)]
-pub struct OpenMetricsMethod {}
+pub struct OpenMetricsMethod {
+    pub protobuf: bool,
+}
 
 rpc_method!(OpenMetricsMethod, "OpenMetrics");
