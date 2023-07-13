@@ -38,12 +38,12 @@ pub async fn route(
 pub async fn entrypoint(
     shared: Arc<RpcShared>,
     hub_channel: mpsc::UnboundedSender<HubPushMessage>,
-    req: Request<Body>,
+    request: Request<Body>,
 ) -> anyhow::Result<Response<Body>> {
     let rpc_routes = generate_routes();
-    tracing::debug!("RPC: {req:#?}");
+    tracing::debug!("RPC: {request:#?}");
 
-    let request = RpcRequest::from_http(req).await;
+    let request = RpcRequest::from_http(request).await;
 
     match request {
         Ok(request) => route(shared, hub_channel, request, &rpc_routes).await,
