@@ -61,6 +61,7 @@ pub struct Metric {
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct MetricPoint {
+    /// *Its type should match with MetricFamily's MetricType for text export.*
     pub value: MetricValue,
     pub timestamp: SystemTime,
 }
