@@ -6,7 +6,7 @@ use std::{
 };
 
 use xcp_metrics_common::metrics::{
-    self, Exemplar, Label, Metric, MetricFamily, MetricSet, MetricType, MetricValue, NumberValue,
+    Exemplar, Label, Metric, MetricFamily, MetricSet, MetricType, MetricValue, NumberValue,
 };
 
 fn metric_type_to_str(metric_type: MetricType) -> &'static str {
