@@ -12,3 +12,6 @@ members = [
   "plugins/xcp-metrics-plugin-tests",
   "xcp-metrics-tools",
 ]
+
+[profile.release]
+lto = true
