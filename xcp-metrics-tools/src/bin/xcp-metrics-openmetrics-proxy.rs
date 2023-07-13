@@ -19,7 +19,7 @@ async fn main() {
 
     let service_fn = make_service_fn(|addr: &AddrStream| {
         println!("Handling request {:?}", addr);
-        
+
         async {
             anyhow::Ok(service_fn(|_req| async {
                 xapi::send_jsonrpc_at(

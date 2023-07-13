@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 pub use serde_json;
 
-use crate::metrics::{Label, MetricPoint, MetricValue, NumberValue, MetricType};
+use crate::metrics::{Label, MetricPoint, MetricType, MetricValue, NumberValue};
 
 /// Errors that can happen while parsing a data source.
 #[derive(Copy, Clone, Debug)]
@@ -29,7 +29,6 @@ pub enum DataSourceType {
     Absolute,
     Derive,
 }
-
 
 // TODO: Use another system.
 impl From<DataSourceType> for MetricType {
@@ -279,7 +278,7 @@ impl From<&DataSourceMetadata> for DataSourceMetadataRaw {
 
         let units = Some(val.units.as_ref().into());
 
-        let ds_type = Some(Into::<&str>::into(val.ds_type.clone()).to_string());
+        let ds_type = Some(<&str>::from(val.ds_type).to_string());
 
         let value = match val.value {
             DataSourceValue::Int64(v) => Some(v.to_string()),
@@ -293,7 +292,7 @@ impl From<&DataSourceMetadata> for DataSourceMetadataRaw {
         let min = Some(val.min.to_string());
         let max = Some(val.max.to_string());
 
-        let owner = Some(Into::<Box<str>>::into(val.owner).into());
+        let owner = Some(<Box<str>>::from(val.owner).into_string());
 
         Self {
             description,

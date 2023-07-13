@@ -43,7 +43,7 @@ pub fn write_metrics_set_text<W: Write>(writer: &mut W, metrics: &MetricSet) -> 
     for (name, family) in &metrics.families {
         let name = format_name(name, true, true);
 
-        write_family(writer, &name, &family)?;
+        write_family(writer, &name, family)?;
     }
 
     writeln!(writer, "# EOF")?;
@@ -74,7 +74,7 @@ fn write_family<W: Write>(writer: &mut W, name: &str, family: &MetricFamily) -> 
 
     writeln!(writer, "# HELP {name} {}", escape_string(&family.help))?;
 
-    for (_, metric) in &family.metrics {
+    for metric in family.metrics.values() {
         write_metric(writer, &name, metric)?;
     }
 

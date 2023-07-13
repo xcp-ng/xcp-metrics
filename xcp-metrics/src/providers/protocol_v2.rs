@@ -107,7 +107,7 @@ impl ProtocolV2Provider {
                         DataSourceValue::Undefined => DataSourceValue::Undefined,
                     }
                 });
-            
+
             data.timestamp = header.timestamp;
 
             self.state.replace(data);
@@ -199,7 +199,7 @@ impl Provider for ProtocolV2Provider {
 
         task::spawn(async move {
             tracing::trace_span!("plugin {}", self.name);
-            
+
             loop {
                 let updated_metadata = self.collect_plugin_metrics().await;
 

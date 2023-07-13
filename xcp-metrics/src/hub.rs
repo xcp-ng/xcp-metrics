@@ -114,7 +114,7 @@ impl MetricsHub {
         }: CreateFamily,
     ) {
         let metrics = Arc::make_mut(&mut self.metrics);
-        
+
         if let Some(old_family) = metrics.families.insert(
             name,
             MetricFamily {
