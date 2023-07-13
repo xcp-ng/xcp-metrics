@@ -6,7 +6,7 @@ use std::{
 };
 
 use xcp_metrics_common::metrics::{
-    Label, Metric, MetricFamily, MetricSet, MetricType, MetricValue, NumberValue,
+    self, Exemplar, Label, Metric, MetricFamily, MetricSet, MetricType, MetricValue, NumberValue,
 };
 
 fn metric_type_to_str(metric_type: MetricType) -> &'static str {
@@ -72,7 +72,9 @@ fn write_family<W: Write>(writer: &mut W, name: &str, family: &MetricFamily) -> 
         writeln!(writer, "# UNIT {name} {}", unit_escaped)?;
     }
 
-    writeln!(writer, "# HELP {name} {}", escape_string(&family.help))?;
+    if !family.help.is_empty() {
+        writeln!(writer, "# HELP {name} {}", escape_string(&family.help))?;
+    }
 
     for metric in family.metrics.values() {
         write_metric(writer, &name, metric)?;
@@ -90,24 +92,45 @@ fn format_number_value(value: &NumberValue) -> String {
 }
 
 fn format_timestamp(system_time: &SystemTime) -> String {
-    system_time
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis()
-        .to_string()
+    format!(
+        "{}.0",
+        system_time
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis()
+    )
+}
+
+fn format_label(name: &str, value: &str) -> String {
+    format!(
+        "{}=\"{}\",",
+        format_name(name, false, true),
+        value.escape_default().collect::<String>()
+    )
 }
 
 fn format_labels(labels: &[Label]) -> String {
     labels
         .iter()
-        .map(|label| {
-            format!(
-                "{}=\"{}\"",
-                format_name(&label.0, false, true),
-                label.1.escape_default().collect::<String>()
-            )
-        })
-        .collect()
+        .map(|label| format_label(&label.0, &label.1))
+        .collect::<Vec<String>>() // TODO: Consider https://github.com/rust-lang/rust/issues/79524
+        .join(",")
+}
+
+fn format_exemplar(exemplar: Option<&Exemplar>) -> String {
+    match exemplar {
+        Some(exemplar) => format!(
+            " # {{{}}} {}",
+            format_labels(&exemplar.labels),
+            exemplar.value,
+            // TODO: test exemplar timestamp
+            // exemplar
+            //     .timestamp
+            //     .map(|ts| format_timestamp(&ts))
+            //     .unwrap_or_default()
+        ),
+        None => String::new(),
+    }
 }
 
 fn write_metric<W: Write>(writer: &mut W, name: &str, metric: &Metric) -> Result<()> {
@@ -127,21 +150,106 @@ fn write_metric<W: Write>(writer: &mut W, name: &str, metric: &Metric) -> Result
                 total,
                 created,
                 exemplar,
-            } => todo!(),
+            } => {
+                writeln!(
+                    writer,
+                    "{name}_total{{{}}} {}{}",
+                    format_labels(&metric.labels),
+                    format_number_value(total),
+                    format_exemplar(exemplar.as_deref())
+                )?;
+
+                writeln!(
+                    writer,
+                    "{name}_created{{{}}} {}",
+                    format_labels(&metric.labels),
+                    format_timestamp(created),
+                )?;
+            }
             MetricValue::Histogram {
                 sum,
                 count,
                 created,
                 buckets,
-            } => todo!(),
-            MetricValue::StateSet(_) => todo!(),
-            MetricValue::Info(_) => todo!(),
+            } => {
+                let formatted_label = format_labels(&metric.labels);
+
+                for bucket in buckets.iter() {
+                    writeln!(
+                        writer,
+                        "{name}_bucket{{le=\"{}\"}} {}{}",
+                        bucket.upper_bound,
+                        bucket.count,
+                        format_exemplar(bucket.exemplar.as_deref())
+                    )?;
+                }
+
+                writeln!(writer, "{name}_count{{{formatted_label}}} {count}")?;
+
+                writeln!(
+                    writer,
+                    "{name}_sum{{{formatted_label}}} {}",
+                    format_number_value(sum)
+                )?;
+
+                writeln!(
+                    writer,
+                    "{name}_created{{{formatted_label}}} {}",
+                    format_timestamp(created)
+                )?;
+            }
+            MetricValue::StateSet(states) => {
+                let formatted_labels = format_labels(&metric.labels);
+
+                for state in states.iter() {
+                    writeln!(
+                        writer,
+                        "{name}{{{formatted_labels}{}{}}} {}",
+                        if metric.labels.is_empty() { "" } else { "," },
+                        format_label(name, &state.name),
+                        Into::<u32>::into(state.enabled)
+                    )?;
+                }
+            }
+            MetricValue::Info(labels) => {
+                writeln!(
+                    writer,
+                    "{name}_info{{{}{}{}}} 1",
+                    format_labels(&metric.labels),
+                    if metric.labels.is_empty() { "" } else { "," },
+                    format_labels(labels)
+                )?;
+            }
             MetricValue::Summary {
                 sum,
                 count,
                 created,
                 quantile,
-            } => todo!(),
+            } => {
+                let formatted_label = format_labels(&metric.labels);
+
+                for quantile in quantile.iter() {
+                    writeln!(
+                        writer,
+                        "{name}_bucket{{quantile=\"{}\"}} {}",
+                        quantile.quantile, quantile.value
+                    )?;
+                }
+
+                writeln!(writer, "{name}_count{{{formatted_label}}} {count}")?;
+
+                writeln!(
+                    writer,
+                    "{name}_sum{{{formatted_label}}} {}",
+                    format_number_value(sum)
+                )?;
+
+                writeln!(
+                    writer,
+                    "{name}_created{{{formatted_label}}} {}",
+                    format_timestamp(created)
+                )?;
+            }
         }
     }
 

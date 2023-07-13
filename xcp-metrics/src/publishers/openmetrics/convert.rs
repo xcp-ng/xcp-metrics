@@ -91,7 +91,7 @@ impl From<Bucket> for openmetrics::histogram_value::Bucket {
     ) -> Self {
         Self {
             count,
-            exemplar: Some(exemplar.into()),
+            exemplar: exemplar.map(|e| (*e).into()),
             upper_bound,
         }
     }

@@ -95,7 +95,7 @@ pub enum MetricValue {
 pub struct Bucket {
     pub count: u64,
     pub upper_bound: f64,
-    pub exemplar: Exemplar,
+    pub exemplar: Option<Box<Exemplar>>,
 }
 
 #[derive(Clone, Default, PartialEq, Debug)]
