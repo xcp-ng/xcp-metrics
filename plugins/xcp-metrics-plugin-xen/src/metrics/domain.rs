@@ -1,4 +1,4 @@
-use std::{borrow::Cow, rc::Rc};
+use std::{borrow::Cow, rc::Rc, time::Instant};
 
 use xcp_metrics_common::rrdd::protocol_common::{
     DataSourceMetadata, DataSourceOwner, DataSourceType, DataSourceValue,
@@ -15,7 +15,8 @@ pub struct VCpuTime {
     vcpuid: u32,
     domid: u32,
     dom_uuid: uuid::Uuid,
-    vcpu_info: Option<xc_vcpuinfo_t>,
+    current_vcpu: Option<(xc_vcpuinfo_t, Instant)>,
+    previous_vcpu: Option<(xc_vcpuinfo_t, Instant)>,
     name: Box<str>,
 }
 
@@ -26,7 +27,8 @@ impl VCpuTime {
             vcpuid,
             domid,
             dom_uuid,
-            vcpu_info: None,
+            current_vcpu: None,
+            previous_vcpu: None,
             name: format!("dom{domid}_vcpu{vcpuid}").into(),
         }
     }
@@ -36,8 +38,8 @@ impl XenMetric for VCpuTime {
     fn generate_metadata(&self) -> anyhow::Result<DataSourceMetadata> {
         Ok(DataSourceMetadata {
             description: format!("vCPU{} usage", self.vcpuid).into(),
-            units: "(fraction)".into(),
-            ds_type: DataSourceType::Derive,
+            units: "".into(),
+            ds_type: DataSourceType::Gauge,
             value: DataSourceValue::Float(0.0),
             min: 0.0,
             max: 1.0,
@@ -49,7 +51,8 @@ impl XenMetric for VCpuTime {
     fn update(&mut self, _: uuid::Uuid) -> bool {
         match self.xc.vcpu_getinfo(self.domid, self.vcpuid) {
             Ok(info) => {
-                self.vcpu_info.replace(info);
+                self.previous_vcpu = self.current_vcpu;
+                self.current_vcpu.replace((info, Instant::now()));
                 true
             }
             Err(e) => {
@@ -60,17 +63,24 @@ impl XenMetric for VCpuTime {
     }
 
     fn get_value(&self) -> DataSourceValue {
-        self.vcpu_info.map_or_else(
-            || DataSourceValue::Undefined,
-            |info| {
+        match (self.current_vcpu, self.previous_vcpu) {
+            (Some(_), None) => DataSourceValue::Float(0.0),
+            (Some((current, current_instant)), Some((previous, previous_instant))) => {
                 // xcp-rrdd: Workaround for Xen leaking the flag XEN_RUNSTATE_UPDATE; using a mask of its complement ~(1 << 63)
-                let mut cputime = (info.cpu_time & !(1u64 << 63)) as f64;
-                // Convert from nanoseconds to seconds
-                cputime /= 1.0e9;
+                // Then convert from nanoseconds to seconds
+                let cputime = (current.cpu_time & !(1u64 << 63)) as f64 / 1.0e9;
+                // Do the same for previous cpu time.
+                let previous_cputime = (previous.cpu_time & !(1u64 << 63)) as f64 / 1.0e9;
 
-                DataSourceValue::Float(cputime)
-            },
-        )
+                DataSourceValue::Float(
+                    (cputime - previous_cputime)
+                        / current_instant
+                            .duration_since(previous_instant)
+                            .as_secs_f64(),
+                )
+            }
+            (None, _) => DataSourceValue::Undefined,
+        }
     }
 
     fn get_name(&self) -> Cow<str> {
@@ -102,7 +112,7 @@ impl XenMetric for DomainMemory {
     fn generate_metadata(&self) -> anyhow::Result<DataSourceMetadata> {
         Ok(DataSourceMetadata {
             description: "Memory currently allocated to VM".into(),
-            units: "B".into(),
+            units: "bytes".into(),
             ds_type: DataSourceType::Gauge,
             value: DataSourceValue::Int64(0),
             min: 0.0,

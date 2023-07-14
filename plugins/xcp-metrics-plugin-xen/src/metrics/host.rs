@@ -13,7 +13,7 @@ impl XenMetric for LoadAvg {
     fn generate_metadata(&self) -> anyhow::Result<DataSourceMetadata> {
         Ok(DataSourceMetadata {
             description: "Domain0 loadavg".into(),
-            units: "(fraction)".into(),
+            units: "".into(),
             ds_type: DataSourceType::Gauge,
             value: DataSourceValue::Float(0.0),
             min: f32::NEG_INFINITY,

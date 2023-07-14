@@ -1,6 +1,4 @@
-// TODO: Share buffers.
-
-use std::{borrow::Cow, mem::MaybeUninit, rc::Rc};
+use std::{borrow::Cow, mem::MaybeUninit, rc::Rc, time::Instant};
 
 use xcp_metrics_common::rrdd::protocol_common::{
     DataSourceMetadata, DataSourceOwner, DataSourceType, DataSourceValue,
@@ -61,7 +59,8 @@ impl Updatable for SharedPhysInfo {
 pub struct PCpuTime {
     cpu_index: usize,
     slice: Rc<UpdateOnce<SharedPCpuSlice>>,
-    info: Option<xen_sysctl_cpuinfo_t>,
+    current_info: Option<(xen_sysctl_cpuinfo_t, Instant)>,
+    previous_info: Option<(xen_sysctl_cpuinfo_t, Instant)>,
 }
 
 impl PCpuTime {
@@ -69,7 +68,8 @@ impl PCpuTime {
         Self {
             cpu_index,
             slice,
-            info: None,
+            current_info: None,
+            previous_info: None,
         }
     }
 }
@@ -78,8 +78,8 @@ impl XenMetric for PCpuTime {
     fn generate_metadata(&self) -> anyhow::Result<DataSourceMetadata> {
         Ok(DataSourceMetadata {
             description: format!("Physical cpu usage for cpu {}", self.cpu_index).into(),
-            units: "(fraction)".into(),
-            ds_type: DataSourceType::Derive,
+            units: "".into(),
+            ds_type: DataSourceType::Gauge,
             value: DataSourceValue::Float(0.0),
             min: 0.0,
             max: 1.0,
@@ -98,7 +98,8 @@ impl XenMetric for PCpuTime {
             .and_then(|infos| infos.get(self.cpu_index))
         {
             Some(cpuinfo) => {
-                self.info.replace(*cpuinfo);
+                self.previous_info = self.current_info;
+                self.current_info.replace((*cpuinfo, Instant::now()));
                 true
             }
             None => false,
@@ -106,9 +107,19 @@ impl XenMetric for PCpuTime {
     }
 
     fn get_value(&self) -> DataSourceValue {
-        match self.info {
-            Some(info) => DataSourceValue::Float((info.idletime as f64) / 1.0e9),
-            None => DataSourceValue::Undefined,
+        match (self.current_info, self.previous_info) {
+            (Some((current, current_instant)), Some((previous, previous_instant))) => {
+                DataSourceValue::Float(
+                    // Compute busy ratio over time.
+                    1.0 - (((current.idletime - previous.idletime) as f64)
+                        / 1.0e9
+                        / current_instant
+                            .duration_since(previous_instant)
+                            .as_secs_f64()),
+                )
+            }
+            (Some(_), None) => DataSourceValue::Float(0.0),
+            (None, _) => DataSourceValue::Undefined,
         }
     }
 
