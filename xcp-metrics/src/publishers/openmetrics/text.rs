@@ -103,7 +103,7 @@ fn format_timestamp(system_time: &SystemTime) -> String {
 
 fn format_label(name: &str, value: &str) -> String {
     format!(
-        "{}=\"{}\",",
+        "{}=\"{}\"",
         format_name(name, false, true),
         value.escape_default().collect::<String>()
     )
