@@ -46,7 +46,7 @@ pub async fn start_forwarded_socket(
 
             let hub_channel = hub_channel.clone();
             let shared = shared.clone();
-            task::spawn_blocking(|| async move { forwarded_handler(stream, hub_channel, shared) });
+            task::spawn_blocking(|| forwarded_handler(stream, hub_channel, shared));
         }
     }))
 }
