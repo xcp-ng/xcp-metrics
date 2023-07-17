@@ -1,5 +1,6 @@
 //! RPC routes
 mod deregister;
+mod next_reading;
 mod register;
 
 use std::{collections::HashMap, sync::Arc};
@@ -10,13 +11,16 @@ use tokio::sync::mpsc;
 use xcp_metrics_common::{
     rpc::{
         message::RpcRequest,
-        methods::{PluginLocalDeregister, PluginLocalRegister},
+        methods::{PluginLocalDeregister, PluginLocalNextReading, PluginLocalRegister},
         XcpRpcMethodNamed,
     },
     xapi::hyper::{Body, Response},
 };
 
-use self::{deregister::PluginLocalDeregisterRoute, register::PluginLocalRegisterRoute};
+use self::{
+    deregister::PluginLocalDeregisterRoute, next_reading::PluginLocalNextReadingRoute,
+    register::PluginLocalRegisterRoute,
+};
 
 use super::RpcShared;
 
@@ -57,6 +61,10 @@ pub fn generate_routes() -> HashMap<&'static str, Box<dyn XcpRpcRoute>> {
         (
             PluginLocalDeregister::get_method_name(),
             PluginLocalDeregisterRoute::make_route(),
+        ),
+        (
+            PluginLocalNextReading::get_method_name(),
+            PluginLocalNextReadingRoute::make_route(),
         ),
     ]
     .into_iter()
