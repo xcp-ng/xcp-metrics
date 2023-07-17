@@ -22,9 +22,9 @@ use crate::{hub::HubPushMessage, rpc};
 pub async fn start_daemon(
     daemon_name: &str,
     hub_channel: mpsc::UnboundedSender<HubPushMessage>,
+    shared: Arc<rpc::RpcShared>,
 ) -> anyhow::Result<JoinHandle<()>> {
     let socket_path = xapi::get_module_path(daemon_name);
-    let shared: Arc<rpc::RpcShared> = Arc::default();
 
     let make_service = make_service_fn(move |socket: &UnixStream| {
         let shared = shared.clone();
