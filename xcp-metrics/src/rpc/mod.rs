@@ -30,6 +30,7 @@ pub async fn route(
     if let Some(route) = rpc_routes.get(request.get_name()) {
         route.run(shared, hub_channel, request).await
     } else {
+        tracing::error!("RPC: Method not found: {request}");
         RpcError::respond_to::<()>(Some(&request), -32601, "Method not found", None)
     }
 }
@@ -47,6 +48,9 @@ pub async fn entrypoint(
 
     match request {
         Ok(request) => route(shared, hub_channel, request, &rpc_routes).await,
-        Err(err) => RpcError::respond_to(None, -32700, "Parse error", Some(err.to_string())),
+        Err(err) => {
+            tracing::error!("RPC: Parse error: {err}");
+            RpcError::respond_to(None, -32700, "Parse error", Some(err.to_string()))
+        },
     }
 }
