@@ -11,8 +11,8 @@ use xcp_metrics_common::{
     xapi::hyper::{Body, Response},
 };
 
-use crate::XcpMetricsShared;
 use super::XcpRpcRoute;
+use crate::XcpMetricsShared;
 
 #[derive(Clone, Copy, Default)]
 pub struct PluginLocalDeregisterRoute;

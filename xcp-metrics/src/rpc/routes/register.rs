@@ -12,11 +12,11 @@ use xcp_metrics_common::{
     xapi::hyper::{Body, Response},
 };
 
+use super::XcpRpcRoute;
 use crate::{
     providers::{protocol_v2::ProtocolV2Provider, Provider},
     XcpMetricsShared,
 };
-use super::XcpRpcRoute;
 
 #[derive(Clone, Copy, Default)]
 pub struct PluginLocalRegisterRoute;
