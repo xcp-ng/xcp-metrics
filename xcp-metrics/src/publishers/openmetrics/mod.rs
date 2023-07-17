@@ -15,7 +15,8 @@ use xcp_metrics_common::{
 
 use crate::{
     hub::{HubPullResponse, HubPushMessage, PullMetrics},
-    rpc::{routes::XcpRpcRoute, RpcShared},
+    rpc::routes::XcpRpcRoute,
+    XcpMetricsShared,
 };
 
 use self::convert::openmetrics;
@@ -42,8 +43,7 @@ pub struct OpenMetricsRoute;
 impl XcpRpcRoute for OpenMetricsRoute {
     fn run(
         &self,
-        _shared: Arc<RpcShared>,
-        hub_channel: mpsc::UnboundedSender<HubPushMessage>,
+        shared: Arc<XcpMetricsShared>,
         message: RpcRequest,
     ) -> BoxFuture<'static, anyhow::Result<Response<Body>>> {
         tracing::info_span!("Open Metrics query");
@@ -56,7 +56,9 @@ impl XcpRpcRoute for OpenMetricsRoute {
 
             let (sender, mut receiver) = mpsc::unbounded_channel();
 
-            hub_channel.send(HubPushMessage::PullMetrics(PullMetrics(sender)))?;
+            shared
+                .hub_channel
+                .send(HubPushMessage::PullMetrics(PullMetrics(sender)))?;
 
             let Some(HubPullResponse::Metrics(metrics)) = receiver.recv().await else {
                 anyhow::bail!("Unable to fetch metrics from hub")

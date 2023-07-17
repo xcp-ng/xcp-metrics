@@ -2,10 +2,17 @@ pub mod hub;
 pub mod providers;
 pub mod publishers;
 pub mod rpc;
+pub mod xapi;
 
-use rpc::xapi;
+use dashmap::DashMap;
 use std::sync::Arc;
-use tokio::select;
+use tokio::{select, sync::mpsc, task::JoinHandle};
+
+#[derive(Debug)]
+pub struct XcpMetricsShared {
+    pub plugins: DashMap<Box<str>, JoinHandle<()>>,
+    pub hub_channel: mpsc::UnboundedSender<hub::HubPushMessage>,
+}
 
 #[tokio::main]
 async fn main() {
@@ -17,15 +24,18 @@ async fn main() {
 
     tracing::subscriber::set_global_default(text_subscriber).unwrap();
 
-    let (hub, channel) = hub::MetricsHub::default().start().await;
+    let (hub, hub_channel) = hub::MetricsHub::default().start().await;
 
-    let shared: Arc<rpc::RpcShared> = Arc::default();
+    let shared = Arc::new(XcpMetricsShared {
+        hub_channel,
+        plugins: Default::default(),
+    });
 
-    let socket = xapi::start_daemon("xcp-rrdd", channel.clone(), shared.clone())
+    let socket = xapi::start_daemon("xcp-rrdd", shared.clone())
         .await
         .unwrap();
 
-    let socket_forwarded = xapi::start_forwarded_socket("xcp-rrdd.forwarded", channel, shared)
+    let socket_forwarded = xapi::start_forwarded_socket("xcp-rrdd.forwarded", shared)
         .await
         .unwrap();
 

@@ -2,7 +2,6 @@
 use std::sync::Arc;
 
 use futures::future::BoxFuture;
-use tokio::sync::mpsc;
 use xcp_metrics_common::{
     rpc::{
         message::{RpcError, RpcRequest, RpcResponse},
@@ -14,11 +13,9 @@ use xcp_metrics_common::{
 };
 
 use crate::{
-    hub::HubPushMessage,
     providers::{protocol_v2::ProtocolV2Provider, Provider},
-    rpc::RpcShared,
+    XcpMetricsShared,
 };
-
 use super::XcpRpcRoute;
 
 #[derive(Clone, Copy, Default)]
@@ -27,8 +24,7 @@ pub struct PluginLocalRegisterRoute;
 impl XcpRpcRoute for PluginLocalRegisterRoute {
     fn run(
         &self,
-        shared: Arc<RpcShared>,
-        hub_channel: mpsc::UnboundedSender<HubPushMessage>,
+        shared: Arc<XcpMetricsShared>,
         request: RpcRequest,
     ) -> BoxFuture<'static, anyhow::Result<Response<Body>>> {
         Box::pin(async move {
@@ -43,8 +39,8 @@ impl XcpRpcRoute for PluginLocalRegisterRoute {
                 .map(|handle| !handle.is_finished())
                 .is_none()
             {
-                let sender =
-                    ProtocolV2Provider::new(&register_rpc.uid).start_provider(hub_channel.clone());
+                let sender = ProtocolV2Provider::new(&register_rpc.uid)
+                    .start_provider(shared.hub_channel.clone());
 
                 shared.plugins.insert(register_rpc.uid.into(), sender);
 

@@ -3,11 +3,9 @@ mod deregister;
 mod next_reading;
 mod register;
 
+use futures::future::BoxFuture;
 use std::{collections::HashMap, sync::Arc};
 
-use crate::{hub::HubPushMessage, publishers::openmetrics::OpenMetricsRoute};
-use futures::future::BoxFuture;
-use tokio::sync::mpsc;
 use xcp_metrics_common::{
     rpc::{
         message::RpcRequest,
@@ -21,14 +19,12 @@ use self::{
     deregister::PluginLocalDeregisterRoute, next_reading::PluginLocalNextReadingRoute,
     register::PluginLocalRegisterRoute,
 };
-
-use super::RpcShared;
+use crate::{publishers::openmetrics::OpenMetricsRoute, XcpMetricsShared};
 
 pub trait XcpRpcRoute: 'static + Sync + Send {
     fn run(
         &self,
-        shared: Arc<RpcShared>,
-        hub_channel: mpsc::UnboundedSender<HubPushMessage>,
+        shared: Arc<XcpMetricsShared>,
         request: RpcRequest,
     ) -> BoxFuture<'static, anyhow::Result<Response<Body>>>;
 

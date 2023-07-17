@@ -20,9 +20,8 @@ use xcp_metrics_common::{
     },
 };
 
-use crate::hub::{CreateFamily, HubPushMessage, RegisterMetrics, UnregisterMetrics, UpdateMetrics};
-
 use super::Provider;
+use crate::hub::{CreateFamily, HubPushMessage, RegisterMetrics, UnregisterMetrics, UpdateMetrics};
 
 const METRICS_SHM_PATH: &str = "/dev/shm/metrics/";
 

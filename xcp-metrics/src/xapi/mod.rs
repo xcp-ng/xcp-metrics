@@ -4,7 +4,6 @@ use std::sync::Arc;
 
 use tokio::{
     net::UnixStream,
-    sync::mpsc,
     task::{self, JoinHandle},
 };
 use xcp_metrics_common::xapi::{
@@ -17,24 +16,21 @@ use xcp_metrics_common::xapi::{
     hyperlocal::UnixServerExt,
 };
 
-use crate::{hub::HubPushMessage, rpc};
+use crate::{rpc, XcpMetricsShared};
 
-#[tracing::instrument(skip(hub_channel))]
 pub async fn start_daemon(
     daemon_name: &str,
-    hub_channel: mpsc::UnboundedSender<HubPushMessage>,
-    shared: Arc<rpc::RpcShared>,
+    shared: Arc<XcpMetricsShared>,
 ) -> anyhow::Result<JoinHandle<()>> {
     let socket_path = xapi::get_module_path(daemon_name);
 
     let make_service = make_service_fn(move |socket: &UnixStream| {
         let shared = shared.clone();
         tracing::debug!("Accepted unix stream {socket:?}");
-        let hub_channel = hub_channel.clone();
 
         async move {
             anyhow::Ok(service_fn(move |request: hyper::Request<Body>| {
-                rpc::entrypoint(shared.clone(), hub_channel.clone(), request)
+                rpc::entrypoint(shared.clone(), request)
             }))
         }
     });
