@@ -33,8 +33,11 @@ fn forwarded_handler(stream: UnixStream, _shared: Arc<XcpMetricsShared>) {
     let deserializer = Deserializer::from_reader(stream);
 
     for value in deserializer.into_iter::<ForwardedRequest>() {
-        if let Ok(value) = value {
-            tracing::info!("Captured value: {value:?}");
+        match value {
+            Ok(value) => {
+                tracing::info!("Captured value: {value:?}")
+            }
+            Err(e) => tracing::warn!("Forwarded iterator error: {e}"),
         }
     }
 }
