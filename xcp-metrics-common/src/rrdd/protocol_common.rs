@@ -30,17 +30,6 @@ pub enum DataSourceType {
     Derive,
 }
 
-// TODO: Use another system.
-impl From<DataSourceType> for MetricType {
-    fn from(value: DataSourceType) -> Self {
-        match value {
-            DataSourceType::Gauge => Self::Gauge,
-            DataSourceType::Absolute => Self::Gauge,
-            DataSourceType::Derive => Self::Gauge,
-        }
-    }
-}
-
 /// Try to parse a data source type.
 impl TryFrom<&str> for DataSourceType {
     type Error = DataSourceParseError;
@@ -323,16 +312,41 @@ impl Default for DataSourceMetadata {
     }
 }
 
-impl From<(&DataSourceMetadata, &DataSourceValue)> for crate::metrics::Metric {
-    fn from((metadata, value): (&DataSourceMetadata, &DataSourceValue)) -> Self {
+impl crate::metrics::Metric {
+    pub fn from_protocol_v2(
+        metadata: &DataSourceMetadata,
+        value: &DataSourceValue,
+        timestamp: SystemTime,
+        // Used for derive creation timestamp.
+        created: SystemTime,
+    ) -> Self {
+        let metric_point = MetricPoint::from_protocol_v2(metadata, value, timestamp, created);
+
         Self {
             labels: vec![Label("owner".into(), metadata.owner.into())].into_boxed_slice(),
-            metrics_point: vec![MetricPoint {
-                timestamp: SystemTime::now(),
-                value: MetricValue::Gauge(value.into()),
-            }]
-            .into_boxed_slice(),
+            metrics_point: vec![metric_point].into_boxed_slice(),
         }
+    }
+}
+
+impl crate::metrics::MetricPoint {
+    pub fn from_protocol_v2(
+        metadata: &DataSourceMetadata,
+        value: &DataSourceValue,
+        timestamp: SystemTime,
+        // Used for derive creation timestamp.
+        created: SystemTime,
+    ) -> Self {
+        let value = match metadata.ds_type {
+            DataSourceType::Gauge | DataSourceType::Absolute => MetricValue::Gauge(value.into()),
+            DataSourceType::Derive => MetricValue::Counter {
+                total: value.into(),
+                created,
+                exemplar: None,
+            },
+        };
+
+        Self { timestamp, value }
     }
 }
 

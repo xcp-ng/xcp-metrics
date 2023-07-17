@@ -85,7 +85,7 @@ fn write_family<W: Write>(writer: &mut W, name: &str, family: &MetricFamily) -> 
 
 fn format_number_value(value: &NumberValue) -> String {
     match value {
-        NumberValue::Double(value) => value.to_string(),
+        NumberValue::Double(value) => format!("{value:.2}"),
         NumberValue::Int64(value) => value.to_string(),
         NumberValue::Undefined => "0".to_string(),
     }

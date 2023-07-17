@@ -2,7 +2,7 @@
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
-    time::{Duration, SystemTime},
+    time::{Duration, Instant, SystemTime},
 };
 
 use tokio::{
@@ -15,7 +15,7 @@ use tokio::{
 use xcp_metrics_common::{
     metrics::{Metric, MetricPoint, MetricType, MetricValue},
     rrdd::{
-        protocol_common::DataSourceValue,
+        protocol_common::{DataSourceType, DataSourceValue},
         protocol_v2::{RrddMessageHeader, RrddMetadata, RrddMetadataRaw},
     },
 };
@@ -41,6 +41,7 @@ pub struct ProtocolV2Provider {
     state: Option<PluginData>,
     registered_metrics: HashMap<Box<str>, uuid::Uuid>,
     hub_channel: Option<mpsc::UnboundedSender<HubPushMessage>>,
+    last_reset: SystemTime,
 }
 
 impl ProtocolV2Provider {
@@ -51,6 +52,7 @@ impl ProtocolV2Provider {
             state: None,
             registered_metrics: HashMap::new(),
             hub_channel: None,
+            last_reset: SystemTime::now(),
         }
     }
 
@@ -74,6 +76,7 @@ impl ProtocolV2Provider {
                 /* Regenerate data */
                 _ => {
                     updated_metadata = true;
+                    self.last_reset = SystemTime::now();
 
                     // Read metadata
                     let mut metadata_string = vec![0u8; header.metadata_length as usize];
@@ -122,20 +125,23 @@ impl ProtocolV2Provider {
 
         std::iter::zip(state.metadata.datasources.iter(), state.values.iter()).for_each(
             |((name, metadata), value)| {
+                // Wrap value into its appropriate MetricPoint.
+                let metric_point = MetricPoint::from_protocol_v2(
+                    metadata,
+                    value,
+                    state.timestamp,
+                    self.last_reset,
+                );
+
                 match self.registered_metrics.get(name) {
-                    Some(uuid) => {
+                    Some(&uuid) => {
                         // Update metrics values
-                        let new_values = vec![MetricPoint {
-                            timestamp: state.timestamp,
-                            // TODO: Consider other metric kind
-                            value: MetricValue::Gauge(value.into()),
-                        }]
-                        .into_boxed_slice();
+                        let new_values = vec![metric_point].into_boxed_slice();
 
                         hub_channel
                             .send(HubPushMessage::UpdateMetrics(UpdateMetrics {
                                 new_values,
-                                uuid: *uuid,
+                                uuid,
                             }))
                             .unwrap();
                     }
@@ -147,7 +153,7 @@ impl ProtocolV2Provider {
                         hub_channel
                             .send(HubPushMessage::CreateFamily(CreateFamily {
                                 name: name.clone(),
-                                metric_type: MetricType::from(metadata.ds_type),
+                                metric_type: metric_point.value.get_type(),
                                 unit: metadata.units.clone(),
                                 help: metadata.description.clone(),
                             }))
@@ -158,7 +164,12 @@ impl ProtocolV2Provider {
                             .send(HubPushMessage::RegisterMetrics(RegisterMetrics {
                                 family: name.clone(),
                                 uuid: metric_uuid,
-                                metrics: Metric::from((metadata, value)),
+                                metrics: Metric::from_protocol_v2(
+                                    metadata,
+                                    value,
+                                    state.timestamp,
+                                    self.last_reset,
+                                ),
                             }))
                             .unwrap();
 

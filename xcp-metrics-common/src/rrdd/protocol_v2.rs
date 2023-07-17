@@ -222,7 +222,7 @@ impl RrddMessageHeader {
     /// Generate a protocol v2 header along with its matching serialized metadata.
     pub fn generate(values: &[[u8; 8]], metadata: RrddMetadata) -> (Self, Box<str>) {
         let timestamp = SystemTime::now();
-        let metadata = serde_json::to_string(&Into::<RrddMetadataRaw>::into(metadata))
+        let metadata = serde_json::to_string(&RrddMetadataRaw::from(metadata))
             .expect("serde_json::to_string failure");
 
         (

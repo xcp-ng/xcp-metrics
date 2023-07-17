@@ -91,6 +91,20 @@ pub enum MetricValue {
     },
 }
 
+impl MetricValue {
+    pub fn get_type(&self) -> MetricType {
+        match self {
+            Self::Unknown(_) => MetricType::Unknown,
+            Self::Gauge(_) => MetricType::Gauge,
+            Self::Counter { .. } => MetricType::Counter,
+            Self::Histogram { .. } => MetricType::Histogram,
+            Self::StateSet(_) => MetricType::StateSet,
+            Self::Info(_) => MetricType::Info,
+            Self::Summary { .. } => MetricType::Summary,
+        }
+    }
+}
+
 #[derive(Clone, Default, PartialEq, Debug)]
 pub struct Bucket {
     pub count: u64,
