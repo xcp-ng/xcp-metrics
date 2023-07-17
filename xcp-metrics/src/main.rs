@@ -3,6 +3,7 @@ pub mod providers;
 pub mod publishers;
 pub mod rpc;
 
+use rpc::xapi;
 use std::sync::Arc;
 use tokio::select;
 
@@ -20,11 +21,11 @@ async fn main() {
 
     let shared: Arc<rpc::RpcShared> = Arc::default();
 
-    let socket = rpc::xapi::start_daemon("xcp-rrdd", channel.clone(), shared.clone())
+    let socket = xapi::start_daemon("xcp-rrdd", channel.clone(), shared.clone())
         .await
         .unwrap();
 
-    let socket_forwarded = rpc::xapi::start_daemon("xcp-rrdd.forwarded", channel, shared)
+    let socket_forwarded = xapi::start_forwarded_socket("xcp-rrdd.forwarded", channel, shared)
         .await
         .unwrap();
 

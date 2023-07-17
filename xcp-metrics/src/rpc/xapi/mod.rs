@@ -1,4 +1,5 @@
 //! XAPI daemon utilities.
+mod forwarded;
 use std::sync::Arc;
 
 use tokio::{
@@ -50,3 +51,5 @@ pub async fn start_daemon(
 
     Ok(server_task)
 }
+
+pub use forwarded::start_forwarded_socket;
