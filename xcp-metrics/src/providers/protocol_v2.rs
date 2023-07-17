@@ -2,7 +2,7 @@
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
-    time::{Duration, Instant, SystemTime},
+    time::{Duration, SystemTime},
 };
 
 use tokio::{
@@ -13,9 +13,9 @@ use tokio::{
     time,
 };
 use xcp_metrics_common::{
-    metrics::{Metric, MetricPoint, MetricType, MetricValue},
+    metrics::{Metric, MetricPoint},
     rrdd::{
-        protocol_common::{DataSourceType, DataSourceValue},
+        protocol_common::DataSourceValue,
         protocol_v2::{RrddMessageHeader, RrddMetadata, RrddMetadataRaw},
     },
 };
@@ -99,13 +99,13 @@ impl ProtocolV2Provider {
                 .iter_mut()
                 .zip(data.metadata.datasources.values())
                 .zip(header.values.iter())
-                .for_each(|((dest, meta), raw)| {
+                .for_each(|((dest, meta), &raw)| {
                     *dest = match meta.value {
                         DataSourceValue::Int64(_) => {
-                            DataSourceValue::Int64(i64::from_be_bytes(*raw))
+                            DataSourceValue::Int64(i64::from_be_bytes(raw))
                         }
                         DataSourceValue::Float(_) => {
-                            DataSourceValue::Float(f64::from_be_bytes(*raw))
+                            DataSourceValue::Float(f64::from_be_bytes(raw))
                         }
                         DataSourceValue::Undefined => DataSourceValue::Undefined,
                     }
@@ -183,13 +183,13 @@ impl ProtocolV2Provider {
     fn check_metrics(&mut self, hub_channel: &mpsc::UnboundedSender<HubPushMessage>) {
         let Some(state) = &self.state else { return };
 
-        self.registered_metrics.retain(|key, uuid| {
+        self.registered_metrics.retain(|key, &mut uuid| {
             // Check if the key exists in the new metadata.
             if !state.metadata.datasources.contains_key(key) {
                 // missing: unregister
                 hub_channel
                     .send(HubPushMessage::UnregisterMetrics(UnregisterMetrics {
-                        uuid: *uuid,
+                        uuid,
                     }))
                     .ok();
 
@@ -239,12 +239,12 @@ impl Drop for ProtocolV2Provider {
     fn drop(&mut self) {
         // Unregister plugins
         if let Some(hub_channel) = &self.hub_channel {
-            self.registered_metrics.iter().for_each(|(name, uuid)| {
+            self.registered_metrics.iter().for_each(|(name, &uuid)| {
                 tracing::info!("Unregistering {name}");
 
                 hub_channel
                     .send(HubPushMessage::UnregisterMetrics(UnregisterMetrics {
-                        uuid: *uuid,
+                        uuid,
                     }))
                     .ok(); // ignore failure (destroyed hub ?)
             });

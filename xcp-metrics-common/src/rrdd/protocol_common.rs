@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 pub use serde_json;
 
-use crate::metrics::{Label, MetricPoint, MetricType, MetricValue, NumberValue};
+use crate::metrics::{Label, MetricPoint, MetricValue, NumberValue};
 
 /// Errors that can happen while parsing a data source.
 #[derive(Copy, Clone, Debug)]
