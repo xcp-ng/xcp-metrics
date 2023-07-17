@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
-use serde_json::{de::IoRead, StreamDeserializer};
+use serde_json::Deserializer;
 use tokio::{
     net::{UnixListener, UnixStream},
     sync::mpsc,
@@ -16,19 +16,17 @@ struct ForwardedRequest {}
 
 fn forwarded_handler(
     stream: UnixStream,
-    hub_channel: mpsc::UnboundedSender<HubPushMessage>,
-    shared: Arc<rpc::RpcShared>,
+    _hub_channel: mpsc::UnboundedSender<HubPushMessage>,
+    _shared: Arc<rpc::RpcShared>,
 ) {
     // Try to read stream
     let Ok(stream) = stream.into_std() else { tracing::error!("Failed to convert tokio stream into std stream."); return };
 
-    let deserializer = StreamDeserializer::new(IoRead::new(stream));
+    let deserializer = Deserializer::from_reader(stream);
 
-    deserializer
-        .into_iter()
-        .for_each(|value: Result<serde_json::Value, serde_json::Error>| {
-            tracing::info!("Captured value: {value:?}");
-        });
+    for value in deserializer.into_iter::<serde_json::Value>() {
+        tracing::info!("Captured value: {value:?}");
+    }
 }
 
 #[tracing::instrument(skip(hub_channel))]
