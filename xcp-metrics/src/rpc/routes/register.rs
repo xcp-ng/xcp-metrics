@@ -38,6 +38,7 @@ impl XcpRpcRoute for PluginLocalRegisterRoute {
                 .map(|handle| !handle.is_finished())
                 .is_none()
             {
+                tracing::info!(uid = register_rpc.uid, "Starting protocol v2 provider");
                 let sender = ProtocolV2Provider::new(&register_rpc.uid)
                     .start_provider(shared.hub_channel.clone());
 
