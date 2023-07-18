@@ -71,7 +71,7 @@ fn forwarded_handler(stream: UnixStream, _shared: Arc<XcpMetricsShared>) {
     for value in deserializer.into_iter::<ForwardedRequest>() {
         match value {
             Ok(value) => {
-                tracing::info!("Captured value: {value:?}");
+                tracing::info!("Captured request: {value:?}");
                 let body = "Hello There";
 
                 let test_response = ForwardedResponse {
@@ -81,7 +81,7 @@ fn forwarded_handler(stream: UnixStream, _shared: Arc<XcpMetricsShared>) {
                 };
 
                 if let Err(e) = serde_json::to_writer(&mut stream, &test_response) {
-                    tracing::error!("Forwarded response error {e}")
+                    tracing::error!("Forwarded response failure {e}")
                 }
             }
             Err(e) => tracing::warn!("Forwarded iterator error: {e}"),
