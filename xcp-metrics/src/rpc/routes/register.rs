@@ -42,20 +42,18 @@ impl XcpRpcRoute for PluginLocalRegisterRoute {
                     .start_provider(shared.hub_channel.clone());
 
                 shared.plugins.insert(register_rpc.uid.into(), sender);
-
-                RpcResponse::respond_to(
-                    &request,
-                    /* next_reading: */
-                    5.0, /* all provider readings are independant, thus this is always 5 */
-                )
             } else {
-                RpcError::respond_to::<()>(
-                    Some(&request),
-                    -32000,
-                    "Plugin already registered",
-                    None,
-                )
+                tracing::warn!(
+                    "Attempted to register an already registered plugin {}",
+                    register_rpc.uid
+                );
             }
+
+            RpcResponse::respond_to(
+                &request,
+                /* next_reading: */
+                5.0, /* all provider readings are independant, thus this is always 5 */
+            )
         })
     }
 
