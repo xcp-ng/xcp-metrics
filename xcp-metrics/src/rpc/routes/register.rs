@@ -6,7 +6,6 @@ use xcp_metrics_common::{
     rpc::{
         message::{RpcError, RpcRequest, RpcResponse},
         methods::PluginLocalRegister,
-        response::PluginLocalRegisterResponse,
         XcpRpcMethodNamed,
     },
     xapi::hyper::{Body, Response},
@@ -46,9 +45,8 @@ impl XcpRpcRoute for PluginLocalRegisterRoute {
 
                 RpcResponse::respond_to(
                     &request,
-                    PluginLocalRegisterResponse {
-                        next_reading: 5.0, /* all provider readings are independant, thus this is always 5 */
-                    },
+                    /* next_reading: */
+                    5.0, /* all provider readings are independant, thus this is always 5 */
                 )
             } else {
                 RpcError::respond_to::<()>(

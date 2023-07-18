@@ -4,10 +4,7 @@ use std::sync::Arc;
 
 use futures::future::BoxFuture;
 use xcp_metrics_common::{
-    rpc::{
-        message::{RpcRequest, RpcResponse},
-        response::PluginLocalRegisterResponse,
-    },
+    rpc::message::{RpcRequest, RpcResponse},
     xapi::hyper::{Body, Response},
 };
 
@@ -25,10 +22,7 @@ impl XcpRpcRoute for PluginLocalNextReadingRoute {
     ) -> BoxFuture<'static, anyhow::Result<Response<Body>>> {
         Box::pin(async move {
             RpcResponse::respond_to(
-                &request,
-                PluginLocalRegisterResponse {
-                    next_reading: 5.0, /* See register. */
-                },
+                &request, /* next_reading: */ 5.0, /* Same as register */
             )
         })
     }
