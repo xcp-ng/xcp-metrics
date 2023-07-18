@@ -16,13 +16,13 @@ struct ForwardedRequest {
     pub m: Box<str>,
     pub uri: Box<str>,
     pub query: HashMap<Box<str>, Box<str>>,
-    pub version: IgnoredAny,           // Box<str>,
-    pub frame: IgnoredAny,             // bool
-    pub transfer_encoding: IgnoredAny, // Option<Box<str>>,
-    pub accept: IgnoredAny,            // Option<Box<str>>,
-    pub content_length: IgnoredAny,    // Option<usize>,
-    pub auth: IgnoredAny,              // Option<Box<[Box<str>]>>
-    pub cookie: IgnoredAny,            // HashMap<Box<str>, Box<str>>
+    pub version: IgnoredAny,                   // Box<str>,
+    pub frame: IgnoredAny,                     // bool
+    pub transfer_encoding: Option<IgnoredAny>, // Option<Box<str>>,
+    pub accept: Option<IgnoredAny>,            // Option<Box<str>>,
+    pub content_length: Option<IgnoredAny>,    // Option<usize>,
+    pub auth: Option<IgnoredAny>,              // Option<Box<[Box<str>]>>
+    pub cookie: IgnoredAny,                    // HashMap<Box<str>, Box<str>>
     pub task: Option<Box<str>>,
     pub subtask_of: Option<Box<str>>,
     pub content_type: Option<Box<str>>,
@@ -31,7 +31,7 @@ struct ForwardedRequest {
     pub close: IgnoredAny, // bool
     pub additional_headers: HashMap<Box<str>, Box<str>>,
     pub body: Option<Box<str>>,
-    pub traceparent: IgnoredAny, // Option<Box<str>>,
+    pub traceparent: Option<IgnoredAny>, // Option<Box<str>>,
 }
 
 /// xapi-project/xen-api/blob/master/ocaml/libs/http-lib/http.ml for reference
