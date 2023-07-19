@@ -7,5 +7,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-serde = "*"
-xcp-metrics-common = { version = "*", path = "../xcp-metrics-common" }
+serde_json = "1.0"
+xcp-metrics-common = { path = "../xcp-metrics-common" }
+
+[dependencies.serde]
+version = "1.0"
+features = ["std", "derive"]
