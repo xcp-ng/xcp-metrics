@@ -58,7 +58,7 @@ fn forwarded_handler(stream: UnixStream, _shared: Arc<XcpMetricsShared>) {
 
                 Runtime::new().unwrap().block_on(async {
                     let mut string: Vec<u8> = Vec::new();
-                    response::write_response(&mut string, &response)
+                    response::write_response(&mut string, response)
                         .await
                         .unwrap();
 
