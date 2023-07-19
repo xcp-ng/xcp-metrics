@@ -41,11 +41,14 @@ fn main() {
         ..Default::default()
     };
 
+    let request_json = serde_json::to_string(&request).unwrap();
+    println!("Sending {request_json}");
+
     socket
-        .write_all(serde_json::to_string(&request).unwrap().as_bytes())
+        .write_all(request_json.as_bytes())
         .unwrap();
 
     let mut buffer = String::new();
-    socket.read_to_string(&mut buffer).unwrap();
-    println!("{buffer}");
+    let result = socket.read_to_string(&mut buffer);
+    println!("{result:?} {buffer:?}");
 }
