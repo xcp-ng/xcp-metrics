@@ -13,7 +13,12 @@ where
 {
     tracing::trace!("Sending HTTP response {response:?} to {writer:?}");
 
-    write!(writer, "HTTP/1.1 {}\r\n", response.status().as_u16(),)?;
+    write!(
+        writer,
+        "HTTP/1.1 {} {}\r\n",
+        response.status().as_u16(),
+        response.status().canonical_reason().unwrap_or_default()
+    )?;
 
     // Add content-length if not defined
     if !response.headers().contains_key("content-length") {
