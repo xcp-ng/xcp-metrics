@@ -4,7 +4,7 @@ use std::sync::Arc;
 use futures::future::BoxFuture;
 use xcp_metrics_common::{
     rpc::{
-        message::{RpcError, RpcRequest, RpcResponse},
+        message::{RpcRequest, RpcResponse},
         methods::PluginLocalRegister,
         XcpRpcMethodNamed,
     },
