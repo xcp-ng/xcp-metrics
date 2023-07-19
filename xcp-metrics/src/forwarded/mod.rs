@@ -1,12 +1,13 @@
 mod response;
 
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, io::Write, sync::Arc};
 
 use serde::Deserialize;
 use serde_json::Deserializer;
 use tokio::{
     net::{UnixListener, UnixStream},
-    task::{self, JoinHandle}, runtime::Runtime,
+    runtime::Runtime,
+    task::{self, JoinHandle},
 };
 use xcp_metrics_common::xapi::{
     self,
@@ -56,9 +57,17 @@ fn forwarded_handler(stream: UnixStream, _shared: Arc<XcpMetricsShared>) {
                     .unwrap();
 
                 Runtime::new().unwrap().block_on(async {
-                    response::write_response(&mut stream, &response)
+                    let mut string: Vec<u8> = Vec::new();
+                    response::write_response(&mut string, &response)
                         .await
-                        .unwrap()
+                        .unwrap();
+
+                    tracing::trace!(
+                        "Sending request to socket:\n{}",
+                        String::from_utf8_lossy(&string)
+                    );
+
+                    stream.write_all(&string).unwrap();
                 });
             }
             Err(e) => tracing::warn!("Forwarded iterator error: {e}"),
