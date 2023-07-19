@@ -1,8 +1,8 @@
+pub mod forwarded;
 pub mod hub;
 pub mod providers;
 pub mod publishers;
 pub mod rpc;
-pub mod xapi;
 
 use dashmap::DashMap;
 use std::sync::Arc;
@@ -31,11 +31,11 @@ async fn main() {
         plugins: Default::default(),
     });
 
-    let socket = xapi::start_daemon("xcp-rrdd", shared.clone())
+    let socket = rpc::daemon::start_daemon("xcp-rrdd", shared.clone())
         .await
         .unwrap();
 
-    let socket_forwarded = xapi::start_forwarded_socket("xcp-rrdd.forwarded", shared)
+    let socket_forwarded = forwarded::start_forwarded_socket("xcp-rrdd.forwarded", shared)
         .await
         .unwrap();
 
