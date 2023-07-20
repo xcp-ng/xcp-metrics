@@ -49,17 +49,29 @@ async fn forwarded_handler(
     stream: UnixStream,
     _shared: Arc<XcpMetricsShared>,
 ) -> anyhow::Result<()> {
-    let mut buffer = vec![0u8; 10240];
-    let mut fd: RawFd = Default::default();
+    let (buffer, fd) = task::spawn_blocking(move || {
+        let mut buffer = vec![0u8; 10240];
+        let mut fd: RawFd = Default::default();
 
-    let (readed, fds_count) = stream.recv_with_fd(&mut buffer, slice::from_mut(&mut fd))?;
-    assert_eq!(fds_count, 1);
+        let std_stream = stream
+            .into_std()
+            .expect("Unable to convert tokio stream to std stream.");
+        let (readed, fds_count) = std_stream
+            .recv_with_fd(&mut buffer, slice::from_mut(&mut fd))
+            .expect("recv_with_fd failure");
+
+        assert_eq!(fds_count, 1, "fds_count is not 1");
+
+        buffer.shrink_to(readed);
+
+        (buffer.into_boxed_slice(), fd)
+    })
+    .await?;
 
     // Get the fd from the forwarded response.
-    let destination_std = unsafe { std::net::TcpStream::from_raw_fd(fd) };
-    let mut destination = TcpStream::from_std(destination_std)?;
+    let mut destination = TcpStream::from_std(unsafe { std::net::TcpStream::from_raw_fd(fd) })?;
 
-    let request: ForwardedRequest = serde_json::from_slice(&buffer[..readed])?;
+    let request: ForwardedRequest = serde_json::from_slice(&buffer)?;
     tracing::info!("Captured request: {request:?}");
 
     let response = Response::builder()
