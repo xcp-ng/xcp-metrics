@@ -5,7 +5,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use xcp_metrics_common::metrics::{
+use crate::metrics::{
     Exemplar, Label, Metric, MetricFamily, MetricSet, MetricType, MetricValue, NumberValue,
 };
 

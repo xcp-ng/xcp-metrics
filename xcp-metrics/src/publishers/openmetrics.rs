@@ -1,14 +1,11 @@
 //! OpenMetrics based metrics publisher
-mod convert;
-pub mod text;
-
 use std::sync::Arc;
 
 use futures::future::BoxFuture;
-use prost::Message;
 use tokio::sync::mpsc;
 use xcp_metrics_common::{
     metrics::MetricSet,
+    openmetrics::{self, prost::Message, text},
     rpc::{message::RpcRequest, methods::OpenMetricsMethod, XcpRpcMethodNamed},
     xapi::hyper::{Body, Response},
 };
@@ -18,8 +15,6 @@ use crate::{
     rpc::routes::XcpRpcRoute,
     XcpMetricsShared,
 };
-
-use self::convert::openmetrics;
 
 fn generate_openmetrics_message(metrics: MetricSet) -> Vec<u8> {
     openmetrics::MetricSet::from(metrics).encode_to_vec()

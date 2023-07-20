@@ -1,3 +1,4 @@
+//! Forwarded request support.
 mod response;
 
 use std::{

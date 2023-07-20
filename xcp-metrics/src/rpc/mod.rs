@@ -1,6 +1,6 @@
 //! RPC routes and entrypoint.
-pub mod routes;
 pub mod daemon;
+pub mod routes;
 
 use std::{collections::HashMap, sync::Arc};
 
