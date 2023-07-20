@@ -62,7 +62,7 @@ async fn forwarded_handler(
 
         assert_eq!(fds_count, 1, "fds_count is not 1");
 
-        buffer.shrink_to(readed);
+        buffer.resize(readed, 0);
 
         (buffer.into_boxed_slice(), fd)
     })
