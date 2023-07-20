@@ -1,12 +1,17 @@
 mod response;
 
-use std::{collections::HashMap, io::Write, sync::Arc};
+use std::{
+    collections::HashMap,
+    os::fd::{FromRawFd, RawFd},
+    slice,
+    sync::Arc,
+};
 
+use sendfd::RecvWithFd;
 use serde::Deserialize;
-use serde_json::Deserializer;
 use tokio::{
-    net::{UnixListener, UnixStream},
-    runtime::Runtime,
+    io::AsyncWriteExt,
+    net::{TcpStream, UnixListener, UnixStream},
     task::{self, JoinHandle},
 };
 use xcp_metrics_common::xapi::{
@@ -40,39 +45,41 @@ struct ForwardedRequest {
     pub traceparent: Option<Box<str>>,
 }
 
-fn forwarded_handler(stream: UnixStream, _shared: Arc<XcpMetricsShared>) {
-    // Try to read stream
-    let Ok(mut stream) = stream.into_std() else { tracing::error!("Failed to convert tokio stream into std stream."); return };
+async fn forwarded_handler(
+    stream: UnixStream,
+    _shared: Arc<XcpMetricsShared>,
+) -> anyhow::Result<()> {
+    let mut buffer = vec![0u8; 10240];
+    let mut fd: RawFd = Default::default();
 
-    let deserializer = Deserializer::from_reader(stream.try_clone().unwrap());
+    let (readed, fds_count) = stream.recv_with_fd(&mut buffer, slice::from_mut(&mut fd))?;
+    assert_eq!(fds_count, 1);
 
-    for value in deserializer.into_iter::<ForwardedRequest>() {
-        match value {
-            Ok(value) => {
-                tracing::info!("Captured request: {value:?}");
+    // Get the fd from the forwarded response.
+    let destination_std = unsafe { std::net::TcpStream::from_raw_fd(fd) };
+    let mut destination = TcpStream::from_std(destination_std)?;
 
-                let response = Response::builder()
-                    .status(StatusCode::OK)
-                    .body("Hello there !")
-                    .unwrap();
+    let request: ForwardedRequest = serde_json::from_slice(&buffer[..readed])?;
+    tracing::info!("Captured request: {request:?}");
 
-                Runtime::new().unwrap().block_on(async {
-                    let mut string: Vec<u8> = Vec::new();
-                    response::write_response(&mut string, response)
-                        .await
-                        .unwrap();
+    let response = Response::builder()
+        .status(StatusCode::OK)
+        .body("Hello there !")
+        .unwrap();
 
-                    tracing::trace!(
-                        "Sending request to socket:\n{}",
-                        String::from_utf8_lossy(&string)
-                    );
+    let mut string: Vec<u8> = Vec::new();
+    response::write_response(&mut string, response)
+        .await
+        .unwrap();
 
-                    stream.write_all(&string).unwrap();
-                });
-            }
-            Err(e) => tracing::warn!("Forwarded iterator error: {e}"),
-        }
-    }
+    tracing::trace!(
+        "Sending request to socket:\n{}",
+        String::from_utf8_lossy(&string)
+    );
+
+    destination.write_all(&string).await.unwrap();
+
+    Ok(())
 }
 
 pub async fn start_forwarded_socket(
@@ -89,7 +96,10 @@ pub async fn start_forwarded_socket(
             tracing::info!("Forwarded request from {addr:?}");
 
             let shared = shared.clone();
-            task::spawn_blocking(|| forwarded_handler(stream, shared));
+
+            if let Err(e) = forwarded_handler(stream, shared).await {
+                tracing::error!("Forwarded handler failure {e}");
+            }
         }
     }))
 }
