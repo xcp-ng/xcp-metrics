@@ -208,7 +208,7 @@ impl Provider for ProtocolV2Provider {
         self.hub_channel.replace(hub_channel.clone());
 
         task::spawn(async move {
-            tracing::trace_span!("plugin {}", self.name);
+            tracing::trace_span!("plugin (v2) {}", self.name);
 
             loop {
                 let updated_metadata = self.collect_plugin_metrics().await;

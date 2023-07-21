@@ -45,7 +45,7 @@ impl std::fmt::Display for MetricType {
     }
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug, Eq, Hash)]
 pub struct Label(
     /// Label name
     pub Box<str>,
@@ -59,6 +59,8 @@ pub struct Metric {
     pub metrics_point: Box<[MetricPoint]>,
 }
 
+// TODO: Is it really needed ?
+//       Maybe consider removing MetricPoint to simplify structure.
 #[derive(Clone, PartialEq, Debug)]
 pub struct MetricPoint {
     /// *Its type should match with MetricFamily's MetricType for text export.*

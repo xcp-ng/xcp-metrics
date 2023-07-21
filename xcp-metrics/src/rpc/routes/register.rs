@@ -13,7 +13,7 @@ use xcp_metrics_common::{
 
 use super::XcpRpcRoute;
 use crate::{
-    providers::{protocol_v2::ProtocolV2Provider, Provider},
+    providers::{protocol_v2::ProtocolV2Provider, protocol_v3::ProtocolV3Provider, Provider},
     XcpMetricsShared,
 };
 
@@ -38,11 +38,25 @@ impl XcpRpcRoute for PluginLocalRegisterRoute {
                 .map(|handle| !handle.is_finished())
                 .is_none()
             {
-                tracing::info!(uid = register_rpc.uid, "Starting protocol v2 provider");
-                let sender = ProtocolV2Provider::new(&register_rpc.uid)
-                    .start_provider(shared.hub_channel.clone());
+                let plugin_handle = match register_rpc.protocol.as_str() {
+                    "V2" => {
+                        tracing::info!(uid = register_rpc.uid, "Starting protocol v2 provider");
+                        ProtocolV2Provider::new(&register_rpc.uid)
+                            .start_provider(shared.hub_channel.clone())
+                    }
+                    "V3" => {
+                        tracing::info!(uid = register_rpc.uid, "Starting protocol v3 provider");
+                        ProtocolV3Provider::new(&register_rpc.uid)
+                            .start_provider(shared.hub_channel.clone())
+                    }
+                    _ => {
+                        anyhow::bail!("Unknown or unsupported protocol {}", register_rpc.protocol);
+                    }
+                };
 
-                shared.plugins.insert(register_rpc.uid.into(), sender);
+                shared
+                    .plugins
+                    .insert(register_rpc.uid.into(), plugin_handle);
             } else {
                 tracing::warn!(
                     "Attempted to register an already registered plugin {}",
