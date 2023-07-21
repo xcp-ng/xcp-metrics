@@ -49,11 +49,11 @@ pub struct RrddMessageHeader {
     pub header_size: usize,
 }
 
-const HEADER: &str = "DATASOURCES";
+pub const PROTOCOL_V2_HEADER: &[u8; 11] = b"DATASOURCES";
 
 /// Size of the first part of the header (before data source values and metadata length)
 const RRDD_HEADER_LENGTH_PART1: usize =
-    HEADER.len()
+    PROTOCOL_V2_HEADER.len()
     + 4 /* data checksum */
     + 4 /* metadata checksum */
     + 4 /* number of data source */
@@ -75,7 +75,7 @@ fn compute_data_checksum(timestamp: SystemTime, values: &[[u8; 8]]) -> u32 {
 impl RrddMessageHeader {
     /// Parse a message header from a readable source.
     pub fn parse_from<R: Read>(input: &mut R) -> Result<Self, RrddProtocolError> {
-        let mut header_buffer = [0u8; HEADER.len()];
+        let mut header_buffer = [0u8; PROTOCOL_V2_HEADER.len()];
         let mut data_checksum_buffer = [0u8; 4];
         let mut metadata_checksum_buffer = [0u8; 4];
         let mut values_count_buffer = [0u8; 4];
@@ -90,7 +90,7 @@ impl RrddMessageHeader {
 
         first_part_slice.read_exact(&mut header_buffer)?;
 
-        if HEADER.as_bytes() != header_buffer {
+        if *PROTOCOL_V2_HEADER != header_buffer {
             return Err(RrddProtocolError::InvalidConstantString);
         }
 
@@ -150,7 +150,7 @@ impl RrddMessageHeader {
     pub async fn parse_async<R: AsyncRead + Unpin>(
         input: &mut R,
     ) -> Result<Self, RrddProtocolError> {
-        let mut header_buffer = [0u8; HEADER.len()];
+        let mut header_buffer = [0u8; PROTOCOL_V2_HEADER.len()];
         let mut data_checksum_buffer = [0u8; 4];
         let mut metadata_checksum_buffer = [0u8; 4];
         let mut values_count_buffer = [0u8; 4];
@@ -165,7 +165,7 @@ impl RrddMessageHeader {
 
         first_part_slice.read_exact(&mut header_buffer)?;
 
-        if HEADER.as_bytes() != header_buffer {
+        if *PROTOCOL_V2_HEADER != header_buffer {
             return Err(RrddProtocolError::InvalidConstantString);
         }
 
@@ -263,7 +263,7 @@ impl RrddMessageHeader {
             + 8 * self.values.len(), /* datasource values */
         );
 
-        buffer.write_all(HEADER.as_bytes())?;
+        buffer.write_all(PROTOCOL_V2_HEADER)?;
         buffer.write_all(&self.data_checksum.to_be_bytes())?;
         buffer.write_all(&self.metadata_checksum.to_be_bytes())?;
         buffer.write_all(&(self.values.len() as u32).to_be_bytes())?;
