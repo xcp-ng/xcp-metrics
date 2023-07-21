@@ -25,6 +25,7 @@ impl MetricsPlugin {
         };
 
         plugin.update(metrics).await?;
+        plugin.advertise_plugin().await?;
 
         Ok(plugin)
     }
