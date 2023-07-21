@@ -9,7 +9,7 @@ use std::{
 
 use crc32fast::Hasher;
 use prost::Message;
-use tokio::io::{AsyncRead, AsyncReadExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
 
 use crate::{metrics::MetricSet, openmetrics};
 
@@ -17,9 +17,10 @@ use crate::{metrics::MetricSet, openmetrics};
 pub enum ProtocolV3Error {
     IoError(io::Error),
     InvalidHeader,
-    InvalidChecksum,
+    InvalidChecksum { got: u32, expected: u32 },
     InvalidTimestamp,
     OpenMetricsParseError(prost::DecodeError),
+    OpenMetricsEncodeError(prost::EncodeError),
 }
 
 impl From<io::Error> for ProtocolV3Error {
@@ -34,6 +35,32 @@ impl From<prost::DecodeError> for ProtocolV3Error {
     }
 }
 
+impl From<prost::EncodeError> for ProtocolV3Error {
+    fn from(value: prost::EncodeError) -> Self {
+        Self::OpenMetricsEncodeError(value)
+    }
+}
+
+impl std::fmt::Display for ProtocolV3Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ProtocolV3Error::IoError(err) => write!(f, "IO Error: {err}"),
+            ProtocolV3Error::InvalidHeader => write!(f, "Invalid header"),
+            ProtocolV3Error::InvalidChecksum { expected, got } => {
+                write!(f, "Invalid checksum (expected {expected}, got {got}")
+            }
+            ProtocolV3Error::InvalidTimestamp => write!(f, "Invalid timestamp"),
+            ProtocolV3Error::OpenMetricsParseError(err) => write!(f, "Payload parse error: {err}"),
+            ProtocolV3Error::OpenMetricsEncodeError(err) => {
+                write!(f, "Payload encoding error: {err}")
+            }
+        }
+    }
+}
+
+impl std::error::Error for ProtocolV3Error {}
+
+#[derive(Clone, Debug)]
 pub struct ProtocolV3Header {
     pub data_checksum: u32,
     pub timestamp: SystemTime,
@@ -41,11 +68,11 @@ pub struct ProtocolV3Header {
     crc_state: Hasher,
 }
 
-const PROTOCOL_V3_HEADER: &[u8; 12] = b"OPENMETRICS1";
+pub const PROTOCOL_V3_HEADER: &[u8; 12] = b"OPENMETRICS1";
 
 impl ProtocolV3Header {
     pub fn parse(raw_header: &[u8; 28]) -> Result<Self, ProtocolV3Error> {
-        if &raw_header[0..12] != PROTOCOL_V3_HEADER {
+        if raw_header[0..12] != *PROTOCOL_V3_HEADER {
             return Err(ProtocolV3Error::InvalidHeader);
         }
 
@@ -86,7 +113,7 @@ impl ProtocolV3Header {
     }
 
     /// Build a protocol v3 message for `payload_raw`.
-    pub fn generate(payload_raw: &[u8]) -> [u8; 28] {
+    pub fn generate(payload_raw: &[u8], timestamp: Option<SystemTime>) -> [u8; 28] {
         // Build the payload in a buffer, and return it.
 
         let mut buffer = [0u8; 28];
@@ -94,7 +121,7 @@ impl ProtocolV3Header {
 
         writer.write_all(PROTOCOL_V3_HEADER).unwrap();
 
-        let timestamp = SystemTime::now();
+        let timestamp = timestamp.unwrap_or_else(SystemTime::now);
         let timestamp_epoch: u64 = timestamp
             .duration_since(time::UNIX_EPOCH)
             .expect("Non representable time encountered")
@@ -120,19 +147,30 @@ impl ProtocolV3Header {
 
         buffer
     }
+
+    pub fn check_payload(&self, payload: &[u8], final_checksum: &mut u32) -> bool {
+        let mut crc_state = self.crc_state.clone();
+        crc_state.update(payload);
+        *final_checksum = crc_state.finalize();
+
+        *final_checksum == self.data_checksum
+    }
 }
 
 pub fn parse_v3<R: Read>(reader: &mut R) -> Result<(ProtocolV3Header, MetricSet), ProtocolV3Error> {
-    let mut header = ProtocolV3Header::parse_from(reader)?;
+    let header = ProtocolV3Header::parse_from(reader)?;
 
     let mut payload_data = vec![0u8; header.payload_length];
     reader.read_exact(&mut payload_data)?;
 
-    // Compute CRC32
-    header.crc_state.update(&payload_data);
+    // Check CRC32
+    let mut got = 0;
 
-    if header.crc_state.clone().finalize() != header.data_checksum {
-        return Err(ProtocolV3Error::InvalidChecksum);
+    if !header.check_payload(&payload_data, &mut got) {
+        return Err(ProtocolV3Error::InvalidChecksum {
+            expected: header.data_checksum,
+            got,
+        });
     }
 
     Ok((
@@ -144,20 +182,55 @@ pub fn parse_v3<R: Read>(reader: &mut R) -> Result<(ProtocolV3Header, MetricSet)
 pub async fn parse_v3_async<R: Unpin + AsyncRead>(
     reader: &mut R,
 ) -> Result<(ProtocolV3Header, MetricSet), ProtocolV3Error> {
-    let mut header = ProtocolV3Header::parse_async(reader).await?;
+    let header = ProtocolV3Header::parse_async(reader).await?;
 
     let mut payload_data = vec![0u8; header.payload_length];
     reader.read_exact(&mut payload_data).await?;
 
-    // Compute CRC32
-    header.crc_state.update(&payload_data);
+    // Check CRC32
+    let mut got = 0;
 
-    if header.crc_state.clone().finalize() != header.data_checksum {
-        return Err(ProtocolV3Error::InvalidChecksum);
+    if !header.check_payload(&payload_data, &mut got) {
+        return Err(ProtocolV3Error::InvalidChecksum {
+            expected: header.data_checksum,
+            got,
+        });
     }
 
     Ok((
         header,
         openmetrics::MetricSet::decode(payload_data.as_slice())?.into(),
     ))
+}
+
+pub fn generate_v3<W: Write>(
+    writer: &mut W,
+    timestamp: Option<SystemTime>,
+    metrics: MetricSet,
+) -> Result<(), ProtocolV3Error> {
+    let mut payload_raw = Vec::new();
+    openmetrics::MetricSet::from(metrics).encode(&mut payload_raw)?;
+
+    let header = ProtocolV3Header::generate(&payload_raw, timestamp);
+
+    writer.write_all(&header)?;
+    writer.write_all(&payload_raw)?;
+
+    Ok(())
+}
+
+pub async fn generate_v3_async<W: AsyncWrite + Unpin>(
+    writer: &mut W,
+    timestamp: Option<SystemTime>,
+    metrics: MetricSet,
+) -> Result<(), ProtocolV3Error> {
+    let mut payload_raw = Vec::new();
+    openmetrics::MetricSet::from(metrics).encode(&mut payload_raw)?;
+
+    let header = ProtocolV3Header::generate(&payload_raw, timestamp);
+
+    tokio::io::AsyncWriteExt::write_all(writer, &header).await?;
+    tokio::io::AsyncWriteExt::write_all(writer, &payload_raw).await?;
+
+    Ok(())
 }
