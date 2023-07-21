@@ -7,7 +7,7 @@ use xcp_metrics_common::rrdd::{
         RrddMetadata,
     },
 };
-use xcp_metrics_plugin_common::RrddPlugin;
+use xcp_metrics_plugin_common::protocol_v2::RrddPlugin;
 
 #[tokio::main]
 async fn main() {

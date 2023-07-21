@@ -5,25 +5,25 @@ use xcp_metrics_common::rrdd::{
     protocol_common::{DataSourceMetadata, DataSourceOwner, DataSourceType, DataSourceValue},
     protocol_v2::{indexmap::indexmap, RrddMetadata},
 };
-use xcp_metrics_plugin_common::RrddPlugin;
+use xcp_metrics_plugin_common::protocol_v2::RrddPlugin;
 
 #[tokio::main]
 async fn main() {
     let metadata = RrddMetadata {
         datasources: indexmap! {
-            "some_imaginary_cpu_usage".into() => DataSourceMetadata {
-                description: "Some value".into(),
-                units: "(fraction)".into(),
+            "life".into() => DataSourceMetadata {
+                description: "Answer to the Ultimate Question of Life, The Universe, and Everything".into(),
+                units: "everything".into(),
                 ds_type: DataSourceType::Absolute,
-                value: DataSourceValue::Float(50.0),
-                min: 0.0,
-                max: 100.0,
+                value: DataSourceValue::Int64(42),
+                min: 42.0,
+                max: 42.0,
                 owner: DataSourceOwner::Host,
                 default: true,
             },
-            "another thing".into() => DataSourceMetadata {
-                description: "Another Value".into(),
-                units: "a-b-c".into(),
+            "pi".into() => DataSourceMetadata {
+                description: "The PI number".into(),
+                units: "rad".into(),
                 ds_type: DataSourceType::Absolute,
                 value: DataSourceValue::Float(std::f64::consts::PI),
                 min: 3.0,
@@ -39,7 +39,7 @@ async fn main() {
         DataSourceValue::Float(std::f64::consts::PI),
     ];
 
-    let mut plugin = RrddPlugin::new("xcp-metrics-plugin-characters", metadata, Some(&values))
+    let mut plugin = RrddPlugin::new("xcp-metrics-plugin-basic", metadata, Some(&values))
         .await
         .unwrap();
 

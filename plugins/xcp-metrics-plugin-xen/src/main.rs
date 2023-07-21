@@ -10,7 +10,7 @@ use xcp_metrics_common::rrdd::{
     protocol_common::{DataSourceMetadata, DataSourceValue},
     protocol_v2::{indexmap::IndexMap, RrddMetadata},
 };
-use xcp_metrics_plugin_common::RrddPlugin;
+use xcp_metrics_plugin_common::protocol_v2::RrddPlugin;
 use xenctrl::XenControl;
 
 pub struct XenMetricsStatus {
