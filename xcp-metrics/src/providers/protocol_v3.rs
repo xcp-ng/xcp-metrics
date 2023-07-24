@@ -85,7 +85,7 @@ impl ProtocolV3Provider {
     }
 
     /// Compute variation between metrics_set and current model.
-    fn compute_delta(&self, mut metrics_set: &MetricSet) -> MetricSetDelta {
+    fn compute_delta(&self, metrics_set: &MetricSet) -> MetricSetDelta {
         // Check for new families.
         let added_families = metrics_set
             .families
@@ -124,8 +124,7 @@ impl ProtocolV3Provider {
             .families
             .iter()
             // Combine family name with each family metric.
-            .map(|(name, family)| iter::zip(iter::repeat(name), family.metrics.iter()))
-            .flatten()
+            .flat_map(|(name, family)| iter::zip(iter::repeat(name), family.metrics.iter()))
             // Only consider metrics we don't have, and strip uuid.
             .filter_map(|(name, (_, metric))| {
                 // Due to contains_key expecting a tuple, we need to provide it a proper tuple (by cloning).
