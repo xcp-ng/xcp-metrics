@@ -78,12 +78,14 @@ impl XenMetric for VCpuTime {
             .dominfos
             .iter()
             .flat_map(|dominfo| {
-                (0..dominfo.max_vcpu_id)
+                (0..=dominfo.max_vcpu_id)
                     .filter_map(|vcpu_id| self.get_simple_metric(&shared.xc, dominfo, vcpu_id))
                     .collect::<Vec<_>>()
             })
             .collect();
 
+        self.latest_instant = Instant::now();    
+        
         Some((
             "dom_vcpu".into(),
             SimpleMetricFamily {
