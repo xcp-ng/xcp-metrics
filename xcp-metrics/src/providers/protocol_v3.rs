@@ -9,11 +9,11 @@ use std::{
 
 use tokio::{fs::File, sync::mpsc, task::JoinHandle, time};
 use xcp_metrics_common::{
-    metrics::{Label, Metric, MetricSet},
+    metrics::{Label, Metric, MetricFamily, MetricSet},
     protocol_v3,
 };
 
-use crate::hub::{HubPushMessage, UnregisterMetrics};
+use crate::hub::{CreateFamily, HubPushMessage, RegisterMetrics, UnregisterMetrics};
 
 use super::Provider;
 
@@ -25,7 +25,7 @@ const METRICS_SHM_PATH: &str = "/dev/shm/metrics/";
 #[derive(Debug, Default)]
 struct MetricSetDelta {
     /// New added families (name only)
-    added_families: Vec<Box<str>>,
+    added_families: Vec<(Box<str>, MetricFamily)>,
 
     /// Changed family metadata
     // changed_families: Vec<&'a str>,
@@ -89,9 +89,9 @@ impl ProtocolV3Provider {
         // Check for new families.
         let added_families = metrics_set
             .families
-            .keys()
-            .filter(|name| self.families.contains(*name))
-            .cloned()
+            .iter()
+            .filter(|(name, _)| !self.families.contains(*name))
+            .map(|(name, family)| (name.clone(), family.clone()))
             .collect();
 
         // Check for removed metrics.
@@ -146,7 +146,7 @@ impl ProtocolV3Provider {
         let orphaned_families = self
             .families
             .iter()
-            .filter(|family| metrics_set.families.contains_key(*family))
+            .filter(|family| !metrics_set.families.contains_key(*family))
             .cloned()
             .collect();
 
@@ -194,7 +194,38 @@ impl Provider for ProtocolV3Provider {
                         self.families
                             .retain(|name| !orphaned_families.contains(name));
 
+                        // Add new families
+                        added_families.into_iter().for_each(|(name, family)| {
+                            if let Err(e) =
+                                hub_channel.send(HubPushMessage::CreateFamily(CreateFamily {
+                                    name: name.clone(),
+                                    metric_type: family.metric_type,
+                                    unit: family.unit,
+                                    help: family.help,
+                                }))
+                            {
+                                tracing::error!("Register error {e}");
+                            }
+
+                            self.families.insert(name);
+                        });
+
                         // Add new metrics
+                        added_metrics.into_iter().for_each(|(family, metrics)| {
+                            let uuid = uuid::Uuid::new_v4();
+
+                            if let Err(e) =
+                                hub_channel.send(HubPushMessage::RegisterMetrics(RegisterMetrics {
+                                    family: family.clone(),
+                                    metrics: metrics.clone(),
+                                    uuid,
+                                }))
+                            {
+                                tracing::error!("Unregister error {e}");
+                            }
+
+                            self.metrics_map.insert((family, metrics.labels), uuid);
+                        })
                     }
                     Ok(None) => {}
                     Err(e) => {

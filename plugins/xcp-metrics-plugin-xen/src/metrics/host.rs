@@ -1,47 +1,36 @@
-use std::borrow::Cow;
+use xcp_metrics_common::metrics::{MetricType, MetricValue, NumberValue};
+use xcp_metrics_plugin_common::protocol_v3::utils::{SimpleMetric, SimpleMetricFamily};
 
-use xcp_metrics_common::rrdd::protocol_common::{
-    DataSourceMetadata, DataSourceOwner, DataSourceType, DataSourceValue,
-};
-
+use super::XenMetricsShared;
 use crate::XenMetric;
 
 #[derive(Default)]
 pub struct LoadAvg(f64);
 
 impl XenMetric for LoadAvg {
-    fn generate_metadata(&self) -> anyhow::Result<DataSourceMetadata> {
-        Ok(DataSourceMetadata {
-            description: "Domain0 loadavg".into(),
-            units: "".into(),
-            ds_type: DataSourceType::Gauge,
-            value: DataSourceValue::Float(0.0),
-            min: f32::NEG_INFINITY,
-            max: f32::INFINITY,
-            owner: DataSourceOwner::Host,
-            default: true,
-        })
-    }
-
-    fn update(&mut self, _: uuid::Uuid) -> bool {
+    fn get_family(&mut self, _: &XenMetricsShared) -> Option<(Box<str>, SimpleMetricFamily)> {
         let proc_loadavg =
             std::fs::read_to_string("/proc/loadavg").expect("Unable to read /proc/loadavg");
 
-        self.0 = proc_loadavg
+        let loadavg = proc_loadavg
             .split_once(' ')
             .expect("No first element in /proc/loadavg ?")
             .0
             .parse()
             .expect("First part of /proc/loadavg not a number ?");
 
-        true
-    }
-
-    fn get_value(&self) -> DataSourceValue {
-        DataSourceValue::Float(self.0)
-    }
-
-    fn get_name(&self) -> Cow<str> {
-        Cow::Borrowed("loadavg")
+        Some((
+            "loadavg".into(),
+            SimpleMetricFamily {
+                metric_type: MetricType::Gauge,
+                unit: "".into(),
+                help: "Domain0 loadavg".into(),
+                metrics: [SimpleMetric {
+                    labels: vec![],
+                    value: MetricValue::Gauge(NumberValue::Double(loadavg)),
+                }]
+                .into(),
+            },
+        ))
     }
 }

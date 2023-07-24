@@ -31,11 +31,11 @@ async fn main() {
         plugins: Default::default(),
     });
 
-    let socket = rpc::daemon::start_daemon("xcp-rrdd", shared.clone())
+    let socket = rpc::daemon::start_daemon("xcp-metrics", shared.clone())
         .await
         .unwrap();
 
-    let socket_forwarded = forwarded::start_forwarded_socket("xcp-rrdd.forwarded", shared)
+    let socket_forwarded = forwarded::start_forwarded_socket("xcp-metrics.forwarded", shared)
         .await
         .unwrap();
 

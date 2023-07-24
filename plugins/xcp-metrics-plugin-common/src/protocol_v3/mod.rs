@@ -52,7 +52,10 @@ impl MetricsPlugin {
         };
 
         let response = xapi::send_xmlrpc_at(
-            "xcp-metrics", "POST", &request, &self.uid, /* use uid as user-agent */
+            "xcp-metrics",
+            "POST",
+            &request,
+            &self.uid, /* use uid as user-agent */
         )
         .await?;
 
@@ -74,7 +77,10 @@ impl MetricsPlugin {
         };
 
         let response = xapi::send_xmlrpc_at(
-            "xcp-rrdd", "POST", &request, &self.uid, /* use uid as user-agent */
+            "xcp-metrics",
+            "POST",
+            &request,
+            &self.uid, /* use uid as user-agent */
         )
         .await
         .unwrap();
