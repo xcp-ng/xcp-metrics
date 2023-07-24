@@ -57,6 +57,8 @@ impl PCpuTime {
 
 impl XenMetric for PCpuTime {
     fn get_family(&mut self, shared: &XenMetricsShared) -> Option<(Box<str>, SimpleMetricFamily)> {
+        self.latest_idle_time.resize(shared.cpuinfos.len(), None);
+
         let metrics = shared
             .cpuinfos
             .iter()
