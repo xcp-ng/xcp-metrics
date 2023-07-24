@@ -23,7 +23,7 @@ async fn main() {
         async {
             anyhow::Ok(service_fn(|_req| async {
                 xapi::send_jsonrpc_at(
-                    "xcp-rrdd",
+                    "xcp-metrics",
                     "POST",
                     &OpenMetricsMethod::default(),
                     "xcp-metrics-openmetrics-proxy",
