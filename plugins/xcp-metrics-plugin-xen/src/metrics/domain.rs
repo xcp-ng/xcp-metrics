@@ -84,7 +84,7 @@ impl XenMetric for VCpuTime {
             })
             .collect();
 
-        self.latest_instant = Instant::now();    
+        self.latest_instant = Instant::now();
         
         Some((
             "dom_vcpu".into(),

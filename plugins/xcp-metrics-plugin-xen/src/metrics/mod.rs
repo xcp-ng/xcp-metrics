@@ -25,13 +25,17 @@ pub struct XenMetricsShared {
 
 impl XenMetricsShared {
     pub fn new(xc: Rc<XenControl>) -> Self {
-        Self {
+        let mut values = Self {
             xc,
             cpuinfos: vec![],
             cpuinfos_buffer: vec![],
             dominfos: vec![],
             physinfo: None,
-        }
+        };
+
+        values.update();
+
+        values
     }
 
     pub fn update(&mut self) {
