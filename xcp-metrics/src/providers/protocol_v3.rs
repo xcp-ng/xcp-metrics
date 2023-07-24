@@ -13,7 +13,7 @@ use xcp_metrics_common::{
     protocol_v3,
 };
 
-use crate::hub::{CreateFamily, HubPushMessage, RegisterMetrics, UnregisterMetrics};
+use crate::hub::{CreateFamily, HubPushMessage, RegisterMetrics, UnregisterMetrics, UpdateMetrics};
 
 use super::Provider;
 
@@ -85,7 +85,7 @@ impl ProtocolV3Provider {
     }
 
     /// Compute variation between metrics_set and current model.
-    fn compute_delta(&self, mut metrics_set: MetricSet) -> MetricSetDelta {
+    fn compute_delta(&self, mut metrics_set: &MetricSet) -> MetricSetDelta {
         // Check for new families.
         let added_families = metrics_set
             .families
@@ -122,7 +122,7 @@ impl ProtocolV3Provider {
         // Check for added metrics.
         let added_metrics = metrics_set
             .families
-            .iter_mut()
+            .iter()
             // Combine family name with each family metric.
             .map(|(name, family)| iter::zip(iter::repeat(name), family.metrics.iter()))
             .flatten()
@@ -175,7 +175,7 @@ impl Provider for ProtocolV3Provider {
                             orphaned_families,
                             removed_metrics,
                             added_metrics,
-                        } = self.compute_delta(new_metrics);
+                        } = self.compute_delta(&new_metrics);
 
                         // Remove metrics
                         removed_metrics.iter().for_each(|&uuid| {
@@ -225,7 +225,23 @@ impl Provider for ProtocolV3Provider {
                             }
 
                             self.metrics_map.insert((family, metrics.labels), uuid);
-                        })
+                        });
+
+                        // Update all metrics
+                        new_metrics.families.iter().for_each(|(name, family)| {
+                            family.metrics.iter().for_each(|(_, metric)| {
+                                let uuid = self.metrics_map[&(name.clone(), metric.labels.clone())];
+
+                                if let Err(e) =
+                                    hub_channel.send(HubPushMessage::UpdateMetrics(UpdateMetrics {
+                                        uuid,
+                                        new_values: metric.metrics_point.clone(),
+                                    }))
+                                {
+                                    tracing::error!("Update error {e}");
+                                }
+                            });
+                        });
                     }
                     Ok(None) => {}
                     Err(e) => {
