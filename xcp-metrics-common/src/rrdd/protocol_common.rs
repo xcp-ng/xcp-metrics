@@ -338,8 +338,8 @@ impl crate::metrics::MetricPoint {
         created: SystemTime,
     ) -> Self {
         let value = match metadata.ds_type {
-            DataSourceType::Gauge | DataSourceType::Absolute => MetricValue::Gauge(value.into()),
-            DataSourceType::Derive => MetricValue::Counter {
+            DataSourceType::Gauge => MetricValue::Gauge(value.into()),
+            DataSourceType::Derive | DataSourceType::Absolute => MetricValue::Counter {
                 total: value.into(),
                 created,
                 exemplar: None,
