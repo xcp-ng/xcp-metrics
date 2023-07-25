@@ -10,7 +10,7 @@ use xcp_metrics_common::{
 
 #[tokio::main]
 async fn main() {
-    let module_uri = hyperlocal::Uri::new(get_module_path("xcp-rrdd"), "/");
+    let module_uri = hyperlocal::Uri::new(get_module_path("xcp-metrics"), "/");
 
     /*
     let method = MethodCall::new("OpenMetrics".to_string(), vec![]);
