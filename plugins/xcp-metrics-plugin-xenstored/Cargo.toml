@@ -1,0 +1,21 @@
+[package]
+name = "xcp-metrics-plugin-xenstored"
+edition = "2021"
+version.workspace = true
+repository.workspace = true
+categories.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+xcp-metrics-common = { path = "../../xcp-metrics-common" }
+xcp-metrics-plugin-common = { path = "../xcp-metrics-plugin-common" }
+
+tokio = { version = "1", features = ["full"] }
+
+uuid = "1.4"
+anyhow = "1.0"
+
+[dependencies.xenstore-rs]
+git = "https://github.com/xcp-ng/xenstore-rs"
+branch = "xs_write"
