@@ -1,131 +1,149 @@
-use std::{collections::HashMap, time::Instant};
+use std::{borrow::Cow, rc::Rc, time::Instant};
 
-use uuid::Uuid;
-use xcp_metrics_common::metrics::{Label, MetricType, MetricValue, NumberValue};
-use xcp_metrics_plugin_common::protocol_v3::utils::{SimpleMetric, SimpleMetricFamily};
+use xcp_metrics_common::rrdd::protocol_common::{
+    DataSourceMetadata, DataSourceOwner, DataSourceType, DataSourceValue,
+};
 use xenctrl::XenControl;
-use xenctrl_sys::xc_dominfo_t;
+use xenctrl_sys::{xc_dominfo_t, xc_vcpuinfo_t};
 
 use crate::XenMetric;
 
-use super::{XenMetricsShared, XEN_PAGE_SIZE};
+use super::XEN_PAGE_SIZE;
 
 pub struct VCpuTime {
-    latest_time: HashMap<(u32 /* domid */, u32 /* vcpu_id */), u64>,
-    latest_instant: Instant,
+    xc: Rc<XenControl>,
+    vcpuid: u32,
+    domid: u32,
+    dom_uuid: uuid::Uuid,
+    current_vcpu: Option<(xc_vcpuinfo_t, Instant)>,
+    previous_vcpu: Option<(xc_vcpuinfo_t, Instant)>,
+    name: Box<str>,
 }
 
 impl VCpuTime {
-    pub fn new() -> Self {
+    pub fn new(xc: Rc<XenControl>, vcpuid: u32, domid: u32, dom_uuid: uuid::Uuid) -> Self {
         Self {
-            latest_instant: Instant::now(),
-            latest_time: HashMap::new(),
+            xc,
+            vcpuid,
+            domid,
+            dom_uuid,
+            current_vcpu: None,
+            previous_vcpu: None,
+            name: format!("dom{domid}_vcpu{vcpuid}").into(),
         }
-    }
-
-    fn get_simple_metric(
-        &mut self,
-        xc: &XenControl,
-        dominfo: &xc_dominfo_t,
-        vcpu_id: u32,
-    ) -> Option<SimpleMetric> {
-        let vcpu_info = xc.vcpu_getinfo(dominfo.domid, vcpu_id).ok()?;
-        let latest_time = self.latest_time.get_mut(&(dominfo.domid, vcpu_id));
-
-        if let Some(time) = latest_time {
-            // Get and replace previous cpu time.
-            let previous_time = *time;
-            *time = vcpu_info.cpu_time;
-            let current_time = *time;
-
-            // xcp-rrdd: Workaround for Xen leaking the flag XEN_RUNSTATE_UPDATE; using a mask of its complement ~(1 << 63)
-            // Then convert from nanoseconds to seconds
-            let cputime = (current_time & !(1u64 << 63)) as f64 / 1.0e9;
-            // Do the same for previous cpu time.
-            let previous_cputime = (previous_time & !(1u64 << 63)) as f64 / 1.0e9;
-
-            Some(SimpleMetric {
-                labels: vec![
-                    Label("id".into(), format!("{vcpu_id}").into()),
-                    Label(
-                        "owner".into(),
-                        format!("{}", Uuid::from_bytes(dominfo.handle).as_hyphenated()).into(),
-                    ),
-                ],
-                value: MetricValue::Gauge(NumberValue::Double(
-                    (cputime - previous_cputime) / self.latest_instant.elapsed().as_secs_f64(),
-                )),
-            })
-        } else {
-            // We don't have the previous time.
-            self.latest_time
-                .insert((dominfo.domid, vcpu_id), vcpu_info.cpu_time);
-
-            None
-        }
-    }
-}
-
-impl Default for VCpuTime {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
 impl XenMetric for VCpuTime {
-    fn get_family(&mut self, shared: &XenMetricsShared) -> Option<(Box<str>, SimpleMetricFamily)> {
-        let metrics = shared
-            .dominfos
-            .iter()
-            .flat_map(|dominfo| {
-                (0..dominfo.max_vcpu_id)
-                    .filter_map(|vcpu_id| self.get_simple_metric(&shared.xc, dominfo, vcpu_id))
-                    .collect::<Vec<_>>()
-            })
-            .collect();
+    fn generate_metadata(&self) -> anyhow::Result<DataSourceMetadata> {
+        Ok(DataSourceMetadata {
+            description: format!("vCPU{} usage", self.vcpuid).into(),
+            units: "".into(),
+            ds_type: DataSourceType::Gauge,
+            value: DataSourceValue::Float(0.0),
+            min: 0.0,
+            max: 1.0,
+            owner: DataSourceOwner::VM(self.dom_uuid),
+            default: true,
+        })
+    }
 
-        Some((
-            "dom_vcpu".into(),
-            SimpleMetricFamily {
-                help: "vCPU usages".into(),
-                unit: "usage".into(),
-                metric_type: MetricType::Gauge,
-                metrics,
-            },
-        ))
+    fn update(&mut self, _: uuid::Uuid) -> bool {
+        match self.xc.vcpu_getinfo(self.domid, self.vcpuid) {
+            Ok(info) => {
+                self.previous_vcpu = self.current_vcpu;
+                self.current_vcpu.replace((info, Instant::now()));
+                true
+            }
+            Err(e) => {
+                eprintln!("vcpu_getinfo: {e}");
+                false
+            }
+        }
+    }
+
+    fn get_value(&self) -> DataSourceValue {
+        match (self.current_vcpu, self.previous_vcpu) {
+            (Some(_), None) => DataSourceValue::Float(0.0),
+            (Some((current, current_instant)), Some((previous, previous_instant))) => {
+                // xcp-rrdd: Workaround for Xen leaking the flag XEN_RUNSTATE_UPDATE; using a mask of its complement ~(1 << 63)
+                // Then convert from nanoseconds to seconds
+                let cputime = (current.cpu_time & !(1u64 << 63)) as f64 / 1.0e9;
+                // Do the same for previous cpu time.
+                let previous_cputime = (previous.cpu_time & !(1u64 << 63)) as f64 / 1.0e9;
+
+                DataSourceValue::Float(
+                    (cputime - previous_cputime)
+                        / current_instant
+                            .duration_since(previous_instant)
+                            .as_secs_f64(),
+                )
+            }
+            (None, _) => DataSourceValue::Undefined,
+        }
+    }
+
+    fn get_name(&self) -> Cow<str> {
+        Cow::Borrowed(&self.name)
     }
 }
 
-#[derive(Clone, Default)]
-pub struct DomainMemory;
+pub struct DomainMemory {
+    xc: Rc<XenControl>,
+    domid: u32,
+    dom_uuid: uuid::Uuid,
+    name: Box<str>,
+    dominfo: Option<xc_dominfo_t>,
+}
+
+impl DomainMemory {
+    pub fn new(xc: Rc<XenControl>, domid: u32, dom_uuid: uuid::Uuid) -> Self {
+        Self {
+            xc,
+            dom_uuid,
+            domid,
+            name: format!("dom{domid}_memory").into(),
+            dominfo: None,
+        }
+    }
+}
 
 impl XenMetric for DomainMemory {
-    fn get_family(&mut self, shared: &XenMetricsShared) -> Option<(Box<str>, SimpleMetricFamily)> {
-        let metrics = shared
-            .dominfos
-            .iter()
-            .map(|dominfo| {
-                let bytes_used = dominfo.nr_pages * XEN_PAGE_SIZE as u64;
-                let uuid = Uuid::from_bytes(dominfo.handle);
+    fn generate_metadata(&self) -> anyhow::Result<DataSourceMetadata> {
+        Ok(DataSourceMetadata {
+            description: "Memory currently allocated to VM".into(),
+            units: "bytes".into(),
+            ds_type: DataSourceType::Gauge,
+            value: DataSourceValue::Int64(0),
+            min: 0.0,
+            max: f32::INFINITY,
+            owner: DataSourceOwner::VM(self.dom_uuid),
+            default: true,
+        })
+    }
 
-                SimpleMetric {
-                    labels: vec![Label(
-                        "owner".into(),
-                        format!("vm {}", uuid.as_hyphenated()).into(),
-                    )],
-                    value: MetricValue::Gauge(NumberValue::Int64(bytes_used as i64)),
-                }
-            })
-            .collect();
+    fn update(&mut self, _: uuid::Uuid) -> bool {
+        match self.xc.domain_getinfo(self.domid) {
+            Ok(Some(info)) => {
+                self.dominfo.replace(info);
+                true
+            }
+            Ok(None) => false,
+            Err(e) => {
+                eprintln!("DomainMemory: {e}");
+                false
+            }
+        }
+    }
 
-        Some((
-            "dom_memory".into(),
-            SimpleMetricFamily {
-                help: "Memory currently allocated to VM".into(),
-                metric_type: MetricType::Gauge,
-                unit: "bytes".into(),
-                metrics,
-            },
-        ))
+    fn get_value(&self) -> DataSourceValue {
+        self.dominfo.map_or_else(
+            || DataSourceValue::Undefined,
+            |info| DataSourceValue::Int64((info.nr_pages * XEN_PAGE_SIZE as u64) as i64),
+        )
+    }
+
+    fn get_name(&self) -> Cow<str> {
+        Cow::Borrowed(&self.name)
     }
 }

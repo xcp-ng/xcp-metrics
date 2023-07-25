@@ -1,127 +1,213 @@
-use std::time::Instant;
+use std::{borrow::Cow, mem::MaybeUninit, rc::Rc, time::Instant};
 
-use xcp_metrics_common::metrics::{Label, MetricType, MetricValue, NumberValue};
-use xcp_metrics_plugin_common::protocol_v3::utils::{SimpleMetric, SimpleMetricFamily};
-use xenctrl_sys::xc_cpuinfo_t;
+use xcp_metrics_common::rrdd::protocol_common::{
+    DataSourceMetadata, DataSourceOwner, DataSourceType, DataSourceValue,
+};
+use xenctrl::XenControl;
+use xenctrl_sys::{xc_physinfo_t, xen_sysctl_cpuinfo_t};
 
-use super::{XenMetric, XenMetricsShared, XEN_PAGE_SIZE};
+use crate::update_once::{Updatable, UpdateOnce};
 
-pub struct PCpuTime {
-    latest_idle_time: Vec<Option<u64>>,
-    latest_instant: Instant,
+use super::{XenMetric, XEN_PAGE_SIZE};
+
+/// A shared cpuinfo slice.
+pub struct SharedPCpuSlice {
+    xc: Rc<XenControl>,
+    buffer: Box<[MaybeUninit<xen_sysctl_cpuinfo_t>]>,
+    initialized_len: Option<usize>,
 }
 
-impl PCpuTime {
-    pub fn new() -> Self {
+impl Updatable for SharedPCpuSlice {
+    fn update(&mut self) {
+        let slice = self.xc.get_cpuinfo(&mut self.buffer).unwrap();
+        self.initialized_len.replace(slice.len());
+    }
+}
+
+impl<'a> SharedPCpuSlice {
+    pub fn new(xc: Rc<XenControl>, pcpu_count: usize) -> Self {
         Self {
-            latest_idle_time: vec![],
-            latest_instant: Instant::now(),
+            xc,
+            buffer: vec![MaybeUninit::zeroed(); pcpu_count].into_boxed_slice(),
+            initialized_len: None,
         }
     }
 
-    fn get_simple_metric(&mut self, cpuinfo: &xc_cpuinfo_t, id: usize) -> Option<SimpleMetric> {
-        let latest_idle_time = self
-            .latest_idle_time
-            .get_mut(id)
-            .expect("Vector has not been resized");
+    pub fn get_slice(&'a self) -> Option<&'a [xen_sysctl_cpuinfo_t]> {
+        self.initialized_len
+            .map(|len| unsafe { std::slice::from_raw_parts(self.buffer.as_ptr() as _, len) })
+    }
+}
 
-        if let Some(idle_time) = latest_idle_time {
-            // Get and replace previous cpu time.
-            let previous_idle_time = *idle_time;
-            *idle_time = cpuinfo.idletime;
-            let current_idle_time = *idle_time;
+pub struct SharedPhysInfo {
+    xc: Rc<XenControl>,
+    physinfo: Option<xc_physinfo_t>,
+}
 
-            let metric = SimpleMetric {
-                labels: vec![Label("id".into(), id.to_string().into())],
-                value: MetricValue::Gauge(NumberValue::Double(
-                    // Compute busy ratio over time.
-                    1.0 - (((current_idle_time - previous_idle_time) as f64)
-                        / 1.0e9
-                        / self.latest_instant.elapsed().as_secs_f64()),
-                )),
-            };
+impl SharedPhysInfo {
+    pub fn new(xc: Rc<XenControl>) -> Self {
+        Self { xc, physinfo: None }
+    }
+}
 
-            // Update instant
-            self.latest_instant = Instant::now();
+impl Updatable for SharedPhysInfo {
+    fn update(&mut self) {
+        self.physinfo.replace(self.xc.physinfo().unwrap());
+    }
+}
 
-            Some(metric)
-        } else {
-            // We don't have the previous time.
-            self.latest_idle_time[id].replace(cpuinfo.idletime);
-            self.latest_instant = Instant::now();
+pub struct PCpuTime {
+    cpu_index: usize,
+    slice: Rc<UpdateOnce<SharedPCpuSlice>>,
+    current_info: Option<(xen_sysctl_cpuinfo_t, Instant)>,
+    previous_info: Option<(xen_sysctl_cpuinfo_t, Instant)>,
+}
 
-            None
+impl PCpuTime {
+    pub fn new(cpu_index: usize, slice: Rc<UpdateOnce<SharedPCpuSlice>>) -> Self {
+        Self {
+            cpu_index,
+            slice,
+            current_info: None,
+            previous_info: None,
         }
     }
 }
 
 impl XenMetric for PCpuTime {
-    fn get_family(&mut self, shared: &XenMetricsShared) -> Option<(Box<str>, SimpleMetricFamily)> {
-        let metrics = shared
-            .cpuinfos
-            .iter()
-            .enumerate()
-            .flat_map(|(id, cpuinfo)| self.get_simple_metric(cpuinfo, id))
-            .collect();
+    fn generate_metadata(&self) -> anyhow::Result<DataSourceMetadata> {
+        Ok(DataSourceMetadata {
+            description: format!("Physical cpu usage for cpu {}", self.cpu_index).into(),
+            units: "".into(),
+            ds_type: DataSourceType::Gauge,
+            value: DataSourceValue::Float(0.0),
+            min: 0.0,
+            max: 1.0,
+            owner: DataSourceOwner::Host,
+            default: true,
+        })
+    }
 
-        Some((
-            "cpu".into(),
-            SimpleMetricFamily {
-                metric_type: MetricType::Gauge,
-                unit: "".into(),
-                help: "Physical cpu usage".into(),
-                metrics,
-            },
-        ))
+    fn update(&mut self, token: uuid::Uuid) -> bool {
+        self.slice.update(token);
+
+        match self
+            .slice
+            .borrow()
+            .get_slice()
+            .and_then(|infos| infos.get(self.cpu_index))
+        {
+            Some(cpuinfo) => {
+                self.previous_info = self.current_info;
+                self.current_info.replace((*cpuinfo, Instant::now()));
+                true
+            }
+            None => false,
+        }
+    }
+
+    fn get_value(&self) -> DataSourceValue {
+        match (self.current_info, self.previous_info) {
+            (Some((current, current_instant)), Some((previous, previous_instant))) => {
+                DataSourceValue::Float(
+                    // Compute busy ratio over time.
+                    1.0 - (((current.idletime - previous.idletime) as f64)
+                        / 1.0e9
+                        / current_instant
+                            .duration_since(previous_instant)
+                            .as_secs_f64()),
+                )
+            }
+            (Some(_), None) => DataSourceValue::Float(0.0),
+            (None, _) => DataSourceValue::Undefined,
+        }
+    }
+
+    fn get_name(&self) -> Cow<str> {
+        format!("cpu{}", self.cpu_index).into()
     }
 }
 
-impl Default for PCpuTime {
-    fn default() -> Self {
-        Self::new()
+pub struct MemoryTotal(Rc<UpdateOnce<SharedPhysInfo>>);
+
+impl MemoryTotal {
+    pub fn new(physinfo: Rc<UpdateOnce<SharedPhysInfo>>) -> Self {
+        Self(physinfo)
     }
 }
-
-#[derive(Default)]
-pub struct MemoryTotal;
 
 impl XenMetric for MemoryTotal {
-    fn get_family(&mut self, shared: &XenMetricsShared) -> Option<(Box<str>, SimpleMetricFamily)> {
-        Some((
-            "memory_total".into(),
-            SimpleMetricFamily {
-                metric_type: MetricType::Gauge,
-                unit: "KiB".into(),
-                help: "Total amount of memory in the host".into(),
-                metrics: vec![SimpleMetric {
-                    labels: vec![],
-                    value: MetricValue::Gauge(NumberValue::Int64(
-                        shared.physinfo?.total_pages as i64,
-                    )),
-                }],
-            },
-        ))
+    fn generate_metadata(&self) -> anyhow::Result<DataSourceMetadata> {
+        Ok(DataSourceMetadata {
+            description: "Total amount of memory in the host".into(),
+            units: "KiB".into(),
+            ds_type: DataSourceType::Gauge,
+            value: DataSourceValue::Int64(0),
+            min: 0.0,
+            max: f32::INFINITY,
+            owner: DataSourceOwner::Host,
+            default: true,
+        })
+    }
+
+    fn update(&mut self, token: uuid::Uuid) -> bool {
+        self.0.update(token);
+
+        true
+    }
+
+    fn get_value(&self) -> DataSourceValue {
+        match self.0.borrow().physinfo {
+            Some(physinfo) => {
+                DataSourceValue::Int64(physinfo.total_pages as i64 * XEN_PAGE_SIZE as i64 / 1024)
+            }
+            None => DataSourceValue::Undefined,
+        }
+    }
+
+    fn get_name(&self) -> Cow<str> {
+        Cow::Borrowed("memory_total_kib")
     }
 }
 
-#[derive(Default)]
-pub struct MemoryFree;
+pub struct MemoryFree(Rc<UpdateOnce<SharedPhysInfo>>);
+
+impl MemoryFree {
+    pub fn new(physinfo: Rc<UpdateOnce<SharedPhysInfo>>) -> Self {
+        Self(physinfo)
+    }
+}
 
 impl XenMetric for MemoryFree {
-    fn get_family(&mut self, shared: &XenMetricsShared) -> Option<(Box<str>, SimpleMetricFamily)> {
-        Some((
-            "memory_free".into(),
-            SimpleMetricFamily {
-                metric_type: MetricType::Gauge,
-                unit: "KiB".into(),
-                help: "Total amount of free memory".into(),
-                metrics: vec![SimpleMetric {
-                    labels: vec![],
-                    value: MetricValue::Gauge(NumberValue::Int64(
-                        ((shared.physinfo?.total_pages * XEN_PAGE_SIZE as u64) / 1024) as i64,
-                    )),
-                }],
-            },
-        ))
+    fn generate_metadata(&self) -> anyhow::Result<DataSourceMetadata> {
+        Ok(DataSourceMetadata {
+            description: "Total amount of free memory".into(),
+            units: "KiB".into(),
+            ds_type: DataSourceType::Gauge,
+            value: DataSourceValue::Int64(0),
+            min: 0.0,
+            max: f32::INFINITY,
+            owner: DataSourceOwner::Host,
+            default: true,
+        })
+    }
+
+    fn update(&mut self, token: uuid::Uuid) -> bool {
+        self.0.update(token);
+
+        true
+    }
+
+    fn get_value(&self) -> DataSourceValue {
+        match self.0.borrow().physinfo {
+            Some(physinfo) => {
+                DataSourceValue::Int64(physinfo.free_pages as i64 * XEN_PAGE_SIZE as i64 / 1024)
+            }
+            None => DataSourceValue::Undefined,
+        }
+    }
+
+    fn get_name(&self) -> Cow<str> {
+        Cow::Borrowed("memory_free_kib")
     }
 }
