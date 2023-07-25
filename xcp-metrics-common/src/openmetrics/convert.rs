@@ -13,6 +13,7 @@ use super::{
 
 // NOTE: `slice::into_vec` is used to have values instead of references for `into_iter`.
 
+#[allow(non_snake_case)]
 pub mod openmetrics {
     include!(concat!(env!("OUT_DIR"), "/openmetrics.rs"));
 }
