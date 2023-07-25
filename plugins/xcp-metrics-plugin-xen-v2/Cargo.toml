@@ -1,6 +1,6 @@
 [package]
-name = "xcp-metrics-plugin-xen"
-description = "Xen monitoring plugin"
+name = "xcp-metrics-plugin-xen-v2"
+description = "Xen monitoring rrdd-compatible plugin"
 version.workspace = true
 license = "AGPL-3.0-only"
 edition = "2021"
@@ -16,4 +16,3 @@ xenctrl-sys = "*"
 tokio = { version = "1", features = ["full"] }
 uuid = "1.4"
 anyhow = "1.0"
-maplit = "1.0"

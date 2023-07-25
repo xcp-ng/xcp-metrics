@@ -31,8 +31,7 @@ impl PCpuTime {
             *idle_time = cpuinfo.idletime;
             let current_idle_time = *idle_time;
 
-            // Update instant
-            Some(SimpleMetric {
+            let metric = SimpleMetric {
                 labels: vec![Label("id".into(), id.to_string().into())],
                 value: MetricValue::Gauge(NumberValue::Double(
                     // Compute busy ratio over time.
@@ -40,10 +39,16 @@ impl PCpuTime {
                         / 1.0e9
                         / self.latest_instant.elapsed().as_secs_f64()),
                 )),
-            })
+            };
+
+            // Update instant
+            self.latest_instant = Instant::now();
+
+            Some(metric)
         } else {
             // We don't have the previous time.
             self.latest_idle_time[id].replace(cpuinfo.idletime);
+            self.latest_instant = Instant::now();
 
             None
         }
@@ -52,16 +57,12 @@ impl PCpuTime {
 
 impl XenMetric for PCpuTime {
     fn get_family(&mut self, shared: &XenMetricsShared) -> Option<(Box<str>, SimpleMetricFamily)> {
-        self.latest_idle_time.resize(shared.cpuinfos.len(), None);
-
         let metrics = shared
             .cpuinfos
             .iter()
             .enumerate()
             .flat_map(|(id, cpuinfo)| self.get_simple_metric(cpuinfo, id))
             .collect();
-
-        self.latest_instant = Instant::now();
 
         Some((
             "cpu".into(),
