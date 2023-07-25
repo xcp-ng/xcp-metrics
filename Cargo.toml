@@ -11,6 +11,7 @@ members = [
   "plugins/xcp-metrics-plugin-xen",
   "plugins/xcp-metrics-plugin-xen-v2",
   "plugins/xcp-metrics-plugin-xenstored",
+  "plugins/xcp-metrics-plugin-procfs",
   "plugins/xcp-metrics-plugin-tests",
   "xcp-metrics-tools",
 ]
