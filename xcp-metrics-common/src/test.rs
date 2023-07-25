@@ -34,7 +34,7 @@ fn test_protocol_v2_invariance() {
 
     let (mut header, metadata_str) = RrddMessageHeader::generate(&values, metadata.clone());
 
-    // Remove subsec ns precision
+    // Remove subsec ns precision (protocol v2 only provide seconds accuracy)
     let ns_diff = header
         .timestamp
         .duration_since(SystemTime::UNIX_EPOCH)
