@@ -1,7 +1,7 @@
-use std::{rc::Rc, time::Duration};
+use std::{iter, rc::Rc, time::Duration};
 
 use tokio::time;
-use xcp_metrics_common::metrics::{Label, MetricType, MetricValue};
+use xcp_metrics_common::metrics::{Label, MetricType, MetricValue, NumberValue};
 use xcp_metrics_plugin_common::protocol_v3::{
     utils::{SimpleMetric, SimpleMetricFamily, SimpleMetricSet},
     MetricsPlugin,
@@ -24,26 +24,67 @@ pub fn get_vm_infos(xs: &Xs, vm_uuid: &str, attributes: &[&str]) -> MetricValue 
     )
 }
 
+pub fn get_domain_paths(xs: &Xs, uuid: &str) -> Vec<String> {
+    xs.read(XBTransaction::Null, format!("/vm/{uuid}/domains").as_str())
+        .ok()
+        .and_then(|domain_path| xs.directory(XBTransaction::Null, &domain_path).ok())
+        .unwrap_or_default()
+}
+
 fn generate_metrics(xs: &Xs) -> anyhow::Result<SimpleMetricSet> {
+    let vms = xs.directory(XBTransaction::Null, "/vm")?;
+
     Ok(SimpleMetricSet {
-        families: [(
-            "vm_info".into(),
-            SimpleMetricFamily {
-                metric_type: MetricType::Info,
-                unit: "".into(),
-                help: "Virtual machine informations".into(),
-                metrics: xs
-                    // Read all vm handles.
-                    .directory(XBTransaction::Null, "/vm")?
-                    .into_iter()
-                    // Get vm metrics.
-                    .map(|uuid| SimpleMetric {
-                        labels: vec![Label("owner".into(), format!("vm {uuid}").into())].into(),
-                        value: get_vm_infos(&xs, &uuid, &["name"]),
-                    })
-                    .collect(),
-            },
-        )]
+        families: [
+            (
+                "vm_info".into(),
+                SimpleMetricFamily {
+                    metric_type: MetricType::Info,
+                    unit: "".into(),
+                    help: "Virtual machine informations".into(),
+                    metrics: vms
+                        .iter()
+                        // Get vm metrics.
+                        .map(|uuid| SimpleMetric {
+                            labels: vec![Label("owner".into(), format!("vm {uuid}").into())].into(),
+                            value: get_vm_infos(&xs, &uuid, &["name"]),
+                        })
+                        .collect(),
+                },
+            ),
+            (
+                "memory_target".into(),
+                SimpleMetricFamily {
+                    metric_type: MetricType::Gauge,
+                    unit: "bytes".into(),
+                    help: "Target of VM balloon driver".into(),
+                    metrics: vms
+                        .iter()
+                        // Combine uuid and domain paths.
+                        .flat_map(|uuid: &String| {
+                            iter::zip(
+                                iter::repeat(uuid.as_str()),
+                                get_domain_paths(xs, uuid.as_str()),
+                            )
+                        })
+                        // Generate the target metric (if exists), using domain_path/memory/target
+                        .filter_map(|(vm_uuid, domain_path)| {
+                            xs.read(
+                                XBTransaction::Null,
+                                format!("{domain_path}/memory/target").as_str(),
+                            )
+                            .ok()
+                            // Try to parse memory-target amount.
+                            .and_then(|v| v.parse::<i64>().ok())
+                            .map(|memory_target| SimpleMetric {
+                                labels: vec![Label("owner".into(), format!("vm {vm_uuid}").into())],
+                                value: MetricValue::Gauge(NumberValue::Int64(memory_target)),
+                            })
+                        })
+                        .collect(),
+                },
+            ),
+        ]
         .into_iter()
         .collect(),
     })
