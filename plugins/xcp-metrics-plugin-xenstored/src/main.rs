@@ -24,11 +24,15 @@ pub fn get_vm_infos(xs: &Xs, vm_uuid: &str, attributes: &[&str]) -> MetricValue 
     )
 }
 
-pub fn get_domain_paths(xs: &Xs, uuid: &str) -> Vec<String> {
-    xs.read(XBTransaction::Null, format!("/vm/{uuid}/domains").as_str())
-        .ok()
-        .and_then(|domain_path| xs.directory(XBTransaction::Null, &domain_path).ok())
-        .unwrap_or_default()
+pub fn get_domain_paths(xs: &Xs, vm_uuid: &str) -> Vec<String> {
+    xs.directory(
+        XBTransaction::Null,
+        format!("/vm/{vm_uuid}/domains").as_str(),
+    )
+    .unwrap_or_default()
+    .iter()
+    .filter_map(|domain_path| xs.read(XBTransaction::Null, &domain_path).ok())
+    .collect()
 }
 
 fn generate_metrics(xs: &Xs) -> anyhow::Result<SimpleMetricSet> {
