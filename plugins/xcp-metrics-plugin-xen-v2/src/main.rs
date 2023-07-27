@@ -1,10 +1,8 @@
 mod metrics;
-pub mod update_once;
 
-use metrics::{discover_xen_metrics, XenMetric};
-use std::{iter, rc::Rc, time::Duration};
+use metrics::{discover_xen_metrics, XenMetric, XenMetricsShared};
+use std::{iter, time::Duration};
 use tokio::time;
-use uuid::Uuid;
 
 use xcp_metrics_common::rrdd::{
     protocol_common::{DataSourceMetadata, DataSourceValue},
@@ -17,10 +15,11 @@ pub struct XenMetricsStatus {
     pub dom_count: u32,
 }
 
+/// Recreate a new metadata with new XenMetric objects.
 fn regenerate_data_sources(
-    xc: Rc<XenControl>,
+    shared: &XenMetricsShared,
 ) -> (Box<[Box<dyn XenMetric>]>, RrddMetadata, XenMetricsStatus) {
-    let (metrics, status) = discover_xen_metrics(xc);
+    let (metrics, status) = discover_xen_metrics(shared);
 
     let datasources: IndexMap<Box<str>, DataSourceMetadata> = metrics
         .iter()
@@ -35,27 +34,31 @@ fn regenerate_data_sources(
     (metrics, RrddMetadata { datasources }, status)
 }
 
+/// Create a array of values from XenMetric objects.
 fn generate_values(sources: &mut [Box<dyn XenMetric>]) -> Box<[DataSourceValue]> {
     sources.iter().map(|src| src.get_value()).collect()
 }
 
+/// Replace the values with new ones from XenMetric objects.
 fn generate_values_inplace(sources: &mut [Box<dyn XenMetric>], values: &mut [DataSourceValue]) {
     iter::zip(sources.iter(), values.iter_mut()).for_each(|(src, val)| *val = src.get_value());
 }
 
-fn check_new_metrics(xc: Rc<XenControl>, status: &XenMetricsStatus) -> bool {
+/// Check for new domains.
+fn check_new_metrics(xc: &XenControl, status: &XenMetricsStatus) -> bool {
     // Check next domain
     matches!(xc.domain_getinfo(status.dom_count + 1), Ok(Some(_)))
 }
 
 #[tokio::main]
 async fn main() {
-    let xc = Rc::new(xenctrl::XenControl::default().unwrap());
-    let (mut sources, mut metadata, mut status) = regenerate_data_sources(xc.clone());
+    let xc = xenctrl::XenControl::default().unwrap();
+    let mut shared = XenMetricsShared::new(&xc);
 
-    let mut token = Uuid::new_v4();
+    let (mut sources, mut metadata, mut status) = regenerate_data_sources(&shared);
+
     sources.iter_mut().for_each(|src| {
-        src.update(token); // assume success
+        src.update(&shared, &xc); // assume success
     });
 
     // NOTE: some could be undefined values
@@ -69,19 +72,21 @@ async fn main() {
     loop {
         // Update sources
         println!("Update sources");
+        shared.update(&xc);
 
-        token = Uuid::new_v4();
-        if check_new_metrics(xc.clone(), &status)
-            || sources.iter_mut().map(|src| src.update(token)).any(|b| !b)
+        if check_new_metrics(&xc, &status)
+            || sources
+                .iter_mut()
+                .map(|src| src.update(&shared, &xc))
+                .any(|b| !b)
         {
             println!("Rediscovering metrics...");
 
             // New metrics found or an update has failed, rediscover and regenerate metadata.
-            (sources, metadata, status) = regenerate_data_sources(xc.clone());
+            (sources, metadata, status) = regenerate_data_sources(&shared);
 
-            token = Uuid::new_v4();
             sources.iter_mut().for_each(|src| {
-                src.update(token); // assume success
+                src.update(&shared, &xc); // assume success
             });
 
             let values = generate_values(&mut sources);

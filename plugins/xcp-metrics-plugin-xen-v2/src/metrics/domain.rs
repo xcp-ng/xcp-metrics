@@ -1,4 +1,4 @@
-use std::{borrow::Cow, rc::Rc, time::Instant};
+use std::{borrow::Cow, time::Instant};
 
 use xcp_metrics_common::rrdd::protocol_common::{
     DataSourceMetadata, DataSourceOwner, DataSourceType, DataSourceValue,
@@ -8,10 +8,9 @@ use xenctrl_sys::{xc_dominfo_t, xc_vcpuinfo_t};
 
 use crate::XenMetric;
 
-use super::XEN_PAGE_SIZE;
+use super::{XenMetricsShared, XEN_PAGE_SIZE};
 
 pub struct VCpuTime {
-    xc: Rc<XenControl>,
     vcpuid: u32,
     domid: u32,
     dom_uuid: uuid::Uuid,
@@ -21,9 +20,8 @@ pub struct VCpuTime {
 }
 
 impl VCpuTime {
-    pub fn new(xc: Rc<XenControl>, vcpuid: u32, domid: u32, dom_uuid: uuid::Uuid) -> Self {
+    pub fn new(vcpuid: u32, domid: u32, dom_uuid: uuid::Uuid) -> Self {
         Self {
-            xc,
             vcpuid,
             domid,
             dom_uuid,
@@ -48,8 +46,8 @@ impl XenMetric for VCpuTime {
         })
     }
 
-    fn update(&mut self, _: uuid::Uuid) -> bool {
-        match self.xc.vcpu_getinfo(self.domid, self.vcpuid) {
+    fn update(&mut self, _: &XenMetricsShared, xc: &XenControl) -> bool {
+        match xc.vcpu_getinfo(self.domid, self.vcpuid) {
             Ok(info) => {
                 self.previous_vcpu = self.current_vcpu;
                 self.current_vcpu.replace((info, Instant::now()));
@@ -89,7 +87,6 @@ impl XenMetric for VCpuTime {
 }
 
 pub struct DomainMemory {
-    xc: Rc<XenControl>,
     domid: u32,
     dom_uuid: uuid::Uuid,
     name: Box<str>,
@@ -97,9 +94,8 @@ pub struct DomainMemory {
 }
 
 impl DomainMemory {
-    pub fn new(xc: Rc<XenControl>, domid: u32, dom_uuid: uuid::Uuid) -> Self {
+    pub fn new(domid: u32, dom_uuid: uuid::Uuid) -> Self {
         Self {
-            xc,
             dom_uuid,
             domid,
             name: format!("dom{domid}_memory").into(),
@@ -122,17 +118,12 @@ impl XenMetric for DomainMemory {
         })
     }
 
-    fn update(&mut self, _: uuid::Uuid) -> bool {
-        match self.xc.domain_getinfo(self.domid) {
-            Ok(Some(info)) => {
-                self.dominfo.replace(info);
-                true
-            }
-            Ok(None) => false,
-            Err(e) => {
-                eprintln!("DomainMemory: {e}");
-                false
-            }
+    fn update(&mut self, shared: &XenMetricsShared, _: &XenControl) -> bool {
+        if let Some(&info) = shared.dominfos.get(self.domid as usize) {
+            self.dominfo.replace(info);
+            true
+        } else {
+            false
         }
     }
 

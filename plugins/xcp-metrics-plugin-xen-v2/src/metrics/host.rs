@@ -3,8 +3,11 @@ use std::borrow::Cow;
 use xcp_metrics_common::rrdd::protocol_common::{
     DataSourceMetadata, DataSourceOwner, DataSourceType, DataSourceValue,
 };
+use xenctrl::XenControl;
 
 use crate::XenMetric;
+
+use super::XenMetricsShared;
 
 #[derive(Default)]
 pub struct LoadAvg(f64);
@@ -23,7 +26,7 @@ impl XenMetric for LoadAvg {
         })
     }
 
-    fn update(&mut self, _: uuid::Uuid) -> bool {
+    fn update(&mut self, _: &XenMetricsShared, _: &XenControl) -> bool {
         let proc_loadavg =
             std::fs::read_to_string("/proc/loadavg").expect("Unable to read /proc/loadavg");
 

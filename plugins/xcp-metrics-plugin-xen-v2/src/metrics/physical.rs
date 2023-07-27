@@ -1,73 +1,24 @@
-use std::{borrow::Cow, mem::MaybeUninit, rc::Rc, time::Instant};
+use std::{borrow::Cow, time::Instant};
 
 use xcp_metrics_common::rrdd::protocol_common::{
     DataSourceMetadata, DataSourceOwner, DataSourceType, DataSourceValue,
 };
+
 use xenctrl::XenControl;
-use xenctrl_sys::{xc_physinfo_t, xen_sysctl_cpuinfo_t};
+use xenctrl_sys::xen_sysctl_cpuinfo_t;
 
-use crate::update_once::{Updatable, UpdateOnce};
-
-use super::{XenMetric, XEN_PAGE_SIZE};
-
-/// A shared cpuinfo slice.
-pub struct SharedPCpuSlice {
-    xc: Rc<XenControl>,
-    buffer: Box<[MaybeUninit<xen_sysctl_cpuinfo_t>]>,
-    initialized_len: Option<usize>,
-}
-
-impl Updatable for SharedPCpuSlice {
-    fn update(&mut self) {
-        let slice = self.xc.get_cpuinfo(&mut self.buffer).unwrap();
-        self.initialized_len.replace(slice.len());
-    }
-}
-
-impl<'a> SharedPCpuSlice {
-    pub fn new(xc: Rc<XenControl>, pcpu_count: usize) -> Self {
-        Self {
-            xc,
-            buffer: vec![MaybeUninit::zeroed(); pcpu_count].into_boxed_slice(),
-            initialized_len: None,
-        }
-    }
-
-    pub fn get_slice(&'a self) -> Option<&'a [xen_sysctl_cpuinfo_t]> {
-        self.initialized_len
-            .map(|len| unsafe { std::slice::from_raw_parts(self.buffer.as_ptr() as _, len) })
-    }
-}
-
-pub struct SharedPhysInfo {
-    xc: Rc<XenControl>,
-    physinfo: Option<xc_physinfo_t>,
-}
-
-impl SharedPhysInfo {
-    pub fn new(xc: Rc<XenControl>) -> Self {
-        Self { xc, physinfo: None }
-    }
-}
-
-impl Updatable for SharedPhysInfo {
-    fn update(&mut self) {
-        self.physinfo.replace(self.xc.physinfo().unwrap());
-    }
-}
+use super::{XenMetric, XenMetricsShared, XEN_PAGE_SIZE};
 
 pub struct PCpuTime {
     cpu_index: usize,
-    slice: Rc<UpdateOnce<SharedPCpuSlice>>,
     current_info: Option<(xen_sysctl_cpuinfo_t, Instant)>,
     previous_info: Option<(xen_sysctl_cpuinfo_t, Instant)>,
 }
 
 impl PCpuTime {
-    pub fn new(cpu_index: usize, slice: Rc<UpdateOnce<SharedPCpuSlice>>) -> Self {
+    pub fn new(cpu_index: usize) -> Self {
         Self {
             cpu_index,
-            slice,
             current_info: None,
             previous_info: None,
         }
@@ -88,21 +39,14 @@ impl XenMetric for PCpuTime {
         })
     }
 
-    fn update(&mut self, token: uuid::Uuid) -> bool {
-        self.slice.update(token);
+    fn update(&mut self, shared: &XenMetricsShared, _: &XenControl) -> bool {
+        if let Some(cpuinfo) = shared.cpuinfos.get(self.cpu_index) {
+            self.previous_info = self.current_info;
+            self.current_info.replace((*cpuinfo, Instant::now()));
 
-        match self
-            .slice
-            .borrow()
-            .get_slice()
-            .and_then(|infos| infos.get(self.cpu_index))
-        {
-            Some(cpuinfo) => {
-                self.previous_info = self.current_info;
-                self.current_info.replace((*cpuinfo, Instant::now()));
-                true
-            }
-            None => false,
+            true
+        } else {
+            false
         }
     }
 
@@ -128,12 +72,9 @@ impl XenMetric for PCpuTime {
     }
 }
 
-pub struct MemoryTotal(Rc<UpdateOnce<SharedPhysInfo>>);
-
-impl MemoryTotal {
-    pub fn new(physinfo: Rc<UpdateOnce<SharedPhysInfo>>) -> Self {
-        Self(physinfo)
-    }
+#[derive(Default)]
+pub struct MemoryTotal {
+    memory_total: Option<i64>,
 }
 
 impl XenMetric for MemoryTotal {
@@ -150,18 +91,21 @@ impl XenMetric for MemoryTotal {
         })
     }
 
-    fn update(&mut self, token: uuid::Uuid) -> bool {
-        self.0.update(token);
+    fn update(&mut self, shared: &XenMetricsShared, _: &XenControl) -> bool {
+        self.memory_total = Some(
+            shared.physinfo.map_or(0, |physinfo| physinfo.total_pages) as i64
+                * XEN_PAGE_SIZE as i64
+                / 1024,
+        );
 
         true
     }
 
     fn get_value(&self) -> DataSourceValue {
-        match self.0.borrow().physinfo {
-            Some(physinfo) => {
-                DataSourceValue::Int64(physinfo.total_pages as i64 * XEN_PAGE_SIZE as i64 / 1024)
-            }
-            None => DataSourceValue::Undefined,
+        if let Some(count) = self.memory_total {
+            DataSourceValue::Int64(count)
+        } else {
+            DataSourceValue::Undefined
         }
     }
 
@@ -170,12 +114,9 @@ impl XenMetric for MemoryTotal {
     }
 }
 
-pub struct MemoryFree(Rc<UpdateOnce<SharedPhysInfo>>);
-
-impl MemoryFree {
-    pub fn new(physinfo: Rc<UpdateOnce<SharedPhysInfo>>) -> Self {
-        Self(physinfo)
-    }
+#[derive(Default)]
+pub struct MemoryFree {
+    memory_free: Option<i64>,
 }
 
 impl XenMetric for MemoryFree {
@@ -192,18 +133,20 @@ impl XenMetric for MemoryFree {
         })
     }
 
-    fn update(&mut self, token: uuid::Uuid) -> bool {
-        self.0.update(token);
+    fn update(&mut self, shared: &XenMetricsShared, _: &XenControl) -> bool {
+        self.memory_free = Some(
+            shared.physinfo.map_or(0, |physinfo| physinfo.free_pages) as i64 * XEN_PAGE_SIZE as i64
+                / 1024,
+        );
 
         true
     }
 
     fn get_value(&self) -> DataSourceValue {
-        match self.0.borrow().physinfo {
-            Some(physinfo) => {
-                DataSourceValue::Int64(physinfo.free_pages as i64 * XEN_PAGE_SIZE as i64 / 1024)
-            }
-            None => DataSourceValue::Undefined,
+        if let Some(value) = self.memory_free {
+            DataSourceValue::Int64(value)
+        } else {
+            DataSourceValue::Undefined
         }
     }
 
