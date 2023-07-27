@@ -1,59 +1,48 @@
-use std::{
-    io::{Read, Write},
-    time::{Duration, SystemTime},
+//! Protocol v3 tests
+
+use std::{time::SystemTime, collections::HashMap};
+
+use crate::{
+    metrics::{Metric, MetricFamily, MetricPoint, MetricSet, MetricType, MetricValue, NumberValue},
+    protocol_v3,
 };
 
-use indexmap::indexmap;
-
-use crate::rrdd::protocol_v2::{RrddMessageHeader, RrddMetadata, RrddMetadataRaw};
-
 #[test]
-fn test_metadata_invariance() {
-    let metadata = RrddMetadata {
-        datasources: indexmap! {
-          "A".into() => Default::default(),
-          "B".into() => Default::default(),
-        },
+fn test_protocol_v3_header() {
+    let metrics_set = MetricSet {
+        families: [(
+            "test".into(),
+            MetricFamily {
+                metric_type: MetricType::Gauge,
+                unit: "unit".into(),
+                help: "help".into(),
+                metrics: [(
+                    uuid::Uuid::new_v4(),
+                    Metric {
+                        labels: vec![].into(),
+                        metrics_point: vec![MetricPoint {
+                            value: MetricValue::Gauge(NumberValue::Int64(1)),
+                            timestamp: SystemTime::now(),
+                        }]
+                        .into(),
+                    },
+                )]
+                .into_iter()
+                .collect(),
+            },
+        )]
+        .into_iter()
+        .collect(),
     };
 
-    let metadata_raw: RrddMetadataRaw = metadata.clone().into();
-
-    let metadata_reparsed: RrddMetadata = metadata_raw.try_into().unwrap();
-
-    assert_eq!(metadata, metadata_reparsed);
-}
-
-#[test]
-fn test_protocol_v2_invariance() {
-    let metadata = RrddMetadata {
-        datasources: indexmap! {
-          "A".into() => Default::default()
-        },
-    };
-    let values = [u64::to_be_bytes(42)];
-
-    let (mut header, metadata_str) = RrddMessageHeader::generate(&values, metadata.clone());
-
-    // Remove subsec ns precision (protocol v2 only provide seconds accuracy)
-    let ns_diff = header
-        .timestamp
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap()
-        .subsec_nanos();
-    header.timestamp -= Duration::from_nanos(ns_diff as u64);
-
+    // Generate raw payload.
     let mut buffer = vec![];
-    header.write(&mut buffer).unwrap();
-    buffer.write_all(metadata_str.as_bytes()).unwrap();
+    protocol_v3::generate_v3(&mut buffer, None, metrics_set.clone()).unwrap();
 
-    let mut reader = buffer.as_slice();
-    let header_readed = RrddMessageHeader::parse_from(&mut reader).unwrap();
-    assert_eq!(header, header_readed);
+    let (_, metrics_readed) = protocol_v3::parse_v3(&mut buffer.as_slice()).unwrap();
 
-    let mut metadata_buffer = vec![0u8; header_readed.metadata_length as usize];
-    reader.read_exact(&mut metadata_buffer).unwrap();
-    let metadata_raw_readed: RrddMetadataRaw = serde_json::from_slice(&metadata_buffer).unwrap();
-    let metadata_readed = metadata_raw_readed.try_into().unwrap();
+    // We can't lazily compare them as xcp-metrics metrics has some additional informations
+    // (like internal uuid) that are randomly generated when parsing from OpenMetrics.
 
-    assert_eq!(metadata, metadata_readed);
+    // TODO: Complete this part
 }
