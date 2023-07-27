@@ -79,7 +79,7 @@ fn generate_metrics(xs: &Xs) -> anyhow::Result<SimpleMetricSet> {
                             )
                             .ok()
                             // Try to parse memory-target amount.
-                            .and_then(|v| v.parse::<i64>().ok())
+                            .and_then(|v| v.parse().ok())
                             .map(|memory_target| SimpleMetric {
                                 labels: vec![Label("owner".into(), format!("vm {vm_uuid}").into())],
                                 value: MetricValue::Gauge(NumberValue::Int64(memory_target)),
