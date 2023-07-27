@@ -1,4 +1,4 @@
-use std::{borrow::Cow, mem::MaybeUninit, rc::Rc};
+use std::{borrow::Cow, mem::MaybeUninit};
 
 use xcp_metrics_common::rrdd::protocol_common::{DataSourceMetadata, DataSourceValue};
 use xenctrl::XenControl;
