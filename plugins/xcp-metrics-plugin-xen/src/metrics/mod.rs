@@ -20,7 +20,7 @@ pub struct XenMetricsShared {
     pub cpuinfos: Vec<xc_cpuinfo_t>,
     pub xc: Rc<XenControl>,
 
-    pub cpuinfos_buffer: Vec<MaybeUninit<xc_cpuinfo_t>>,
+    cpuinfos_buffer: Vec<MaybeUninit<xc_cpuinfo_t>>,
 }
 
 impl XenMetricsShared {
