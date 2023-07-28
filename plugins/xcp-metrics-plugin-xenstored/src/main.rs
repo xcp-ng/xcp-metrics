@@ -53,14 +53,14 @@ fn generate_metrics(xs: &Xs) -> anyhow::Result<SimpleMetricSet> {
                     help: "Target of VM balloon driver".into(),
                     metrics: xs
                         // Get the list of domains.
-                        .directory(XBTransaction::Null, "/local/domains")
+                        .directory(XBTransaction::Null, "/local/domain")
                         .unwrap_or_default()
                         .into_iter()
                         // Get and check if the target memory metric exists.
                         .filter_map(|domid| {
                             xs.read(
                                 XBTransaction::Null,
-                                format!("/local/domains/{domid}/memory/target").as_str(),
+                                format!("/local/domain/{domid}/memory/target").as_str(),
                             )
                             .ok()
                             .and_then(|value| value.parse().ok())
@@ -71,7 +71,7 @@ fn generate_metrics(xs: &Xs) -> anyhow::Result<SimpleMetricSet> {
                             let vm_uuid = xs
                                 .read(
                                     XBTransaction::Null,
-                                    format!("/local/domains/{domid}/vm").as_str(),
+                                    format!("/local/domain/{domid}/vm").as_str(),
                                 )
                                 .and_then(|vm_path| {
                                     xs.read(XBTransaction::Null, format!("{vm_path}/uuid").as_str())
