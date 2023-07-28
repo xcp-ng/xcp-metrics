@@ -55,13 +55,16 @@ fn generate_metrics(xs: &Xs) -> anyhow::Result<SimpleMetricSet> {
                         // Get the list of domains.
                         .directory(XBTransaction::Null, "/local/domains")
                         .unwrap_or_default()
-                        .iter()
+                        .into_iter()
                         // Get and check if the target memory metric exists.
                         .filter_map(|domid| {
-                            xs.read(XBTransaction::Null, domid.as_str())
-                                .ok()
-                                .and_then(|value| value.parse().ok())
-                                .map(|memory_target: i64| (domid, memory_target))
+                            xs.read(
+                                XBTransaction::Null,
+                                format!("/local/domains/{domid}/memory/target").as_str(),
+                            )
+                            .ok()
+                            .and_then(|value| value.parse().ok())
+                            .map(|memory_target: i64| (domid, memory_target))
                         })
                         .filter_map(|(domid, memory_target)| {
                             // Get the domain's vm UUID.
@@ -75,7 +78,7 @@ fn generate_metrics(xs: &Xs) -> anyhow::Result<SimpleMetricSet> {
                                 })
                                 .ok();
 
-                            let mut labels = vec![Label("domain".into(), domid.clone().into())];
+                            let mut labels = vec![Label("domain".into(), domid.into())];
 
                             if let Some(vm_uuid) = vm_uuid {
                                 labels.push(Label("owner".into(), format!("vm {vm_uuid}").into()));
