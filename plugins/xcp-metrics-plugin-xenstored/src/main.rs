@@ -1,4 +1,4 @@
-use std::{rc::Rc, time::Duration};
+use std::{collections::HashMap, rc::Rc, time::Duration};
 
 use tokio::time;
 use xcp_metrics_common::metrics::{Label, MetricType, MetricValue, NumberValue};
@@ -24,12 +24,53 @@ pub fn get_vm_infos(xs: &Xs, vm_uuid: &str, attributes: &[&str]) -> MetricValue 
     )
 }
 
-fn generate_metrics(xs: &Xs) -> anyhow::Result<SimpleMetricSet> {
-    let vms = xs.directory(XBTransaction::Null, "/vm")?;
+fn make_memory_target_metric(xs: &Xs, domid: &str, memory_target: i64) -> SimpleMetric {
+    let vm_uuid = get_domain_uuid(xs, domid);
 
-    Ok(SimpleMetricSet {
-        families: [
-            (
+    let mut labels = vec![Label("domain".into(), domid.into())];
+
+    if let Some(vm_uuid) = vm_uuid {
+        labels.push(Label("owner".into(), format!("vm {vm_uuid}").into()));
+    }
+
+    SimpleMetric {
+        labels,
+        value: MetricValue::Gauge(NumberValue::Int64(memory_target)),
+    }
+}
+
+fn get_domain_uuid(xs: &Xs, domid: &str) -> Option<String> {
+    xs.read(
+        XBTransaction::Null,
+        format!("/local/domain/{domid}/vm").as_str(),
+    )
+    .and_then(|vm_path| xs.read(XBTransaction::Null, format!("{vm_path}/uuid").as_str()))
+    .ok()
+}
+
+fn get_memory_target_value(xs: &Xs, domid: &str) -> Option<i64> {
+    xs.read(
+        XBTransaction::Null,
+        format!("/local/domain/{domid}/memory/target").as_str(),
+    )
+    .ok()
+    .and_then(|value| {
+        value
+            .parse()
+            .map_err(|err| {
+                eprintln!("Memory target parse error {err:?}");
+                err
+            })
+            .ok()
+    })
+}
+
+fn generate_metrics(xs: &Xs) -> anyhow::Result<SimpleMetricSet> {
+    let mut families: HashMap<String, SimpleMetricFamily> = HashMap::new();
+
+    match xs.directory(XBTransaction::Null, "/vm") {
+        Ok(vms) => {
+            families.insert(
                 "vm_info".into(),
                 SimpleMetricFamily {
                     metric_type: MetricType::Info,
@@ -44,59 +85,35 @@ fn generate_metrics(xs: &Xs) -> anyhow::Result<SimpleMetricSet> {
                         })
                         .collect(),
                 },
-            ),
-            (
+            );
+        }
+        Err(err) => println!("Unable to get vm list {err}"),
+    }
+
+    match xs.directory(XBTransaction::Null, "/local/domain") {
+        Ok(domains) => {
+            families.insert(
                 "memory_target".into(),
                 SimpleMetricFamily {
                     metric_type: MetricType::Gauge,
                     unit: "bytes".into(),
                     help: "Target of VM balloon driver".into(),
-                    metrics: xs
-                        // Get the list of domains.
-                        .directory(XBTransaction::Null, "/local/domain")
-                        .unwrap_or_default()
-                        .into_iter()
-                        // Get and check if the target memory metric exists.
-                        .filter_map(|domid| {
-                            xs.read(
-                                XBTransaction::Null,
-                                format!("/local/domain/{domid}/memory/target").as_str(),
-                            )
-                            .ok()
-                            .and_then(|value| value.parse().ok())
-                            .map(|memory_target: i64| (domid, memory_target))
-                        })
-                        .filter_map(|(domid, memory_target)| {
-                            // Get the domain's vm UUID.
-                            let vm_uuid = xs
-                                .read(
-                                    XBTransaction::Null,
-                                    format!("/local/domain/{domid}/vm").as_str(),
-                                )
-                                .and_then(|vm_path| {
-                                    xs.read(XBTransaction::Null, format!("{vm_path}/uuid").as_str())
-                                })
-                                .ok();
-
-                            let mut labels = vec![Label("domain".into(), domid.into())];
-
-                            if let Some(vm_uuid) = vm_uuid {
-                                labels.push(Label("owner".into(), format!("vm {vm_uuid}").into()));
-                            }
-
-                            // Make it a metric.
-                            Some(SimpleMetric {
-                                labels,
-                                value: MetricValue::Gauge(NumberValue::Int64(memory_target)),
-                            })
+                    metrics: domains
+                        .iter()
+                        // Get target memory metric (if exists).
+                        .filter_map(|domid| get_memory_target_value(xs, &domid).map(|m| (domid, m)))
+                        // Make it a metric.
+                        .map(|(domid, memory_target)| {
+                            make_memory_target_metric(xs, &domid, memory_target)
                         })
                         .collect(),
                 },
-            ),
-        ]
-        .into_iter()
-        .collect(),
-    })
+            );
+        }
+        Err(err) => println!("Unable to get domains list {err}"),
+    }
+
+    Ok(SimpleMetricSet { families })
 }
 
 #[tokio::main]
