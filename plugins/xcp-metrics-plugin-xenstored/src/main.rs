@@ -1,4 +1,4 @@
-use std::{iter, rc::Rc, time::Duration};
+use std::{rc::Rc, time::Duration};
 
 use tokio::time;
 use xcp_metrics_common::metrics::{Label, MetricType, MetricValue, NumberValue};
@@ -22,17 +22,6 @@ pub fn get_vm_infos(xs: &Xs, vm_uuid: &str, attributes: &[&str]) -> MetricValue 
             })
             .collect(),
     )
-}
-
-pub fn get_domain_paths(xs: &Xs, vm_uuid: &str) -> Vec<String> {
-    xs.directory(
-        XBTransaction::Null,
-        format!("/vm/{vm_uuid}/domains").as_str(),
-    )
-    .unwrap_or_default()
-    .iter()
-    .filter_map(|domain_path| xs.read(XBTransaction::Null, &domain_path).ok())
-    .collect()
 }
 
 fn generate_metrics(xs: &Xs) -> anyhow::Result<SimpleMetricSet> {
@@ -62,26 +51,39 @@ fn generate_metrics(xs: &Xs) -> anyhow::Result<SimpleMetricSet> {
                     metric_type: MetricType::Gauge,
                     unit: "bytes".into(),
                     help: "Target of VM balloon driver".into(),
-                    metrics: vms
+                    metrics: xs
+                        // Get the list of domains.
+                        .directory(XBTransaction::Null, "/local/domains")
+                        .unwrap_or_default()
                         .iter()
-                        // Combine uuid and domain paths.
-                        .flat_map(|uuid: &String| {
-                            iter::zip(
-                                iter::repeat(uuid.as_str()),
-                                get_domain_paths(xs, uuid.as_str()),
-                            )
+                        // Get and check if the target memory metric exists.
+                        .filter_map(|domid| {
+                            xs.read(XBTransaction::Null, domid.as_str())
+                                .ok()
+                                .and_then(|value| value.parse().ok())
+                                .map(|memory_target: i64| (domid, memory_target))
                         })
-                        // Generate the target metric (if exists), using domain_path/memory/target
-                        .filter_map(|(vm_uuid, domain_path)| {
-                            xs.read(
-                                XBTransaction::Null,
-                                format!("{domain_path}/memory/target").as_str(),
-                            )
-                            .ok()
-                            // Try to parse memory-target amount.
-                            .and_then(|v| v.parse().ok())
-                            .map(|memory_target| SimpleMetric {
-                                labels: vec![Label("owner".into(), format!("vm {vm_uuid}").into())],
+                        .filter_map(|(domid, memory_target)| {
+                            // Get the domain's vm UUID.
+                            let vm_uuid = xs
+                                .read(
+                                    XBTransaction::Null,
+                                    format!("/local/domains/{domid}/vm").as_str(),
+                                )
+                                .and_then(|vm_path| {
+                                    xs.read(XBTransaction::Null, format!("{vm_path}/uuid").as_str())
+                                })
+                                .ok();
+
+                            let mut labels = vec![Label("domain".into(), domid.clone().into())];
+
+                            if let Some(vm_uuid) = vm_uuid {
+                                labels.push(Label("owner".into(), format!("vm {vm_uuid}").into()));
+                            }
+
+                            // Make it a metric.
+                            Some(SimpleMetric {
+                                labels,
                                 value: MetricValue::Gauge(NumberValue::Int64(memory_target)),
                             })
                         })
