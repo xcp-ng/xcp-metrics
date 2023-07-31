@@ -11,11 +11,13 @@ categories.workspace = true
 xcp-metrics-common = { path = "../../xcp-metrics-common" }
 xcp-metrics-plugin-common = { path = "../xcp-metrics-plugin-common" }
 
-tokio = { version = "1", features = ["full"] }
-
 uuid = "1.4"
 anyhow = "1.0"
+dashmap = "5.5"
+
+tokio = { version = "1", features = ["full"] }
+futures = "0.3"
 
 [dependencies.xenstore-rs]
-git = "https://github.com/xcp-ng/xenstore-rs"
-branch = "xs_write"
+git = "https://github.com/tsnake41/xenstore-rs"
+branch = "xs_watch"
