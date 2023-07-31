@@ -21,12 +21,13 @@ async fn watch_task(
     mut watch_channel: mpsc::UnboundedReceiver<String>,
     mut unwatch_channel: mpsc::UnboundedReceiver<String>,
 ) {
+    let xs = Arc::new(Xs::new(XsOpenFlags::ReadOnly).unwrap());
+
     let watch_task = task::spawn((|| {
         let cache = cache.clone();
+        let xs = xs.clone();
 
         async move {
-            let xs = Xs::new(XsOpenFlags::ReadOnly).unwrap();
-
             let mut stream = xs.get_stream().unwrap();
 
             while let Some(entry) = stream.next().await {
@@ -44,24 +45,28 @@ async fn watch_task(
         }
     })());
 
-    let watch_channel_task = task::spawn(async move {
-        let xs = Xs::new(XsOpenFlags::ReadOnly).unwrap();
+    let watch_channel_task = task::spawn((|| {
+        let xs = xs.clone();
 
-        while let Some(to_watch) = watch_channel.recv().await {
-            println!("Watching {to_watch}");
-            xs.watch(&to_watch, "xcp-metrics-xenstored").ok();
+        async move {
+            while let Some(to_watch) = watch_channel.recv().await {
+                println!("Watching {to_watch}");
+                xs.watch(&to_watch, "xcp-metrics-xenstored").ok();
+            }
         }
-    });
+    })());
 
-    let unwatch_channel_task = task::spawn(async move {
-        let xs = Xs::new(XsOpenFlags::ReadOnly).unwrap();
+    let unwatch_channel_task = task::spawn((|| {
+        let xs = xs.clone();
 
-        while let Some(to_unwatch) = unwatch_channel.recv().await {
-            println!("Unwatching {to_unwatch}");
-            xs.unwatch(&to_unwatch, "xcp-metrics-xenstored").ok();
-            cache.remove(&to_unwatch);
+        async move {
+            while let Some(to_unwatch) = unwatch_channel.recv().await {
+                println!("Unwatching {to_unwatch}");
+                xs.unwatch(&to_unwatch, "xcp-metrics-xenstored").ok();
+                cache.remove(&to_unwatch);
+            }
         }
-    });
+    })());
 
     select! {
         _ = watch_task => {},
