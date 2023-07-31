@@ -5,6 +5,7 @@ pub mod protocol_v3;
 pub mod rpc;
 pub mod rrdd;
 pub mod xapi;
+pub mod utils;
 
 #[cfg(test)]
 mod test;

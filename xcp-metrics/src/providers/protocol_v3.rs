@@ -9,8 +9,9 @@ use std::{
 
 use tokio::{fs::File, sync::mpsc, task::JoinHandle, time};
 use xcp_metrics_common::{
-    metrics::{Label, Metric, MetricFamily, MetricSet},
+    metrics::MetricSet,
     protocol_v3,
+    utils::delta::{MetricSetDelta, MetricSetModel},
 };
 
 use crate::hub::{CreateFamily, HubPushMessage, RegisterMetrics, UnregisterMetrics, UpdateMetrics};
@@ -19,44 +20,13 @@ use super::Provider;
 
 const METRICS_SHM_PATH: &str = "/dev/shm/metrics/";
 
-// TODO: Consider supporting crazy plugins that changes metric families ?
-
-// Summary of the changes
-#[derive(Debug, Default)]
-struct MetricSetDelta {
-    /// New added families (name only)
-    added_families: Vec<(Box<str>, MetricFamily)>,
-
-    /// Changed family metadata
-    // changed_families: Vec<&'a str>,
-
-    /// Metrics that no longer contain a family.
-    /// In case they reappears, they will need to be registered again.
-    orphaned_families: Vec<Box<str>>,
-
-    // Added metrics
-    added_metrics: Vec<(Box<str>, Metric)>,
-
-    // Removed metrics
-    removed_metrics: Vec<uuid::Uuid>,
-    // Updated metrics
-    // Currently consider updating all metrics.
-    // TODO: Do some testing/benchmark about this. Maybe force-update
-    //       all metrics other than Drop-heavy structures like Info,
-    //       StateSet, Summary, Histogram, ...
-    //
-    // updated: Vec<UpdateMetrics>,
-}
-
 #[derive(Debug, Clone)]
 pub struct ProtocolV3Provider {
     name: Box<str>,
     path: PathBuf,
     last_timestamp: SystemTime,
 
-    /// Track metrics per family and labels set.
-    metrics_map: HashMap<(Box<str>, Box<[Label]>), uuid::Uuid>,
-    families: HashSet<Box<str>>,
+    model: MetricSetModel,
 }
 
 impl ProtocolV3Provider {
@@ -65,8 +35,7 @@ impl ProtocolV3Provider {
             name: plugin_name.into(),
             path: Path::new(METRICS_SHM_PATH).join(plugin_name),
             last_timestamp: SystemTime::now(),
-            metrics_map: HashMap::new(),
-            families: HashSet::new(),
+            model: MetricSetModel::default(),
         }
     }
 
@@ -83,79 +52,6 @@ impl ProtocolV3Provider {
 
         Ok(Some(metrics))
     }
-
-    /// Compute variation between metrics_set and current model.
-    fn compute_delta(&self, metrics_set: &MetricSet) -> MetricSetDelta {
-        // Check for new families.
-        let added_families = metrics_set
-            .families
-            .iter()
-            .filter(|(name, _)| !self.families.contains(*name))
-            .map(|(name, family)| (name.clone(), family.clone()))
-            .collect();
-
-        // Check for removed metrics.
-        let removed_metrics = self
-            .metrics_map
-            .iter()
-            .filter_map(|((name, labels), uuid)| {
-                let Some(family) = metrics_set.families.get(name) else {
-                    // Related family doesn't exist anymore, so do metric.
-                    return Some(*uuid)
-                };
-
-                // Check for metric existence in family.
-                // NOTE: As UUID is random due to conversion between raw OpenMetrics and xcp-metrics
-                //       structure, we can't rely on it, and must use labels check existence.
-                if !family
-                    .metrics
-                    .iter()
-                    .any(|(_, metric)| labels == &metric.labels)
-                {
-                    Some(*uuid)
-                } else {
-                    None
-                }
-            })
-            .collect();
-
-        // Check for added metrics.
-        let added_metrics = metrics_set
-            .families
-            .iter()
-            // Combine family name with each family metric.
-            .flat_map(|(name, family)| iter::zip(iter::repeat(name), family.metrics.iter()))
-            // Only consider metrics we don't have, and strip uuid.
-            .filter_map(|(name, (_, metric))| {
-                // Due to contains_key expecting a tuple, we need to provide it a proper tuple (by cloning).
-                // TODO: Find a better solution than cloning.
-                if !self
-                    .metrics_map
-                    .contains_key(&(name.clone(), metric.labels.clone()))
-                {
-                    // We don't have the metric.
-                    Some((name.clone(), metric.clone()))
-                } else {
-                    None
-                }
-            })
-            .collect();
-
-        // Check for families that doesn't exist anymore.
-        let orphaned_families = self
-            .families
-            .iter()
-            .filter(|family| !metrics_set.families.contains_key(*family))
-            .cloned()
-            .collect();
-
-        MetricSetDelta {
-            added_families,
-            orphaned_families,
-            added_metrics,
-            removed_metrics,
-        }
-    }
 }
 
 impl Provider for ProtocolV3Provider {
@@ -169,15 +65,13 @@ impl Provider for ProtocolV3Provider {
             loop {
                 match self.fetch_protocol_v3().await {
                     Ok(Some(new_metrics)) => {
-                        let MetricSetDelta {
-                            added_families,
-                            orphaned_families,
-                            removed_metrics,
-                            added_metrics,
-                        } = self.compute_delta(&new_metrics);
+                        let delta = self.model.compute_delta(&new_metrics);
+
+                        // Update model
+                        self.model.apply_delta(&delta);
 
                         // Remove metrics
-                        removed_metrics.iter().for_each(|&uuid| {
+                        delta.removed_metrics.into_iter().for_each(|uuid| {
                             if let Err(e) = hub_channel.send(HubPushMessage::UnregisterMetrics(
                                 UnregisterMetrics { uuid },
                             )) {
@@ -185,51 +79,42 @@ impl Provider for ProtocolV3Provider {
                             }
                         });
 
-                        // Update mapping, only keep those non-removed
-                        self.metrics_map
-                            .retain(|_, uuid| !removed_metrics.contains(uuid));
-
-                        // Remove orphaned families.
-                        self.families
-                            .retain(|name| !orphaned_families.contains(name));
-
                         // Add new families
-                        added_families.into_iter().for_each(|(name, family)| {
+                        delta.added_families.into_iter().for_each(|(name, family)| {
                             if let Err(e) =
                                 hub_channel.send(HubPushMessage::CreateFamily(CreateFamily {
-                                    name: name.clone(),
+                                    name: name.into(),
                                     metric_type: family.metric_type,
-                                    unit: family.unit,
-                                    help: family.help,
+                                    unit: family.unit.clone(),
+                                    help: family.help.clone(),
                                 }))
                             {
                                 tracing::error!("Register error {e}");
                             }
-
-                            self.families.insert(name);
                         });
 
                         // Add new metrics
-                        added_metrics.into_iter().for_each(|(family, metrics)| {
-                            let uuid = uuid::Uuid::new_v4();
+                        delta
+                            .added_metrics
+                            .into_iter()
+                            .for_each(|(family, metrics)| {
+                                let uuid = uuid::Uuid::new_v4();
 
-                            if let Err(e) =
-                                hub_channel.send(HubPushMessage::RegisterMetrics(RegisterMetrics {
-                                    family: family.clone(),
-                                    metrics: metrics.clone(),
-                                    uuid,
-                                }))
-                            {
-                                tracing::error!("Unregister error {e}");
-                            }
-
-                            self.metrics_map.insert((family, metrics.labels), uuid);
-                        });
+                                if let Err(e) = hub_channel.send(HubPushMessage::RegisterMetrics(
+                                    RegisterMetrics {
+                                        family: family.into(),
+                                        metrics: (*metrics).clone(),
+                                        uuid,
+                                    },
+                                )) {
+                                    tracing::error!("Unregister error {e}");
+                                }
+                            });
 
                         // Update all metrics
-                        new_metrics.families.iter().for_each(|(name, family)| {
-                            family.metrics.iter().for_each(|(_, metric)| {
-                                let uuid = self.metrics_map[&(name.clone(), metric.labels.clone())];
+                        new_metrics.families.into_iter().for_each(|(name, family)| {
+                            family.metrics.into_iter().for_each(|(_, metric)| {
+                                let uuid = self.model.metrics_map[&(name.clone(), metric.labels)];
 
                                 if let Err(e) =
                                     hub_channel.send(HubPushMessage::UpdateMetrics(UpdateMetrics {
