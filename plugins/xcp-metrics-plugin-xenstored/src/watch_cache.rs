@@ -48,6 +48,7 @@ async fn watch_task(
         let xs = Xs::new(XsOpenFlags::ReadOnly).unwrap();
 
         while let Some(to_watch) = watch_channel.recv().await {
+            println!("Watching {to_watch}");
             xs.watch(&to_watch, "xcp-metrics-xenstored").ok();
         }
     });
@@ -56,6 +57,7 @@ async fn watch_task(
         let xs = Xs::new(XsOpenFlags::ReadOnly).unwrap();
 
         while let Some(to_unwatch) = unwatch_channel.recv().await {
+            println!("Unwatching {to_unwatch}");
             xs.unwatch(&to_unwatch, "xcp-metrics-xenstored").ok();
             cache.remove(&to_unwatch);
         }
