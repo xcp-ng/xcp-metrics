@@ -1,18 +1,12 @@
 //! Protocol v3 plugin metrics provider
 
 use std::{
-    collections::{HashMap, HashSet},
-    iter,
     path::{Path, PathBuf},
     time::{Duration, SystemTime},
 };
 
 use tokio::{fs::File, sync::mpsc, task::JoinHandle, time};
-use xcp_metrics_common::{
-    metrics::MetricSet,
-    protocol_v3,
-    utils::delta::{MetricSetDelta, MetricSetModel},
-};
+use xcp_metrics_common::{metrics::MetricSet, protocol_v3, utils::delta::MetricSetModel};
 
 use crate::hub::{CreateFamily, HubPushMessage, RegisterMetrics, UnregisterMetrics, UpdateMetrics};
 
