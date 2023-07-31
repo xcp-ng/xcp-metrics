@@ -91,9 +91,7 @@ impl Provider for ProtocolV3Provider {
                         delta
                             .added_metrics
                             .into_iter()
-                            .for_each(|(family, metrics)| {
-                                let uuid = uuid::Uuid::new_v4();
-
+                            .for_each(|(family, metrics, uuid)| {
                                 if let Err(e) = hub_channel.send(HubPushMessage::RegisterMetrics(
                                     RegisterMetrics {
                                         family: family.into(),

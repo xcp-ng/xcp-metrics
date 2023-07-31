@@ -3,7 +3,6 @@
 // TODO: Consider supporting changes in metric families metadata ?
 
 use std::{
-    borrow::Cow,
     collections::{HashMap, HashSet},
     iter,
 };
@@ -25,7 +24,7 @@ pub struct MetricSetDelta<'a> {
     pub orphaned_families: Vec<Box<str>>,
 
     // Added metrics
-    pub added_metrics: Vec<(&'a str, &'a Metric)>,
+    pub added_metrics: Vec<(&'a str, &'a Metric, uuid::Uuid)>,
 
     // Removed metrics
     pub removed_metrics: Vec<uuid::Uuid>,
@@ -63,22 +62,18 @@ impl MetricSetModel {
             .iter()
             .filter_map(|((name, labels), uuid)| {
                 let Some(family) = metrics_set.families.get(name) else {
-                  // Related family doesn't exist anymore, so do metric.
-                  return Some(*uuid)
-              };
+                    // Related family doesn't exist anymore, so do metric.
+                    return Some(*uuid)
+                };
 
                 // Check for metric existence in family.
                 // NOTE: As UUID is random due to conversion between raw OpenMetrics and xcp-metrics
-                //       structure, we can't rely on it, and must use labels check existence.
-                if !family
+                //       structure, we can't rely on it, and must use labels to check existence.
+                (!family
                     .metrics
                     .iter()
-                    .any(|(_, metric)| labels == &metric.labels)
-                {
-                    Some(*uuid)
-                } else {
-                    None
-                }
+                    .any(|(_, metric)| labels == &metric.labels))
+                .then_some(*uuid)
             })
             .collect();
 
@@ -88,19 +83,14 @@ impl MetricSetModel {
             .iter()
             // Combine family name with each family metric.
             .flat_map(|(name, family)| iter::zip(iter::repeat(name), family.metrics.iter()))
-            // Only consider metrics we don't have, and strip uuid.
+            // Only consider metrics we don't have, and generate a new proper UUID.
             .filter_map(|(name, (_, metric))| {
                 // Due to contains_key expecting a tuple, we need to provide it a proper tuple (by cloning).
                 // TODO: Find a better solution than cloning.
-                if !self
+                (!self
                     .metrics_map
-                    .contains_key(&(name.clone(), metric.labels.clone()))
-                {
-                    // We don't have the metric.
-                    Some((name.as_ref(), metric))
-                } else {
-                    None
-                }
+                    .contains_key(&(name.clone(), metric.labels.clone())))
+                .then(|| (name.as_ref(), metric, uuid::Uuid::new_v4()))
             })
             .collect();
 
@@ -109,7 +99,7 @@ impl MetricSetModel {
             .families
             .iter()
             .filter(|family| !metrics_set.families.contains_key(*family))
-            .map(|name| name.clone())
+            .cloned()
             .collect();
 
         MetricSetDelta {
@@ -127,7 +117,7 @@ impl MetricSetModel {
 
         // Remove orphaned families.
         self.families
-            .retain(|name| !delta.orphaned_families.contains(&Cow::Borrowed(name)));
+            .retain(|name| !delta.orphaned_families.contains(name));
 
         // Add new families
         delta.added_families.iter().for_each(|(name, _)| {
@@ -135,12 +125,13 @@ impl MetricSetModel {
         });
 
         // Add new metrics
-        delta.added_metrics.iter().for_each(|(family, metrics)| {
-            let uuid = uuid::Uuid::new_v4();
-
-            self.metrics_map
-                .insert((family.to_string().into(), metrics.labels.clone()), uuid);
-        });
+        delta
+            .added_metrics
+            .iter()
+            .for_each(|(family, metrics, uuid)| {
+                self.metrics_map
+                    .insert((family.to_string().into(), metrics.labels.clone()), *uuid);
+            });
     }
 }
 
