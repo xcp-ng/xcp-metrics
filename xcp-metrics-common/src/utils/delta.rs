@@ -135,8 +135,28 @@ impl MetricSetModel {
     }
 }
 
-/*
 impl From<MetricSet> for MetricSetModel {
-    fn from(value: MetricSet) -> Self {}
+    fn from(value: MetricSet) -> Self {
+        Self::from(&value)
+    }
 }
-*/
+
+impl From<&MetricSet> for MetricSetModel {
+    fn from(set: &MetricSet) -> Self {
+        let families = set.families.iter().map(|(name, _)| name).cloned().collect();
+
+        let metrics_map = set
+            .families
+            .iter()
+            .flat_map(|(name, family)| iter::zip(iter::repeat(name), &family.metrics))
+            .map(|(name, (_, metric))| {
+                ((name.clone(), metric.labels.clone()), uuid::Uuid::new_v4())
+            })
+            .collect();
+
+        MetricSetModel {
+            metrics_map,
+            families,
+        }
+    }
+}
