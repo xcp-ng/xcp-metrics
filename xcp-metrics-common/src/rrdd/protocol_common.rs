@@ -315,7 +315,7 @@ impl Default for DataSourceMetadata {
 impl crate::metrics::Metric {
     pub fn from_protocol_v2(
         metadata: &DataSourceMetadata,
-        value: &DataSourceValue,
+        value: DataSourceValue,
         timestamp: SystemTime,
         // Used for derive creation timestamp.
         created: SystemTime,
@@ -332,7 +332,7 @@ impl crate::metrics::Metric {
 impl crate::metrics::MetricPoint {
     pub fn from_protocol_v2(
         metadata: &DataSourceMetadata,
-        value: &DataSourceValue,
+        value: DataSourceValue,
         timestamp: SystemTime,
         // Used for derive creation timestamp.
         created: SystemTime,
@@ -350,12 +350,22 @@ impl crate::metrics::MetricPoint {
     }
 }
 
-impl From<&DataSourceValue> for NumberValue {
-    fn from(value: &DataSourceValue) -> Self {
+impl From<DataSourceValue> for NumberValue {
+    fn from(value: DataSourceValue) -> Self {
         match value {
-            DataSourceValue::Int64(val) => Self::Int64(*val),
-            DataSourceValue::Float(val) => Self::Double(*val),
+            DataSourceValue::Int64(val) => Self::Int64(val),
+            DataSourceValue::Float(val) => Self::Double(val),
             DataSourceValue::Undefined => Self::Undefined,
+        }
+    }
+}
+
+impl From<NumberValue> for DataSourceValue {
+    fn from(value: NumberValue) -> Self {
+        match value {
+            NumberValue::Double(val) => Self::Float(val),
+            NumberValue::Int64(val) => Self::Int64(val),
+            NumberValue::Undefined => Self::Undefined,
         }
     }
 }

@@ -10,7 +10,9 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use tokio::io::AsyncRead;
 
-use super::protocol_common::{DataSourceMetadata, DataSourceMetadataRaw, DataSourceParseError};
+use super::protocol_common::{
+    DataSourceMetadata, DataSourceMetadataRaw, DataSourceParseError, DataSourceValue,
+};
 
 pub use indexmap;
 
@@ -325,4 +327,16 @@ impl TryFrom<RrddMetadataRaw> for RrddMetadata {
 
         Ok(Self { datasources })
     }
+}
+
+/// Update `header` values with ones provided by `values`.
+pub fn values_to_raw(values: &[DataSourceValue]) -> Box<[[u8; 8]]> {
+    values
+        .iter()
+        .map(|value| match *value {
+            DataSourceValue::Int64(n) => n.to_be_bytes(),
+            DataSourceValue::Float(f) => f.to_be_bytes(),
+            DataSourceValue::Undefined => [0; 8],
+        })
+        .collect()
 }

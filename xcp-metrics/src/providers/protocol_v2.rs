@@ -123,7 +123,7 @@ impl ProtocolV2Provider {
         let Some(state) = self.state.as_ref() else { return };
 
         std::iter::zip(state.metadata.datasources.iter(), state.values.iter()).for_each(
-            |((name, metadata), value)| {
+            |((name, metadata), &value)| {
                 // Wrap value into its appropriate MetricPoint.
                 let metric_point = MetricPoint::from_protocol_v2(
                     metadata,

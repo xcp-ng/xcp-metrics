@@ -5,7 +5,7 @@ use xcp_metrics_common::{
     rpc::methods::{PluginLocalDeregister, PluginLocalRegister},
     rrdd::{
         protocol_common::DataSourceValue,
-        protocol_v2::{RrddMessageHeader, RrddMetadata},
+        protocol_v2::{RrddMessageHeader, RrddMetadata, values_to_raw},
     },
     xapi::{self, hyper::body::HttpBody, METRICS_SHM_PATH},
 };
@@ -14,18 +14,6 @@ pub struct RrddPlugin {
     uid: Box<str>,
     header: RrddMessageHeader,
     metrics_path: PathBuf,
-}
-
-/// Update `header` values with ones provided by `values`.
-fn values_to_raw(values: &[DataSourceValue]) -> Box<[[u8; 8]]> {
-    values
-        .iter()
-        .map(|value| match value {
-            DataSourceValue::Int64(n) => (*n).to_be_bytes(),
-            DataSourceValue::Float(f) => (*f).to_be_bytes(),
-            DataSourceValue::Undefined => [0; 8],
-        })
-        .collect()
 }
 
 impl RrddPlugin {
