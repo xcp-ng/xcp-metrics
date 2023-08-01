@@ -7,7 +7,7 @@ use xcp_metrics_common::{
     },
     rrdd::{
         protocol_common::{DataSourceMetadata, DataSourceOwner, DataSourceType, DataSourceValue},
-        protocol_v2::{indexmap::IndexMap, values_to_raw, RrddMetadata},
+        protocol_v2::{indexmap::IndexMap, RrddMetadata},
     },
     utils::delta::MetricSetModel,
 };
@@ -104,7 +104,8 @@ impl BridgeToV2 {
         }
     }
 
-    pub fn update(&mut self, metrics_set: MetricSet) {
+    /// Update bridge information, returns true on metadata change.
+    pub fn update(&mut self, metrics_set: MetricSet) -> bool {
         let delta = self.model.compute_delta(&metrics_set);
         self.model.apply_delta(&delta);
 
@@ -112,23 +113,21 @@ impl BridgeToV2 {
             || !delta.added_metrics.is_empty()
             || !delta.removed_metrics.is_empty()
         {
+            self.latest_set = metrics_set;
             self.reset_metadata();
+            true
+        } else {
+            self.latest_set = metrics_set;
+            false
         }
-
-        self.latest_set = metrics_set;
     }
 
-    pub fn get_data(&self) -> Box<[[u8; 8]]> {
-        values_to_raw(
-            &self
-                .metadata_map
-                .iter()
-                .filter_map(|(family_name, labels)| {
-                    self.get_first_metric_point(family_name, labels)
-                })
-                .map(metric_point_to_v2)
-                .collect::<Box<[DataSourceValue]>>(),
-        )
+    pub fn get_data(&self) -> Box<[DataSourceValue]> {
+        self.metadata_map
+            .iter()
+            .filter_map(|(family_name, labels)| self.get_first_metric_point(family_name, labels))
+            .map(metric_point_to_v2)
+            .collect::<Box<[DataSourceValue]>>()
     }
 
     pub fn get_metadata(&self) -> &RrddMetadata {

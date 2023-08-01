@@ -64,7 +64,7 @@ async fn main() {
     // NOTE: some could be undefined values
     let mut values = generate_values(&mut sources);
 
-    let mut plugin = RrddPlugin::new("xcp-metrics-plugin-xen", metadata, Some(&values))
+    let mut plugin = RrddPlugin::new("xcp-metrics-plugin-xen", metadata, Some(&values), None)
         .await
         .unwrap();
 

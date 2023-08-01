@@ -5,7 +5,7 @@ use xcp_metrics_common::{
     rpc::methods::{PluginLocalDeregister, PluginLocalRegister},
     rrdd::{
         protocol_common::DataSourceValue,
-        protocol_v2::{RrddMessageHeader, RrddMetadata, values_to_raw},
+        protocol_v2::{values_to_raw, RrddMessageHeader, RrddMetadata},
     },
     xapi::{self, hyper::body::HttpBody, METRICS_SHM_PATH},
 };
@@ -14,7 +14,10 @@ pub struct RrddPlugin {
     uid: Box<str>,
     header: RrddMessageHeader,
     metrics_path: PathBuf,
+    target_daemon: Box<str>,
 }
+
+const DEFAULT_DAEMON: &str = "xcp-metrics";
 
 impl RrddPlugin {
     /// Create and register a new plugin.
@@ -22,6 +25,7 @@ impl RrddPlugin {
         uid: &'_ str,
         metadata: RrddMetadata,
         initial_values: Option<&[DataSourceValue]>,
+        target_daemon: Option<&str>,
     ) -> anyhow::Result<Self> {
         let (header, metadata_str) = Self::generate_initial_header(metadata, initial_values)?;
 
@@ -29,6 +33,7 @@ impl RrddPlugin {
             uid: uid.into(),
             header,
             metrics_path: Path::new(METRICS_SHM_PATH).join(uid),
+            target_daemon: target_daemon.unwrap_or(DEFAULT_DAEMON).into(),
         };
 
         plugin.reset_file(Some(&metadata_str)).await?;
@@ -55,7 +60,10 @@ impl RrddPlugin {
         };
 
         let response = xapi::send_xmlrpc_at(
-            "xcp-rrdd", "POST", &request, &self.uid, /* use uid as user-agent */
+            &self.target_daemon,
+            "POST",
+            &request,
+            &self.uid, /* use uid as user-agent */
         )
         .await?;
 
@@ -125,7 +133,10 @@ impl RrddPlugin {
         };
 
         let response = xapi::send_xmlrpc_at(
-            "xcp-rrdd", "POST", &request, &self.uid, /* use uid as user-agent */
+            &self.target_daemon,
+            "POST",
+            &request,
+            &self.uid, /* use uid as user-agent */
         )
         .await
         .unwrap();

@@ -17,7 +17,7 @@ async fn main() {
     };
     let values = [];
 
-    let mut plugin = RrddPlugin::new("xcp-metrics-plugin-varying", metadata, Some(&values))
+    let mut plugin = RrddPlugin::new("xcp-metrics-plugin-varying", metadata, Some(&values), None)
         .await
         .unwrap();
 

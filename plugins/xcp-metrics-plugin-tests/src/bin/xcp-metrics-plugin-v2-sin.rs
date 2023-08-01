@@ -27,7 +27,7 @@ async fn main() {
     let mut values = [DataSourceValue::Float(0.0)];
     let time = Instant::now();
 
-    let mut plugin = RrddPlugin::new("xcp-metrics-plugin-sin", metadata, Some(&values))
+    let mut plugin = RrddPlugin::new("xcp-metrics-plugin-sin", metadata, Some(&values), None)
         .await
         .unwrap();
 
