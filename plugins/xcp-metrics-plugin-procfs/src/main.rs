@@ -10,7 +10,6 @@ use xcp_metrics_plugin_common::protocol_v3::{
 fn generate_metrics() -> SimpleMetricSet {
     let pids = fs::read_dir("/proc")
         .expect("Unable to read /proc")
-        .into_iter()
         .filter_map(|entry| entry.ok())
         .filter_map(|dir| {
             // Filter pids

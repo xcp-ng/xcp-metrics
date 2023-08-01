@@ -20,7 +20,7 @@ static TRACKED_VM_ATTRIBUTES: &[&str] = &["name", "uuid"];
 
 impl PluginState {
     fn track_domain(&mut self, domain: &str) {
-        TRACKED_DOMAIN_ATTRIBUTES.into_iter().for_each(|attribute| {
+        TRACKED_DOMAIN_ATTRIBUTES.iter().for_each(|attribute| {
             if let Err(e) = self
                 .watch_cache
                 .watch(format!("/local/domain/{domain}/{attribute}").as_str())
@@ -33,7 +33,7 @@ impl PluginState {
     }
 
     fn untrack_domain(&mut self, domain: &str) {
-        TRACKED_DOMAIN_ATTRIBUTES.into_iter().for_each(|attribute| {
+        TRACKED_DOMAIN_ATTRIBUTES.iter().for_each(|attribute| {
             if let Err(e) = self
                 .watch_cache
                 .unwatch(format!("/local/domain/{domain}/{attribute}").as_str())
@@ -46,7 +46,7 @@ impl PluginState {
     }
 
     fn track_vm(&mut self, vm: &str) {
-        TRACKED_VM_ATTRIBUTES.into_iter().for_each(|attribute| {
+        TRACKED_VM_ATTRIBUTES.iter().for_each(|attribute| {
             if let Err(e) = self
                 .watch_cache
                 .watch(format!("/vm/{vm}/{attribute}").as_str())
@@ -59,7 +59,7 @@ impl PluginState {
     }
 
     fn untrack_vm(&mut self, vm: &str) {
-        TRACKED_VM_ATTRIBUTES.into_iter().for_each(|attribute| {
+        TRACKED_VM_ATTRIBUTES.iter().for_each(|attribute| {
             if let Err(e) = self
                 .watch_cache
                 .unwatch(format!("/vm/{vm}/{attribute}").as_str())

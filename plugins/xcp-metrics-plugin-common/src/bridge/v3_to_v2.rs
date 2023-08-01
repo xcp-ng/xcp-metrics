@@ -126,7 +126,7 @@ impl BridgeToV2 {
                 .filter_map(|(family_name, labels)| {
                     self.get_first_metric_point(family_name, labels)
                 })
-                .map(|metric_point| metric_point_to_v2(metric_point))
+                .map(metric_point_to_v2)
                 .collect::<Box<[DataSourceValue]>>(),
         )
     }
@@ -143,7 +143,7 @@ impl BridgeToV2 {
         self.latest_set
             .families
             .get(family_name)
-            .map(|family| {
+            .and_then(|family| {
                 family
                     .metrics
                     .iter()
@@ -152,7 +152,6 @@ impl BridgeToV2 {
                     // Only take first metrics_point
                     .find_map(|(_, metric)| metric.metrics_point.get(0))
             })
-            .flatten()
     }
 
     fn reset_metadata(&mut self) {
@@ -165,10 +164,8 @@ impl BridgeToV2 {
                 iter::zip(iter::repeat((name, family)), family.metrics.iter())
             })
             // Only consider gauge and counter values.
-            .filter(|((_, family), _)| match family.metric_type {
-                MetricType::Gauge => true,
-                MetricType::Counter => true,
-                _ => false,
+            .filter(|((_, family), _)| {
+                matches!(family.metric_type, MetricType::Gauge | MetricType::Counter)
             })
             // Convert this data to protocol v2 metadata and mapping information.
             .map(|((family_name, family), (_, metric))| {

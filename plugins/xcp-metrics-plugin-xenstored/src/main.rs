@@ -86,8 +86,8 @@ fn generate_metrics(plugin: &mut PluginState, xs: &Xs) -> anyhow::Result<SimpleM
                 .iter()
                 // Get vm metrics.
                 .map(|uuid| SimpleMetric {
-                    labels: vec![Label("owner".into(), format!("vm {uuid}").into())].into(),
-                    value: get_vm_infos(plugin, &uuid, &["name"]),
+                    labels: vec![Label("owner".into(), format!("vm {uuid}").into())],
+                    value: get_vm_infos(plugin, uuid, &["name"]),
                 })
                 .collect(),
         },
@@ -103,10 +103,10 @@ fn generate_metrics(plugin: &mut PluginState, xs: &Xs) -> anyhow::Result<SimpleM
                 .domains
                 .iter()
                 // Get target memory metric (if exists).
-                .filter_map(|domid| get_memory_target_value(plugin, &domid).map(|m| (domid, m)))
+                .filter_map(|domid| get_memory_target_value(plugin, domid).map(|m| (domid, m)))
                 // Make it a metric.
                 .map(|(domid, memory_target)| {
-                    make_memory_target_metric(plugin, &domid, memory_target)
+                    make_memory_target_metric(plugin, domid, memory_target)
                 })
                 .collect(),
         },

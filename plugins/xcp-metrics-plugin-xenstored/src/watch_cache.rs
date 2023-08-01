@@ -23,7 +23,7 @@ async fn watch_task(
 ) {
     let xs = Arc::new(Xs::new(XsOpenFlags::ReadOnly).unwrap());
 
-    let watch_task = task::spawn((|| {
+    let watch_task = task::spawn({
         let cache = cache.clone();
         let xs = xs.clone();
 
@@ -43,9 +43,9 @@ async fn watch_task(
                 }
             }
         }
-    })());
+    });
 
-    let watch_channel_task = task::spawn((|| {
+    let watch_channel_task = task::spawn({
         let xs = xs.clone();
 
         async move {
@@ -54,9 +54,9 @@ async fn watch_task(
                 xs.watch(&to_watch, "xcp-metrics-xenstored").ok();
             }
         }
-    })());
+    });
 
-    let unwatch_channel_task = task::spawn((|| {
+    let unwatch_channel_task = task::spawn({
         let xs = xs.clone();
 
         async move {
@@ -66,7 +66,7 @@ async fn watch_task(
                 cache.remove(&to_unwatch);
             }
         }
-    })());
+    });
 
     select! {
         _ = watch_task => {},

@@ -143,7 +143,7 @@ impl From<MetricSet> for MetricSetModel {
 
 impl From<&MetricSet> for MetricSetModel {
     fn from(set: &MetricSet) -> Self {
-        let families = set.families.iter().map(|(name, _)| name).cloned().collect();
+        let families = set.families.keys().cloned().collect();
 
         let metrics_map = set
             .families
