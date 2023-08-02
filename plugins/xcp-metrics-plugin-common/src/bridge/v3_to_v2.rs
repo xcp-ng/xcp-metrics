@@ -158,7 +158,7 @@ impl BridgeToV2 {
             .latest_set
             .families
             .iter()
-            // Combine family with family name and
+            // Combine family with family name and metrics.
             .flat_map(|(name, family)| {
                 iter::zip(iter::repeat((name, family)), family.metrics.iter())
             })
