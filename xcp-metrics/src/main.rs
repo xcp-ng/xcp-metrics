@@ -4,6 +4,7 @@ pub mod providers;
 pub mod publishers;
 pub mod rpc;
 
+use clap::{command, Parser};
 use dashmap::DashMap;
 use std::{fs, sync::Arc};
 use tokio::{net::UnixStream, select, sync::mpsc, task::JoinHandle};
@@ -13,6 +14,16 @@ use xcp_metrics_common::xapi::XAPI_SOCKET_PATH;
 pub struct XcpMetricsShared {
     pub plugins: DashMap<Box<str>, JoinHandle<()>>,
     pub hub_channel: mpsc::UnboundedSender<hub::HubPushMessage>,
+}
+
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    #[arg(short, long, default_value_t = tracing::Level::INFO)]
+    log_level: tracing::Level,
+
+    #[arg(long, default_value_t = String::from("xcp-metrics"))]
+    daemon_name: String,
 }
 
 /// Check if the XAPI socket is active and unlink it if it isn't.
@@ -47,20 +58,24 @@ async fn check_unix_socket(daemon_name: &str) -> anyhow::Result<bool> {
 
 #[tokio::main]
 async fn main() {
+    let args = Args::parse();
+
     let text_subscriber = tracing_subscriber::fmt()
         .with_ansi(true)
-        .with_max_level(tracing::Level::DEBUG)
+        .with_max_level(args.log_level)
         .compact()
         .finish();
 
     tracing::subscriber::set_global_default(text_subscriber).unwrap();
 
-    if check_unix_socket("xcp-metrics").await.unwrap() {
+    let forwarded_path = format!("{}.forwarded", args.daemon_name);
+
+    if check_unix_socket(&args.daemon_name).await.unwrap() {
         tracing::error!("Unable to start: xcp-metrics socket is active");
         panic!("Unable to start: is xcp-metrics already running ?");
     }
 
-    if check_unix_socket("xcp-metrics.forwarded").await.unwrap() {
+    if check_unix_socket(&forwarded_path).await.unwrap() {
         tracing::error!("Unable to start: xcp-metrics.forwarded socket is active");
         panic!("Unable to start: is xcp-metrics already running ?");
     }
@@ -72,11 +87,11 @@ async fn main() {
         plugins: Default::default(),
     });
 
-    let socket = rpc::daemon::start_daemon("xcp-metrics", shared.clone())
+    let socket = rpc::daemon::start_daemon(&args.daemon_name, shared.clone())
         .await
         .unwrap();
 
-    let socket_forwarded = forwarded::start_forwarded_socket("xcp-metrics.forwarded", shared)
+    let socket_forwarded = forwarded::start_forwarded_socket(&forwarded_path, shared)
         .await
         .unwrap();
 
