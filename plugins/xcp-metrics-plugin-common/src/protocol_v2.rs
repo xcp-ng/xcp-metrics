@@ -1,6 +1,9 @@
 use std::path::{Path, PathBuf};
 
-use tokio::{fs::OpenOptions, io::AsyncWriteExt};
+use tokio::{
+    fs::{create_dir_all, OpenOptions},
+    io::AsyncWriteExt,
+};
 use xcp_metrics_common::{
     rpc::methods::{PluginLocalDeregister, PluginLocalRegister},
     rrdd::{
@@ -92,6 +95,9 @@ impl RrddPlugin {
     }
 
     async fn reset_file(&self, raw_metadata: Option<&str>) -> anyhow::Result<()> {
+        // Create directory if doesn't exist.
+        create_dir_all(METRICS_SHM_PATH).await?;
+
         let mut options = OpenOptions::new();
         options.create(true);
         options.truncate(false);

@@ -3,7 +3,7 @@ pub mod utils;
 
 use std::path::{Path, PathBuf};
 
-use tokio::fs::OpenOptions;
+use tokio::fs::{OpenOptions, create_dir_all};
 use xcp_metrics_common::{
     metrics::MetricSet,
     protocol_v3,
@@ -31,6 +31,8 @@ impl MetricsPlugin {
     }
 
     pub async fn update(&self, metrics: MetricSet) -> anyhow::Result<()> {
+        create_dir_all(METRICS_SHM_PATH).await?;
+
         let mut options = OpenOptions::new();
         options.create(true);
         options.truncate(false);
