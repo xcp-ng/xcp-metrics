@@ -1,52 +1,78 @@
-use serde::Serialize;
+use std::{fmt::Write, time::SystemTime};
 
-#[derive(Serialize)]
-#[serde(rename = "$unflatten=legend")]
-pub struct XportLegend {
-    #[serde(rename = "$unflatten=entry")]
-    pub entries: Vec<Box<str>>,
-}
-
-#[derive(Serialize)]
-#[serde(rename = "$unflatten=meta")]
-pub struct XportMetadata {
-    #[serde(rename = "$unflatten=start")]
-    pub start: u64,
-    #[serde(rename = "$unflatten=step")]
-    pub step: u64,
-    #[serde(rename = "$unflatten=end")]
-    pub end: u64,
-    #[serde(rename = "$unflatten=rows")]
-    pub rows: u64,
-    #[serde(rename = "$unflatten=columns")]
-    pub columns: u64,
-
-    #[serde(rename = "legend")]
-    pub legend: XportLegend,
-}
-
-#[derive(Serialize)]
-#[serde(rename = "v", transparent)]
-pub struct XportValue {
-    pub value: f64,
-}
-
-#[derive(Serialize)]
-#[serde(rename = "row")]
-pub struct XportRow {
-    #[serde(rename = "$unflatten=t")]
-    pub timestamp: u64,
-
-    #[serde(rename = "$value")]
-    pub values: Vec<XportValue>,
-}
-
-#[derive(Serialize)]
-#[serde(rename = "xport")]
+#[derive(Debug, Clone)]
 pub struct RrdXport {
-    pub meta: XportMetadata,
-    #[serde(rename = "$unflatten=data")]
-    pub data: Vec<XportRow>,
-    #[serde(rename = "$unflatten=script")]
-    pub script: (),
+    pub start: SystemTime,
+    pub end: SystemTime,
+    pub step_secs: u32,
+
+    pub legend: Vec<Box<str>>,
+    pub data: Vec<(SystemTime, Box<[f64]>)>,
+}
+
+impl RrdXport {
+    fn write_metadata_xml<W: Write>(&self, writer: &mut W) -> anyhow::Result<()> {
+        write!(writer, "<meta>")?;
+
+        write!(
+            writer,
+            "<start>{}</start>",
+            self.start.duration_since(SystemTime::UNIX_EPOCH)?.as_secs()
+        )?;
+
+        write!(writer, "<step>{}</step>", self.step_secs)?;
+
+        write!(
+            writer,
+            "<end>{}</end>",
+            self.end.duration_since(SystemTime::UNIX_EPOCH)?.as_secs()
+        )?;
+
+        write!(writer, "<rows>{}</rows>", self.data.len())?;
+        write!(writer, "<columns>{}</columns>", self.legend.len())?;
+
+        write!(writer, "<legend>")?;
+        for entry in &self.legend {
+            write!(writer, "<entry>{entry}</entry>")?;
+        }
+        write!(writer, "</legend>")?;
+
+        write!(writer, "</meta>")?;
+
+        Ok(())
+    }
+
+    fn write_data_xml<W: Write>(&self, writer: &mut W) -> anyhow::Result<()> {
+        write!(writer, "<data>")?;
+
+        for (t, values) in &self.data {
+            write!(
+                writer,
+                "<row><t>{}</t>",
+                t.duration_since(SystemTime::UNIX_EPOCH)?.as_secs()
+            )?;
+
+            for value in values.iter() {
+                write!(writer, "<v>{value}</v>")?;
+            }
+
+            write!(writer, "</row>")?;
+        }
+
+        write!(writer, "</data>")?;
+        Ok(())
+    }
+
+    pub fn write_xml<W: Write>(&self, writer: &mut W) -> anyhow::Result<()> {
+        write!(writer, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>")?;
+
+        write!(writer, "<xport>")?;
+        self.write_metadata_xml(writer)?;
+        self.write_data_xml(writer)?;
+
+        write!(writer, "<script />")?;
+        write!(writer, "</xport>")?;
+
+        Ok(())
+    }
 }
