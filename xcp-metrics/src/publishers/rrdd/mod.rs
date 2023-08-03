@@ -6,15 +6,13 @@ use serde::{Deserialize, Serialize};
 use tokio::{select, sync::mpsc, task::JoinHandle};
 use xcp_metrics_common::rrdd::rrd_updates::{RrdXport, RrdXportInfo};
 
-use crate::{
-    hub::{HubPullResponse, HubPushMessage, PullMetrics},
-    providers::Provider,
-};
+use crate::hub::{HubPullResponse, HubPushMessage, PullMetrics};
 
 use self::round_robin::RoundRobinBuffer;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RrdEntry {
+    /// Full entry name (KIND:owner:uuid:metric_name)
     pub name: Box<str>,
 
     /// Metrics per five seconds (for a hour)
@@ -35,13 +33,20 @@ pub enum RrddServerMessage {
 #[derive(Debug)]
 pub struct RrddServer {
     receiver: mpsc::UnboundedReceiver<RrddServerMessage>,
+    host_uuid: uuid::Uuid,
 }
 
 impl RrddServer {
     pub fn new() -> (Self, mpsc::UnboundedSender<RrddServerMessage>) {
         let (sender, receiver) = mpsc::unbounded_channel();
 
-        (Self { receiver }, sender)
+        (
+            Self {
+                receiver,
+                host_uuid: uuid::Uuid::new_v4(),
+            },
+            sender,
+        )
     }
 
     async fn pull_metrics(
@@ -63,14 +68,9 @@ impl RrddServer {
     }
 
     async fn process_message(&self, message: RrddServerMessage) {}
-}
 
-impl Provider for RrddServer {
     #[tracing::instrument]
-    fn start_provider(
-        mut self,
-        hub_channel: mpsc::UnboundedSender<HubPushMessage>,
-    ) -> JoinHandle<()> {
+    fn start(mut self, hub_channel: mpsc::UnboundedSender<HubPushMessage>) -> JoinHandle<()> {
         tokio::task::spawn(async move {
             let mut timer = tokio::time::interval(Duration::from_secs(5));
 
