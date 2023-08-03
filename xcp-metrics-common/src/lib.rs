@@ -4,8 +4,8 @@ pub mod openmetrics;
 pub mod protocol_v3;
 pub mod rpc;
 pub mod rrdd;
-pub mod xapi;
 pub mod utils;
+pub mod xapi;
 
 #[cfg(test)]
 mod test;

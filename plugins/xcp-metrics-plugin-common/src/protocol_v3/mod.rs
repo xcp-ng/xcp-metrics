@@ -3,7 +3,7 @@ pub mod utils;
 
 use std::path::{Path, PathBuf};
 
-use tokio::fs::{OpenOptions, create_dir_all};
+use tokio::fs::{create_dir_all, OpenOptions};
 use xcp_metrics_common::{
     metrics::MetricSet,
     protocol_v3,

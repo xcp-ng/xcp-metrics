@@ -39,9 +39,14 @@ async fn main() {
         DataSourceValue::Float(std::f64::consts::PI),
     ];
 
-    let mut plugin = RrddPlugin::new("xcp-metrics-plugin-characters", metadata, Some(&values), None)
-        .await
-        .unwrap();
+    let mut plugin = RrddPlugin::new(
+        "xcp-metrics-plugin-characters",
+        metadata,
+        Some(&values),
+        None,
+    )
+    .await
+    .unwrap();
 
     // Expose protocol v2
     loop {
