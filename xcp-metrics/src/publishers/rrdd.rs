@@ -1,14 +1,78 @@
-use std::sync::Arc;
+use std::time::Duration;
 
-use tokio::sync::mpsc;
-use xcp_metrics_common::rrdd::protocol_v2::{RrddMessageHeader, RrddMetadata};
+use tokio::{select, sync::mpsc, task::JoinHandle};
+use xcp_metrics_common::rrdd::rrd_updates::{RrdXport, RrdXportInfo};
+
+use crate::{
+    hub::{HubPullResponse, HubPushMessage, PullMetrics},
+    providers::Provider,
+};
+
+#[derive(Debug)]
+pub enum RrddServerMessage {
+    RequestRrdUpdates(RrdXportInfo, mpsc::Sender<anyhow::Result<RrdXport>>),
+}
+
+#[derive(Debug)]
+pub struct RrddServer {
+    receiver: mpsc::UnboundedReceiver<RrddServerMessage>,
+}
 
 impl RrddServer {
-    pub async fn run() -> anyhow::Result<Self> {
-        let (metrics_sender, metrics_receiver) = mpsc::unbounded_channel();
+    pub fn new() -> (Self, mpsc::UnboundedSender<RrddServerMessage>) {
+        let (sender, receiver) = mpsc::unbounded_channel();
 
-        Self::start_rpc_server(metrics_sender).await?;
+        (Self { receiver }, sender)
+    }
 
-        Ok(Self)
+    async fn pull_metrics(
+        &self,
+        hub_channel: &mpsc::UnboundedSender<HubPushMessage>,
+    ) -> anyhow::Result<()> {
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        hub_channel.send(HubPushMessage::PullMetrics(PullMetrics(tx)))?;
+
+        let response = rx.recv().await.ok_or(anyhow::anyhow!("No response"))?;
+
+        match response {
+            HubPullResponse::Metrics(metrics) => {
+                tracing::debug!("TODO {metrics:?}");
+            }
+            //r => tracing::error!("Unsupported hub response: {r:?}"),
+        }
+
+        Ok(())
+    }
+
+    async fn process_message(&self, message: RrddServerMessage) {}
+}
+
+impl Provider for RrddServer {
+    #[tracing::instrument]
+    fn start_provider(
+        mut self,
+        hub_channel: mpsc::UnboundedSender<HubPushMessage>,
+    ) -> JoinHandle<()> {
+        tokio::task::spawn(async move {
+            let mut timer = tokio::time::interval(Duration::from_secs(5));
+
+            loop {
+                select! {
+                    _ = timer.tick() => {
+                        tracing::debug!("Pulling metrics");
+
+                        if let Err(e) = self.pull_metrics(&hub_channel).await {
+                            tracing::error!("Unable to pull metrics {e}");
+                        }
+                    },
+                    msg = self.receiver.recv() => {
+                        match msg {
+                            Some(msg) => self.process_message(msg).await,
+                            None => tracing::error!("Unable to read channel message")
+                        }
+                    }
+                }
+            }
+        })
     }
 }
