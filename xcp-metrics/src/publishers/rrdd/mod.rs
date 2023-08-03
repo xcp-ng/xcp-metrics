@@ -1,5 +1,8 @@
+pub mod round_robin;
+
 use std::time::Duration;
 
+use serde::{Deserialize, Serialize};
 use tokio::{select, sync::mpsc, task::JoinHandle};
 use xcp_metrics_common::rrdd::rrd_updates::{RrdXport, RrdXportInfo};
 
@@ -7,6 +10,22 @@ use crate::{
     hub::{HubPullResponse, HubPushMessage, PullMetrics},
     providers::Provider,
 };
+
+use self::round_robin::RoundRobinBuffer;
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RrdEntry {
+    pub name: Box<str>,
+
+    /// Metrics per five seconds (for a hour)
+    pub five_seconds: RoundRobinBuffer<f64>,
+
+    /// Metrics per hour (for a day)
+    pub hours: RoundRobinBuffer<f64>,
+
+    /// Metrics per day (for a month)
+    pub days: RoundRobinBuffer<f64>,
+}
 
 #[derive(Debug)]
 pub enum RrddServerMessage {
@@ -37,8 +56,7 @@ impl RrddServer {
         match response {
             HubPullResponse::Metrics(metrics) => {
                 tracing::debug!("TODO {metrics:?}");
-            }
-            //r => tracing::error!("Unsupported hub response: {r:?}"),
+            } //r => tracing::error!("Unsupported hub response: {r:?}"),
         }
 
         Ok(())
