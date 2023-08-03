@@ -1,6 +1,13 @@
 use std::{fmt::Write, time::SystemTime};
 
 #[derive(Debug, Clone)]
+pub struct RrdXportInfo {
+    pub start: SystemTime,
+    pub end: SystemTime,
+    pub step_secs: u32,
+}
+
+#[derive(Debug, Clone)]
 pub struct RrdXport {
     pub start: SystemTime,
     pub end: SystemTime,
@@ -65,12 +72,12 @@ impl RrdXport {
 
     pub fn write_xml<W: Write>(&self, writer: &mut W) -> anyhow::Result<()> {
         write!(writer, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>")?;
-
         write!(writer, "<xport>")?;
+
         self.write_metadata_xml(writer)?;
         self.write_data_xml(writer)?;
-
         write!(writer, "<script />")?;
+
         write!(writer, "</xport>")?;
 
         Ok(())
