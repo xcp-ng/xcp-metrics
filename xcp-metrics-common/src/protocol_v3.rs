@@ -1,6 +1,6 @@
 //! xcp-metrics protocol v3 implementation.
 //!
-//! For reference : https://github.com/xapi-project/xapi-project.github.io/pull/278
+//! For reference : <https://github.com/xapi-project/xapi-project.github.io/pull/278>
 
 use std::{
     io::{self, Read, Write},

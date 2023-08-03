@@ -1,6 +1,6 @@
 //! Protocol v3 tests
 
-use std::{time::SystemTime, collections::HashMap};
+use std::time::SystemTime;
 
 use crate::{
     metrics::{Metric, MetricFamily, MetricPoint, MetricSet, MetricType, MetricValue, NumberValue},

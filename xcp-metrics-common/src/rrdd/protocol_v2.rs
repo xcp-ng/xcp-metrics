@@ -1,6 +1,6 @@
 //! xcp-rrdd protocol v2 implementation.
 //!
-//! For reference: https://xapi-project.github.io/rrdd/design/plugin-protocol-v2.html
+//! For reference: <https://xapi-project.github.io/rrdd/design/plugin-protocol-v2.html>
 use std::{
     io::{self, Read, Write},
     time::{self, Duration, SystemTime},
