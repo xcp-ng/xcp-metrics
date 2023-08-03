@@ -1,12 +1,7 @@
 pub mod round_robin;
-
-use std::time::Duration;
+pub mod server;
 
 use serde::{Deserialize, Serialize};
-use tokio::{select, sync::mpsc, task::JoinHandle};
-use xcp_metrics_common::rrdd::rrd_updates::{RrdXport, RrdXportInfo};
-
-use crate::hub::{HubPullResponse, HubPushMessage, PullMetrics};
 
 use self::round_robin::RoundRobinBuffer;
 
@@ -15,82 +10,43 @@ pub struct RrdEntry {
     /// Full entry name (KIND:owner:uuid:metric_name)
     pub name: Box<str>,
 
-    /// Metrics per five seconds (for a hour)
+    /// Metrics per five seconds (for the past ten minutes)
     pub five_seconds: RoundRobinBuffer<f64>,
 
-    /// Metrics per hour (for a day)
-    pub hours: RoundRobinBuffer<f64>,
+    /// Metrics per minute (for the past two hours)
+    pub minute: RoundRobinBuffer<f64>,
 
-    /// Metrics per day (for a month)
-    pub days: RoundRobinBuffer<f64>,
+    /// Metrics per hour (for the past week).
+    pub hour: RoundRobinBuffer<f64>,
+
+    /// Metrics per day (for the past year).
+    pub day: RoundRobinBuffer<f64>,
 }
 
-#[derive(Debug)]
-pub enum RrddServerMessage {
-    RequestRrdUpdates(RrdXportInfo, mpsc::Sender<anyhow::Result<RrdXport>>),
-}
+/// Number of five-seconds updates between minute metrics.
+const MINUTE_UPDATES_INTERVAL: u32 = 60 / 5;
 
-#[derive(Debug)]
-pub struct RrddServer {
-    receiver: mpsc::UnboundedReceiver<RrddServerMessage>,
-    host_uuid: uuid::Uuid,
-}
+/// Number of five-seconds updates between hour metrics.
+const HOUR_UPDATES_INTERVAL: u32 = 3600 / 5;
 
-impl RrddServer {
-    pub fn new() -> (Self, mpsc::UnboundedSender<RrddServerMessage>) {
-        let (sender, receiver) = mpsc::unbounded_channel();
+/// Number of five-seconds updates between day metrics.
+const DAY_UPDATES_INTERVAL: u32 = 3600 * 24 / 5;
 
-        (
-            Self {
-                receiver,
-                host_uuid: uuid::Uuid::new_v4(),
-            },
-            sender,
-        )
-    }
+impl RrdEntry {
+    pub fn new(name: Box<str>) -> Self {
+        Self {
+            name,
+            // Per five seconds, past ten minutes.
+            five_seconds: RoundRobinBuffer::new(10 * 60 / 5),
 
-    async fn pull_metrics(
-        &self,
-        hub_channel: &mpsc::UnboundedSender<HubPushMessage>,
-    ) -> anyhow::Result<()> {
-        let (tx, mut rx) = mpsc::unbounded_channel();
-        hub_channel.send(HubPushMessage::PullMetrics(PullMetrics(tx)))?;
+            // Per minute, past ten minutes.
+            minute: RoundRobinBuffer::new(2 * 60),
 
-        let response = rx.recv().await.ok_or(anyhow::anyhow!("No response"))?;
+            // Per hour, past week.
+            hour: RoundRobinBuffer::new(7 * 24),
 
-        match response {
-            HubPullResponse::Metrics(metrics) => {
-                tracing::debug!("TODO {metrics:?}");
-            } //r => tracing::error!("Unsupported hub response: {r:?}"),
+            // Per day, past year.
+            day: RoundRobinBuffer::new(365),
         }
-
-        Ok(())
-    }
-
-    async fn process_message(&self, message: RrddServerMessage) {}
-
-    #[tracing::instrument]
-    fn start(mut self, hub_channel: mpsc::UnboundedSender<HubPushMessage>) -> JoinHandle<()> {
-        tokio::task::spawn(async move {
-            let mut timer = tokio::time::interval(Duration::from_secs(5));
-
-            loop {
-                select! {
-                    _ = timer.tick() => {
-                        tracing::debug!("Pulling metrics");
-
-                        if let Err(e) = self.pull_metrics(&hub_channel).await {
-                            tracing::error!("Unable to pull metrics {e}");
-                        }
-                    },
-                    msg = self.receiver.recv() => {
-                        match msg {
-                            Some(msg) => self.process_message(msg).await,
-                            None => tracing::error!("Unable to read channel message")
-                        }
-                    }
-                }
-            }
-        })
     }
 }
