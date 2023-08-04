@@ -189,19 +189,13 @@ impl RrddServer {
     pub async fn process_message(&self, message: RrddServerMessage) {
         match message {
             RrddServerMessage::RequestRrdUpdates(info, sender) => {
-                let legend = self
+                let (legend, mut data_iterators): (_, Vec<_>) = self
                     .entry_database
                     .values()
-                    .map(|entry| entry.name.clone())
-                    .collect();
+                    .map(|entry| (entry.name.clone(), entry.five_seconds.iter()))
+                    .unzip();
 
                 let granuality = Granuality::FiveSeconds;
-
-                let mut data_iterators = self
-                    .entry_database
-                    .values()
-                    .map(|entry| entry.five_seconds.iter())
-                    .collect::<Vec<_>>();
 
                 let data = (0..RrdEntry::FIVE_SECONDS_BUFFER_SIZE)
                     .map(|i| {
