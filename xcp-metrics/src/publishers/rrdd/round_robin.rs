@@ -49,6 +49,14 @@ where
         self.buffer[self.pos] = value;
         self.pos = (self.pos + 1) % self.size;
     }
+
+    pub fn iter(&self) -> RoundRobinIterator<T> {
+        RoundRobinIterator {
+            rrb: self,
+            pos: (self.pos + 1) % self.size,
+            done: false,
+        }
+    }
 }
 
 /**

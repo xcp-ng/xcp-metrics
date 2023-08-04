@@ -1,5 +1,6 @@
 //! Forwarded request support.
 mod response;
+mod routes;
 
 use std::{
     collections::HashMap,
@@ -15,12 +16,9 @@ use tokio::{
     net::{TcpStream, UnixListener, UnixStream},
     task::{self, JoinHandle},
 };
-use xcp_metrics_common::xapi::{
-    self,
-    hyper::{Response, StatusCode},
-};
+use xcp_metrics_common::xapi;
 
-use crate::XcpMetricsShared;
+use crate::{forwarded::routes::route_forwarded, XcpMetricsShared};
 
 /// xapi-project/xen-api/blob/master/ocaml/libs/http-lib/http.ml for reference
 #[derive(Clone, Debug, Deserialize)]
@@ -48,7 +46,7 @@ struct ForwardedRequest {
 
 async fn forwarded_handler(
     stream: UnixStream,
-    _shared: Arc<XcpMetricsShared>,
+    shared: Arc<XcpMetricsShared>,
 ) -> anyhow::Result<()> {
     let (buffer, fd) = task::spawn_blocking(move || {
         let mut buffer = vec![0u8; 10240];
@@ -75,13 +73,10 @@ async fn forwarded_handler(
     let request: ForwardedRequest = serde_json::from_slice(&buffer)?;
     tracing::info!("Captured request: {request:?}");
 
-    let response = Response::builder()
-        .status(StatusCode::OK)
-        .body("Hello there !")
-        .unwrap();
+    let response = route_forwarded(shared.clone(), request).await;
 
     let mut string: Vec<u8> = Vec::new();
-    response::write_response(&mut string, response)
+    response::write_response(&mut string, response?)
         .await
         .unwrap();
 

@@ -33,20 +33,32 @@ const HOUR_UPDATES_INTERVAL: u32 = 3600 / 5;
 const DAY_UPDATES_INTERVAL: u32 = 3600 * 24 / 5;
 
 impl RrdEntry {
+    /// Size of the per five seconds samples buffer.
+    pub(super) const FIVE_SECONDS_BUFFER_SIZE: usize = 10 * 60 / 5;
+
+    /// Size of the per minute samples buffer.
+    pub(super) const MINUTE_BUFFER_SIZE: usize = 2 * 60;
+
+    /// Size of the per hour samples buffer.
+    pub(super) const HOUR_BUFFER_SIZE: usize = 7 * 24;
+
+    /// Size of the per day samples buffer.
+    pub(super) const DAY_BUFFER_SIZE: usize = 365;
+
     pub fn new(name: Box<str>) -> Self {
         Self {
             name,
             // Per five seconds, past ten minutes.
-            five_seconds: RoundRobinBuffer::new(10 * 60 / 5),
+            five_seconds: RoundRobinBuffer::new(Self::FIVE_SECONDS_BUFFER_SIZE),
 
             // Per minute, past ten minutes.
-            minute: RoundRobinBuffer::new(2 * 60),
+            minute: RoundRobinBuffer::new(Self::MINUTE_BUFFER_SIZE),
 
             // Per hour, past week.
-            hour: RoundRobinBuffer::new(7 * 24),
+            hour: RoundRobinBuffer::new(Self::HOUR_BUFFER_SIZE),
 
             // Per day, past year.
-            day: RoundRobinBuffer::new(365),
+            day: RoundRobinBuffer::new(Self::DAY_BUFFER_SIZE),
         }
     }
 }

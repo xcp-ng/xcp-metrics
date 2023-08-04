@@ -28,6 +28,13 @@ pub struct RrddServer {
     pub day_update_counter: u32,
 }
 
+enum Granuality {
+    FiveSeconds,
+    Minute,
+    Hour,
+    Day,
+}
+
 fn to_name_v2(metric: &Metric, family_name: &str) -> String {
     metric
         .labels
@@ -46,13 +53,12 @@ fn get_owner_part(metric: &Metric, host_uuid: uuid::Uuid) -> String {
         .labels
         .iter()
         .filter(|l| l.0.as_ref() == "owner")
-        .filter_map(|l| {
+        .find_map(|l| {
             let parts: Vec<&str> = l.1.split_ascii_whitespace().take(2).collect();
-            let (kind, uuid) = (parts.get(0)?, parts.get(1)?);
+            let (kind, uuid) = (parts.first()?, parts.get(1)?);
 
             Some(format!("{kind}:{uuid}"))
         })
-        .next()
         .unwrap_or_else(|| format!("host:{}", host_uuid.as_hyphenated()))
 }
 
@@ -111,12 +117,12 @@ impl RrddServer {
         metrics
             .families
             .iter()
-            .flat_map(|(name, family)| {
-                iter::zip(iter::repeat((name, family)), family.metrics.iter())
-            })
-            .filter(|((_, family), _)| {
+            .filter(|(_, family)| {
                 // Only consider gauge and counter metrics.
                 matches!(family.metric_type, MetricType::Gauge | MetricType::Counter)
+            })
+            .flat_map(|(name, family)| {
+                iter::zip(iter::repeat((name, family)), family.metrics.iter())
             })
             .for_each(|((family_name, _), (&uuid, metric))| {
                 self.do_update_metric(
@@ -180,7 +186,49 @@ impl RrddServer {
         }
     }
 
-    pub async fn process_message(&self, message: RrddServerMessage) {}
+    pub async fn process_message(&self, message: RrddServerMessage) {
+        match message {
+            RrddServerMessage::RequestRrdUpdates(info, sender) => {
+                let legend = self
+                    .entry_database
+                    .values()
+                    .map(|entry| entry.name.clone())
+                    .collect();
+
+                let granuality = Granuality::FiveSeconds;
+
+                let mut data_iterators = self
+                    .entry_database
+                    .values()
+                    .map(|entry| entry.five_seconds.iter())
+                    .collect::<Vec<_>>();
+
+                let data = (0..RrdEntry::FIVE_SECONDS_BUFFER_SIZE)
+                    .map(|i| {
+                        (
+                            info.start + Duration::from_secs(i as _),
+                            data_iterators
+                                .iter_mut()
+                                .map(|iter| iter.next().unwrap_or(&f64::NAN))
+                                .cloned()
+                                .collect(),
+                        )
+                    })
+                    .collect();
+
+                sender
+                    .send(Ok(RrdXport {
+                        start: info.start,
+                        end: info.end,
+                        step_secs: info.step_secs,
+                        legend,
+                        data,
+                    }))
+                    .await
+                    .unwrap();
+            }
+        }
+    }
 
     #[tracing::instrument]
     pub fn start(mut self, hub_channel: mpsc::UnboundedSender<HubPushMessage>) -> JoinHandle<()> {

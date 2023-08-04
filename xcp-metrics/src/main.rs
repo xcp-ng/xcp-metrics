@@ -4,16 +4,20 @@ pub mod providers;
 pub mod publishers;
 pub mod rpc;
 
+use std::{fs, sync::Arc};
+
 use clap::{command, Parser};
 use dashmap::DashMap;
-use std::{fs, sync::Arc};
 use tokio::{net::UnixStream, select, sync::mpsc, task::JoinHandle};
+
+use publishers::rrdd::server::{RrddServer, RrddServerMessage};
 use xcp_metrics_common::xapi::XAPI_SOCKET_PATH;
 
 #[derive(Debug)]
 pub struct XcpMetricsShared {
     pub plugins: DashMap<Box<str>, JoinHandle<()>>,
     pub hub_channel: mpsc::UnboundedSender<hub::HubPushMessage>,
+    pub rrdd_channel: mpsc::UnboundedSender<RrddServerMessage>,
 }
 
 #[derive(Parser, Debug)]
@@ -81,24 +85,29 @@ async fn main() {
     }
 
     let (hub, hub_channel) = hub::MetricsHub::default().start().await;
+    let (rrdd_server, rrdd_channel) = RrddServer::new();
 
     let shared = Arc::new(XcpMetricsShared {
         hub_channel,
         plugins: Default::default(),
+        rrdd_channel,
     });
 
     let socket = rpc::daemon::start_daemon(&args.daemon_name, shared.clone())
         .await
         .unwrap();
 
-    let socket_forwarded = forwarded::start_forwarded_socket(&forwarded_path, shared)
+    let socket_forwarded = forwarded::start_forwarded_socket(&forwarded_path, shared.clone())
         .await
         .unwrap();
+
+    let rrdd = rrdd_server.start(shared.hub_channel.clone());
 
     select! {
         res = hub => tracing::warn!("Hub returned: {res:?}"),
         res = socket => tracing::warn!("RPC Socket returned: {res:?}"),
         res = socket_forwarded => tracing::warn!("RPC Forwarded Socket returned {res:?}"),
+        res = rrdd => tracing::warn!("RRDD server returned {res:?}")
     };
 
     tracing::info!("Stopping");
