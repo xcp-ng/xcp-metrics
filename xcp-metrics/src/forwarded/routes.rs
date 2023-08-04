@@ -1,4 +1,7 @@
-use std::{sync::Arc, time::SystemTime};
+use std::{
+    sync::Arc,
+    time::{Duration, SystemTime},
+};
 
 use tokio::sync::mpsc;
 
@@ -29,13 +32,45 @@ async fn rrd_update_handler(
 ) -> anyhow::Result<Response<Vec<u8>>> {
     let (tx, mut rx) = mpsc::channel(1);
 
+    let with_host = request
+        .query
+        .get("host")
+        .map(|v| v.as_ref() == "true")
+        .unwrap_or(false);
+
+    let use_json = request
+        .query
+        .get("json")
+        .map(|v| v.as_ref() == "true")
+        .unwrap_or(false);
+
+    let filter = if with_host {
+        RrdXportFilter::All
+    } else {
+        RrdXportFilter::AllNoHost
+    };
+
+    let start = if let Some(value) = request.query.get("start") {
+        let since_epoch = value.parse()?;
+
+        SystemTime::UNIX_EPOCH + Duration::from_secs(since_epoch)
+    } else {
+        SystemTime::now()
+    };
+
+    let interval = if let Some(value) = request.query.get("interval") {
+        value.parse()?
+    } else {
+        1
+    };
+
     shared
         .rrdd_channel
         .send(RrddServerMessage::RequestRrdUpdates(
             RrdXportInfo {
-                start: SystemTime::now(),
-                interval: 1,
-                filter: RrdXportFilter::All,
+                start,
+                interval,
+                filter,
             },
             tx,
         ))?;
@@ -45,11 +80,18 @@ async fn rrd_update_handler(
         .await
         .ok_or(anyhow::anyhow!("No value received from channel"))??;
 
-    let mut buffer = String::new();
-    response.write_xml(&mut buffer)?;
+    let buffer = if use_json {
+        let mut bytes = Vec::with_capacity(1024);
+        response.write_json(&mut bytes)?;
+        bytes
+    } else {
+        let mut s = String::new();
+        response.write_xml(&mut s)?;
+        s.into_bytes()
+    };
 
     Response::builder()
         .status(200)
-        .body(buffer.as_bytes().to_vec())
+        .body(buffer)
         .map_err(|err| anyhow::anyhow!(err))
 }

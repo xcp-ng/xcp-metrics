@@ -7,7 +7,7 @@ use std::time::{Duration, SystemTime};
 #[derive(Debug, Clone, Copy)]
 pub enum RrdXportFilter {
     All,
-    HostOnly,
+    AllNoHost,
     VM(uuid::Uuid),
     SR(uuid::Uuid),
 }

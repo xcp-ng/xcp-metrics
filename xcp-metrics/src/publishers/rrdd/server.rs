@@ -246,7 +246,7 @@ impl RrddServer {
                         // Apply filter
                         match info.filter {
                             RrdXportFilter::All => true,
-                            RrdXportFilter::HostOnly => matches!(entry.owner, DataSourceOwner::Host),
+                            RrdXportFilter::AllNoHost => !matches!(entry.owner, DataSourceOwner::Host),
                             RrdXportFilter::VM(uuid) => matches!(entry.owner, DataSourceOwner::VM(entry_uuid) if uuid == entry_uuid),
                             RrdXportFilter::SR(uuid) => matches!(entry.owner, DataSourceOwner::SR(entry_uuid) if uuid == entry_uuid),
                         }
