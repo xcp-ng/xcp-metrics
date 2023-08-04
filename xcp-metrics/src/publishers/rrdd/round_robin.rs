@@ -37,11 +37,11 @@ impl<T> RoundRobinBuffer<T>
 where
     T: Sized + Default + Copy,
 {
-    pub fn new(size: usize) -> Self {
+    pub fn new(size: usize, default: T) -> Self {
         Self {
             pos: 0,
             size,
-            buffer: vec![T::default(); size].into_boxed_slice(),
+            buffer: vec![default; size].into_boxed_slice(),
         }
     }
 

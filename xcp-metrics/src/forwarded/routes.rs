@@ -1,10 +1,14 @@
 use std::{sync::Arc, time::SystemTime};
 
 use tokio::sync::mpsc;
-use xcp_metrics_common::{rrdd::rrd_updates::RrdXportInfo, xapi::hyper::Response};
+
+use xcp_metrics_common::xapi::hyper::Response;
 
 use super::ForwardedRequest;
-use crate::{publishers::rrdd::server::RrddServerMessage, XcpMetricsShared};
+use crate::{
+    publishers::rrdd::{server::RrddServerMessage, RrdXportFilter, RrdXportInfo},
+    XcpMetricsShared,
+};
 
 pub(super) async fn route_forwarded(
     shared: Arc<XcpMetricsShared>,
@@ -30,8 +34,8 @@ async fn rrd_update_handler(
         .send(RrddServerMessage::RequestRrdUpdates(
             RrdXportInfo {
                 start: SystemTime::now(),
-                end: SystemTime::now(),
-                step_secs: 5,
+                interval: 1,
+                filter: RrdXportFilter::All,
             },
             tx,
         ))?;

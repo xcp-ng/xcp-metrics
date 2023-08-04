@@ -1,12 +1,18 @@
-use std::{collections::HashMap, fmt::Write, iter, sync::Arc, time::Duration};
+use std::{
+    collections::HashMap,
+    fmt::Write,
+    iter,
+    sync::Arc,
+    time::{Duration, SystemTime},
+};
 use tokio::{self, select, sync::mpsc, task::JoinHandle};
 
 use xcp_metrics_common::{
     metrics::{Metric, MetricSet, MetricType, MetricValue, NumberValue},
-    rrdd::rrd_updates::{RrdXport, RrdXportInfo},
+    rrdd::{protocol_common::DataSourceOwner, rrd_updates::RrdXport},
 };
 
-use super::{RrdEntry, DAY_UPDATES_INTERVAL, HOUR_UPDATES_INTERVAL, MINUTE_UPDATES_INTERVAL};
+use super::{entry::RrdEntry, Granuality, RrdXportFilter, RrdXportInfo};
 
 use crate::hub::{HubPullResponse, HubPushMessage, PullMetrics};
 
@@ -17,22 +23,22 @@ pub enum RrddServerMessage {
 
 #[derive(Debug)]
 pub struct RrddServer {
-    pub receiver: mpsc::UnboundedReceiver<RrddServerMessage>,
-    pub host_uuid: uuid::Uuid,
+    receiver: mpsc::UnboundedReceiver<RrddServerMessage>,
+    host_uuid: uuid::Uuid,
 
     /// Map a UUID from hub's MetricSet with a RrdEntry.
-    pub entry_database: HashMap<uuid::Uuid, RrdEntry>,
+    entry_database: HashMap<uuid::Uuid, RrdEntry>,
 
-    pub minute_update_counter: u32,
-    pub hour_update_counter: u32,
-    pub day_update_counter: u32,
-}
+    latest_update: SystemTime,
 
-enum Granuality {
-    FiveSeconds,
-    Minute,
-    Hour,
-    Day,
+    minute_update_counter: u32,
+    latest_minute_update: SystemTime,
+
+    hour_update_counter: u32,
+    latest_hour_update: SystemTime,
+
+    day_update_counter: u32,
+    latest_day_update: SystemTime,
 }
 
 fn to_name_v2(metric: &Metric, family_name: &str) -> String {
@@ -48,7 +54,7 @@ fn to_name_v2(metric: &Metric, family_name: &str) -> String {
 }
 
 /// Get the owner part of the rrd name (i.e vm:UUID).
-fn get_owner_part(metric: &Metric, host_uuid: uuid::Uuid) -> String {
+fn get_owner_part(metric: &Metric, host_uuid: uuid::Uuid) -> (String, DataSourceOwner) {
     metric
         .labels
         .iter()
@@ -57,9 +63,16 @@ fn get_owner_part(metric: &Metric, host_uuid: uuid::Uuid) -> String {
             let parts: Vec<&str> = l.1.split_ascii_whitespace().take(2).collect();
             let (kind, uuid) = (parts.first()?, parts.get(1)?);
 
-            Some(format!("{kind}:{uuid}"))
+            let owner = DataSourceOwner::try_from(l.1.as_ref()).unwrap_or(DataSourceOwner::Host);
+
+            Some((format!("{kind}:{uuid}"), owner))
         })
-        .unwrap_or_else(|| format!("host:{}", host_uuid.as_hyphenated()))
+        .unwrap_or_else(|| {
+            (
+                format!("host:{}", host_uuid.as_hyphenated()),
+                DataSourceOwner::Host,
+            )
+        })
 }
 
 impl RrddServer {
@@ -73,9 +86,16 @@ impl RrddServer {
 
                 entry_database: HashMap::new(),
 
+                latest_update: SystemTime::now(),
+
                 day_update_counter: 0,
+                latest_day_update: SystemTime::now(),
+
                 hour_update_counter: 0,
+                latest_hour_update: SystemTime::now(),
+
                 minute_update_counter: 0,
+                latest_minute_update: SystemTime::now(),
             },
             sender,
         )
@@ -98,17 +118,20 @@ impl RrddServer {
     /// Update all metrics
     pub fn update_metrics(&mut self, metrics: &MetricSet) {
         let do_update_minute = {
-            self.minute_update_counter = (self.minute_update_counter + 1) % MINUTE_UPDATES_INTERVAL;
+            self.minute_update_counter =
+                (self.minute_update_counter + 1) % Granuality::Minute.get_five_seconds_interval();
             self.minute_update_counter == 0
         };
 
         let do_update_hour = {
-            self.hour_update_counter = (self.hour_update_counter + 1) % HOUR_UPDATES_INTERVAL;
+            self.hour_update_counter =
+                (self.hour_update_counter + 1) % Granuality::Hour.get_five_seconds_interval();
             self.hour_update_counter == 0
         };
 
         let do_update_day = {
-            self.day_update_counter = (self.day_update_counter + 1) % DAY_UPDATES_INTERVAL;
+            self.day_update_counter =
+                (self.day_update_counter + 1) % Granuality::Day.get_five_seconds_interval();
             self.day_update_counter == 0
         };
 
@@ -148,11 +171,15 @@ impl RrddServer {
     ) {
         // Get (or create) the entry.
         let entry = self.entry_database.entry(uuid).or_insert_with(|| {
+            tracing::debug!("New entry {uuid}");
             let v2_name = to_name_v2(metric, family_name);
-            let owner_part = get_owner_part(metric, self.host_uuid);
+            let (owner_part, owner) = get_owner_part(metric, self.host_uuid);
 
             // Consider only AVERAGE metrics for now.
-            RrdEntry::new(format!("AVERAGE:{owner_part}:{v2_name}").into_boxed_str())
+            RrdEntry::new(
+                format!("AVERAGE:{owner_part}:{v2_name}").into_boxed_str(),
+                owner,
+            )
         });
 
         // Take the first metric.
@@ -174,33 +201,74 @@ impl RrddServer {
         entry.five_seconds.push(value);
 
         if do_update_minute {
+            self.latest_minute_update = SystemTime::now();
             entry.minute.push(value);
         }
 
         if do_update_hour {
+            self.latest_hour_update = SystemTime::now();
             entry.hour.push(value);
         }
 
         if do_update_day {
-            entry.minute.push(value);
+            self.latest_day_update = SystemTime::now();
+            entry.day.push(value);
         }
     }
 
     pub async fn process_message(&self, message: RrddServerMessage) {
         match message {
             RrddServerMessage::RequestRrdUpdates(info, sender) => {
-                let (legend, mut data_iterators): (_, Vec<_>) = self
+                tracing::info!("Processing RrdUpdate request");
+
+                // TODO: Use interval.
+
+                let granuality = {
+                    let distance_from_now = info.start.elapsed().unwrap_or(
+                        Duration::ZERO, /* if start is in the future, consider now */
+                    );
+
+                    if distance_from_now < Granuality::FiveSeconds.get_covered_duration() {
+                        Granuality::FiveSeconds
+                    } else if distance_from_now < Granuality::Minute.get_covered_duration() {
+                        Granuality::Minute
+                    } else if distance_from_now < Granuality::Hour.get_covered_duration() {
+                        Granuality::Hour
+                    } else {
+                        Granuality::Day
+                    }
+                };
+
+                let (legend, mut data_iterators): (Vec<_>, Vec<_>) = self
                     .entry_database
                     .values()
-                    .map(|entry| (entry.name.clone(), entry.five_seconds.iter()))
+                    .filter(|entry| {
+                        // Apply filter
+                        match info.filter {
+                            RrdXportFilter::All => true,
+                            RrdXportFilter::HostOnly => matches!(entry.owner, DataSourceOwner::Host),
+                            RrdXportFilter::VM(uuid) => matches!(entry.owner, DataSourceOwner::VM(entry_uuid) if uuid == entry_uuid),
+                            RrdXportFilter::SR(uuid) => matches!(entry.owner, DataSourceOwner::SR(entry_uuid) if uuid == entry_uuid),
+                        }
+                    })
+                    .map(|entry| (entry.name.clone(), entry.get_buffer(granuality).iter()))
                     .unzip();
 
-                let granuality = Granuality::FiveSeconds;
+                let (start, end) = {
+                    let start = match granuality {
+                        Granuality::FiveSeconds => self.latest_update,
+                        Granuality::Minute => self.latest_minute_update,
+                        Granuality::Hour => self.latest_hour_update,
+                        Granuality::Day => self.latest_day_update,
+                    };
 
-                let data = (0..RrdEntry::FIVE_SECONDS_BUFFER_SIZE)
+                    (start, start + granuality.get_covered_duration())
+                };
+
+                let data = (0..granuality.get_buffer_size())
                     .map(|i| {
                         (
-                            info.start + Duration::from_secs(i as _),
+                            start + (i as u32) * granuality.get_interval(),
                             data_iterators
                                 .iter_mut()
                                 .map(|iter| iter.next().unwrap_or(&f64::NAN))
@@ -212,9 +280,9 @@ impl RrddServer {
 
                 sender
                     .send(Ok(RrdXport {
-                        start: info.start,
-                        end: info.end,
-                        step_secs: info.step_secs,
+                        start,
+                        end,
+                        step_secs: granuality.get_five_seconds_interval() * 5,
                         legend,
                         data,
                     }))

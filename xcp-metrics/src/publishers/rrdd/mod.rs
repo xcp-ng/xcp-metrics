@@ -1,64 +1,72 @@
+mod entry;
 pub mod round_robin;
 pub mod server;
 
-use serde::{Deserialize, Serialize};
+use std::time::{Duration, SystemTime};
 
-use self::round_robin::RoundRobinBuffer;
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct RrdEntry {
-    /// Full entry name (KIND:owner:uuid:metric_name)
-    pub name: Box<str>,
-
-    /// Metrics per five seconds (for the past ten minutes)
-    pub five_seconds: RoundRobinBuffer<f64>,
-
-    /// Metrics per minute (for the past two hours)
-    pub minute: RoundRobinBuffer<f64>,
-
-    /// Metrics per hour (for the past week).
-    pub hour: RoundRobinBuffer<f64>,
-
-    /// Metrics per day (for the past year).
-    pub day: RoundRobinBuffer<f64>,
+#[derive(Debug, Clone, Copy)]
+pub enum RrdXportFilter {
+    All,
+    HostOnly,
+    VM(uuid::Uuid),
+    SR(uuid::Uuid),
 }
 
-/// Number of five-seconds updates between minute metrics.
-const MINUTE_UPDATES_INTERVAL: u32 = 60 / 5;
+#[derive(Debug, Clone)]
+pub struct RrdXportInfo {
+    pub start: SystemTime,
+    pub interval: u32,
+    pub filter: RrdXportFilter,
+}
 
-/// Number of five-seconds updates between hour metrics.
-const HOUR_UPDATES_INTERVAL: u32 = 3600 / 5;
+#[derive(Copy, Clone)]
+pub(self) enum Granuality {
+    FiveSeconds,
+    Minute,
+    Hour,
+    Day,
+}
 
-/// Number of five-seconds updates between day metrics.
-const DAY_UPDATES_INTERVAL: u32 = 3600 * 24 / 5;
-
-impl RrdEntry {
-    /// Size of the per five seconds samples buffer.
-    pub(super) const FIVE_SECONDS_BUFFER_SIZE: usize = 10 * 60 / 5;
-
-    /// Size of the per minute samples buffer.
-    pub(super) const MINUTE_BUFFER_SIZE: usize = 2 * 60;
-
-    /// Size of the per hour samples buffer.
-    pub(super) const HOUR_BUFFER_SIZE: usize = 7 * 24;
-
-    /// Size of the per day samples buffer.
-    pub(super) const DAY_BUFFER_SIZE: usize = 365;
-
-    pub fn new(name: Box<str>) -> Self {
-        Self {
-            name,
-            // Per five seconds, past ten minutes.
-            five_seconds: RoundRobinBuffer::new(Self::FIVE_SECONDS_BUFFER_SIZE),
-
-            // Per minute, past ten minutes.
-            minute: RoundRobinBuffer::new(Self::MINUTE_BUFFER_SIZE),
-
-            // Per hour, past week.
-            hour: RoundRobinBuffer::new(Self::HOUR_BUFFER_SIZE),
-
-            // Per day, past year.
-            day: RoundRobinBuffer::new(Self::DAY_BUFFER_SIZE),
+impl Granuality {
+    /// Get the duration covered by this level of granuality.
+    pub const fn get_covered_duration(self) -> Duration {
+        match self {
+            // Duration that can cover the five_seconds buffer (10 minutes).
+            Self::FiveSeconds => Duration::from_secs(10 * 60),
+            // Duration that can cover the minute buffer (2 hours).
+            Self::Minute => Duration::from_secs(2 * 3600),
+            // Duration that can cover the hour buffer (1 weeks).
+            Self::Hour => Duration::from_secs(24 * 7 * 3600),
+            // Duration that can cover the day buffer (1 year).
+            Self::Day => Duration::from_secs(24 * 3600 * 365),
         }
+    }
+
+    pub const fn get_buffer_size(self) -> usize {
+        match self {
+            // Size of the per five seconds samples buffer.
+            Self::FiveSeconds => 10 * 60 / 5,
+            // Size of the per minute samples buffer.
+            Self::Minute => 2 * 60,
+            // Size of the per hour samples buffer.
+            Self::Hour => 7 * 24,
+            // Size of the per day samples buffer.
+            Self::Day => 365,
+        }
+    }
+
+    /// Number of five-seconds updates between metrics.
+    pub const fn get_five_seconds_interval(self) -> u32 {
+        match self {
+            Self::FiveSeconds => 1,
+            Self::Minute => 60 / 5,
+            Self::Hour => 3600 / 5,
+            Self::Day => 3600 * 24 / 5,
+        }
+    }
+
+    /// Interval between metrics updates.
+    pub const fn get_interval(self) -> Duration {
+        Duration::from_secs(5 * self.get_five_seconds_interval() as u64)
     }
 }

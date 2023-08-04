@@ -63,7 +63,7 @@ impl From<DataSourceType> for Cow<'static, str> {
 }
 
 /// Owner of the data source.
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Debug)]
 pub enum DataSourceOwner {
     Host,
     VM(Uuid),

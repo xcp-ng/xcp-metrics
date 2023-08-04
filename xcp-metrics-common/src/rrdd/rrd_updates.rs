@@ -1,13 +1,6 @@
 use std::{fmt::Write, time::SystemTime};
 
 #[derive(Debug, Clone)]
-pub struct RrdXportInfo {
-    pub start: SystemTime,
-    pub end: SystemTime,
-    pub step_secs: u32,
-}
-
-#[derive(Debug, Clone)]
 pub struct RrdXport {
     pub start: SystemTime,
     pub end: SystemTime,
