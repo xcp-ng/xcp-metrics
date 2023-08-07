@@ -4,8 +4,6 @@ use std::{borrow::Cow, time::SystemTime};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-pub use serde_json;
-
 use crate::metrics::{Label, MetricPoint, MetricValue, NumberValue};
 
 /// Errors that can happen while parsing a data source.

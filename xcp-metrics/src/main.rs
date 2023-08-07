@@ -20,12 +20,15 @@ pub struct XcpMetricsShared {
     pub rrdd_channel: mpsc::UnboundedSender<RrddServerMessage>,
 }
 
+/// xcp-metrics main daemon
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
+    /// Logging level
     #[arg(short, long, default_value_t = tracing::Level::INFO)]
     log_level: tracing::Level,
 
+    /// xcp-metrics daemon name
     #[arg(long, default_value_t = String::from("xcp-metrics"))]
     daemon_name: String,
 }

@@ -1,9 +1,10 @@
-use anyhow::Result;
 use std::{
     borrow::Cow,
     fmt::Write,
     time::{SystemTime, UNIX_EPOCH},
 };
+
+use anyhow::Result;
 
 use crate::metrics::{
     Exemplar, Label, Metric, MetricFamily, MetricSet, MetricType, MetricValue, NumberValue,
