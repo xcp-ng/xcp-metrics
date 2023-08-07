@@ -14,14 +14,22 @@ use xcp_metrics_common::{
 pub struct MetricsPlugin {
     uid: Box<str>,
     metrics_path: PathBuf,
+    target_daemon: Box<str>,
 }
+
+const DEFAULT_DAEMON: &str = "xcp-metrics";
 
 impl MetricsPlugin {
     /// Create and register a new plugin.
-    pub async fn new(uid: &'_ str, metrics: MetricSet) -> anyhow::Result<Self> {
+    pub async fn new(
+        uid: &'_ str,
+        metrics: MetricSet,
+        target_daemon: Option<&str>,
+    ) -> anyhow::Result<Self> {
         let plugin = Self {
             uid: uid.into(),
             metrics_path: Path::new(METRICS_SHM_PATH).join(uid),
+            target_daemon: target_daemon.unwrap_or(DEFAULT_DAEMON).into(),
         };
 
         plugin.update(metrics).await?;
@@ -54,7 +62,7 @@ impl MetricsPlugin {
         };
 
         let response = xapi::send_xmlrpc_at(
-            "xcp-metrics",
+            &self.target_daemon,
             "POST",
             &request,
             &self.uid, /* use uid as user-agent */
@@ -79,7 +87,7 @@ impl MetricsPlugin {
         };
 
         let response = xapi::send_xmlrpc_at(
-            "xcp-metrics",
+            &self.target_daemon,
             "POST",
             &request,
             &self.uid, /* use uid as user-agent */

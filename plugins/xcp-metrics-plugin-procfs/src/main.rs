@@ -56,7 +56,7 @@ fn generate_metrics() -> SimpleMetricSet {
 async fn main() {
     let metrics = generate_metrics();
 
-    let plugin = MetricsPlugin::new("xcp-metrics-plugin-procfs", metrics.clone().into())
+    let plugin = MetricsPlugin::new("xcp-metrics-plugin-procfs", metrics.clone().into(), None)
         .await
         .unwrap();
 

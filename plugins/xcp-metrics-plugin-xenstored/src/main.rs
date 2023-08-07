@@ -124,6 +124,7 @@ async fn main() -> anyhow::Result<()> {
     let plugin = MetricsPlugin::new(
         "xcp-metrics-plugin-xenstored",
         generate_metrics(&mut plugin_state, &xs)?.into(),
+        None,
     )
     .await?;
 

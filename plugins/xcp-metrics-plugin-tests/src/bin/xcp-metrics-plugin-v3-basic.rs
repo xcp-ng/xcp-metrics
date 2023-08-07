@@ -41,7 +41,7 @@ async fn main() {
         .collect(),
     };
 
-    let plugin = MetricsPlugin::new("xcp-metrics-plugin-basic", metrics.clone().into())
+    let plugin = MetricsPlugin::new("xcp-metrics-plugin-basic", metrics.clone().into(), None)
         .await
         .unwrap();
 
