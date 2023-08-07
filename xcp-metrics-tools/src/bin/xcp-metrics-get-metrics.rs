@@ -13,8 +13,8 @@ use xcp_metrics_common::{
 
 #[derive(Clone, Debug)]
 enum RpcFormat {
-    XML,
-    JSON,
+    Xml,
+    Json,
 }
 
 impl FromStr for RpcFormat {
@@ -22,8 +22,8 @@ impl FromStr for RpcFormat {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "xml" => Ok(Self::XML),
-            "json" => Ok(Self::JSON),
+            "xml" => Ok(Self::Xml),
+            "json" => Ok(Self::Json),
             _ => Err("Unknown RPC format".to_string()),
         }
     }
@@ -32,8 +32,8 @@ impl FromStr for RpcFormat {
 impl Display for RpcFormat {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            RpcFormat::XML => f.write_str("XML"),
-            RpcFormat::JSON => f.write_str("JSON"),
+            RpcFormat::Xml => f.write_str("XML"),
+            RpcFormat::Json => f.write_str("JSON"),
         }
     }
 }
@@ -47,7 +47,7 @@ struct Args {
     daemon_name: String,
 
     /// RPC format to use
-    #[arg(long, default_value_t = RpcFormat::JSON)]
+    #[arg(long, default_value_t = RpcFormat::Json)]
     rpc_format: RpcFormat,
 
     /// Whether to use protocol buffers binary format.
@@ -67,13 +67,13 @@ async fn main() {
     };
 
     match args.rpc_format {
-        RpcFormat::JSON => method.write_jsonrpc(&mut rpc_buffer).unwrap(),
-        RpcFormat::XML => method.write_xmlrpc(&mut rpc_buffer).unwrap(),
+        RpcFormat::Json => method.write_jsonrpc(&mut rpc_buffer).unwrap(),
+        RpcFormat::Xml => method.write_xmlrpc(&mut rpc_buffer).unwrap(),
     };
 
     let content_type = match args.rpc_format {
-        RpcFormat::JSON => "application/json-rpc",
-        RpcFormat::XML => "application/xml",
+        RpcFormat::Json => "application/json-rpc",
+        RpcFormat::Xml => "application/xml",
     };
 
     eprintln!("Sent: {}", String::from_utf8_lossy(&rpc_buffer));
