@@ -185,7 +185,7 @@ impl RrddServer {
         // Take the first metric.
         let first_metric = metric
             .metrics_point
-            .get(0)
+            .first()
             .map(|metric_point| &metric_point.value);
 
         // Get the value as f64, use NaN is nothing is available.

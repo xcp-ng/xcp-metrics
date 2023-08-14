@@ -56,7 +56,7 @@ fn metric_to_v2_metadata(
 
     let first_metric = metric
         .metrics_point
-        .get(0)
+        .first()
         .map(|metric_point| &metric_point.value);
 
     let value = first_metric.map_or(DataSourceValue::Undefined, |metric| match metric {
@@ -149,7 +149,7 @@ impl BridgeToV2 {
                     // Filter by labels
                     .filter(|(_, metric)| metric.labels.as_ref() == labels)
                     // Only take first metrics_point
-                    .find_map(|(_, metric)| metric.metrics_point.get(0))
+                    .find_map(|(_, metric)| metric.metrics_point.first())
             })
     }
 
