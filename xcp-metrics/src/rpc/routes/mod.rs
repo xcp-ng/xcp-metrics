@@ -46,23 +46,35 @@ impl std::fmt::Debug for dyn XcpRpcRoute {
     }
 }
 
-/// Generate default RPC routes.
-pub fn generate_routes() -> HashMap<&'static str, Box<dyn XcpRpcRoute>> {
-    [
-        ("OpenMetrics", OpenMetricsRoute::make_route()),
-        (
-            PluginLocalRegister::get_method_name(),
-            PluginLocalRegisterRoute::make_route(),
-        ),
-        (
-            PluginLocalDeregister::get_method_name(),
-            PluginLocalDeregisterRoute::make_route(),
-        ),
-        (
-            PluginLocalNextReading::get_method_name(),
-            PluginLocalNextReadingRoute::make_route(),
-        ),
-    ]
-    .into_iter()
-    .collect()
+#[derive(Debug)]
+pub struct RpcRoutes(HashMap<&'static str, Box<dyn XcpRpcRoute>>);
+
+impl Default for RpcRoutes {
+    fn default() -> Self {
+        Self(
+            [
+                ("OpenMetrics", OpenMetricsRoute::make_route()),
+                (
+                    PluginLocalRegister::get_method_name(),
+                    PluginLocalRegisterRoute::make_route(),
+                ),
+                (
+                    PluginLocalDeregister::get_method_name(),
+                    PluginLocalDeregisterRoute::make_route(),
+                ),
+                (
+                    PluginLocalNextReading::get_method_name(),
+                    PluginLocalNextReadingRoute::make_route(),
+                ),
+            ]
+            .into_iter()
+            .collect(),
+        )
+    }
+}
+
+impl RpcRoutes {
+    pub fn get(&self, name: &str) -> Option<&dyn XcpRpcRoute> {
+        self.0.get(name).map(|r| r.as_ref())
+    }
 }

@@ -8,6 +8,7 @@ use std::{fs, sync::Arc};
 
 use clap::{command, Parser};
 use dashmap::DashMap;
+use rpc::routes::RpcRoutes;
 use tokio::{net::UnixStream, select, sync::mpsc, task::JoinHandle};
 
 use publishers::rrdd::server::{RrddServer, RrddServerMessage};
@@ -18,6 +19,7 @@ pub struct XcpMetricsShared {
     pub plugins: DashMap<Box<str>, JoinHandle<()>>,
     pub hub_channel: mpsc::UnboundedSender<hub::HubPushMessage>,
     pub rrdd_channel: mpsc::UnboundedSender<RrddServerMessage>,
+    pub rpc_routes: RpcRoutes,
 }
 
 /// xcp-metrics main daemon
@@ -94,6 +96,7 @@ async fn main() {
         hub_channel,
         plugins: Default::default(),
         rrdd_channel,
+        rpc_routes: Default::default(),
     });
 
     let socket = rpc::daemon::start_daemon(&args.daemon_name, shared.clone())
