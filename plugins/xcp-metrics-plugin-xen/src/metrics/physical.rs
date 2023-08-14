@@ -58,7 +58,7 @@ impl XenMetric for PCpuTime {
             .cpuinfos
             .iter()
             .enumerate()
-            .flat_map(|(id, cpuinfo)| self.get_simple_metric(cpuinfo, id))
+            .filter_map(|(id, cpuinfo)| self.get_simple_metric(cpuinfo, id))
             .collect();
 
         self.latest_instant = Instant::now();
