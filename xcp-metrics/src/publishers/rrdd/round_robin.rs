@@ -53,7 +53,7 @@ where
     pub fn iter(&self) -> RoundRobinIterator<T> {
         RoundRobinIterator {
             rrb: self,
-            pos: (self.pos + 1) % self.size,
+            pos: self.pos,
             done: false,
         }
     }
@@ -103,11 +103,11 @@ impl<'a, T: Sized> Iterator for RoundRobinIterator<'a, T> {
 
         let value = &self.rrb.buffer[self.pos];
 
+        self.pos = (self.pos + 1) % self.rrb.size;
+
         if self.pos == self.rrb.pos {
             self.done = true;
         }
-
-        self.pos = (self.pos + 1) % self.rrb.size;
 
         Some(value)
     }
@@ -151,4 +151,25 @@ impl<'a, T: Sized> Iterator for RoundRobinIterator<'a, T> {
 
         (remaining, Some(remaining))
     }
+}
+
+#[test]
+fn round_robin_test_insert() {
+    let mut buffer = RoundRobinBuffer::new(32, f64::NAN);
+    assert!(f64::is_nan(*buffer.iter().next().unwrap()));
+
+    // Add 32 elements into the buffer.
+    (0..32).for_each(|i| buffer.push(i as f64));
+
+    // Elements should come in the same order (we filled the buffer).
+    (0..32).zip(buffer.iter()).for_each(|(reference, val)| {
+        assert_eq!(reference, *val as i32);
+    });
+
+    // Overwrite all elements.
+    (32..64).for_each(|i| buffer.push(i as f64));
+
+    (32..64).zip(buffer.iter()).for_each(|(reference, val)| {
+        assert_eq!(reference, *val as i32);
+    });
 }
