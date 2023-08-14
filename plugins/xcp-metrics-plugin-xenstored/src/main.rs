@@ -3,6 +3,7 @@ mod watch_cache;
 
 use std::{collections::HashMap, time::Duration};
 
+use clap::{command, Parser};
 use plugin::PluginState;
 use tokio::time;
 use xcp_metrics_common::metrics::{Label, MetricType, MetricValue, NumberValue};
@@ -11,6 +12,15 @@ use xcp_metrics_plugin_common::protocol_v3::{
     MetricsPlugin,
 };
 use xenstore_rs::{Xs, XsOpenFlags};
+
+/// OpenMetrics http proxy, used to provide metrics for collectors such as Prometheus.
+#[derive(Clone, Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    /// Target daemon.
+    #[arg(short, long, default_value_t = String::from("xcp-metrics"))]
+    target: String,
+}
 
 pub fn get_vm_infos(plugin: &PluginState, vm_uuid: &str, attributes: &[&str]) -> MetricValue {
     MetricValue::Info(
@@ -117,6 +127,7 @@ fn generate_metrics(plugin: &mut PluginState, xs: &Xs) -> anyhow::Result<SimpleM
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    let args = Args::parse();
     let xs = Xs::new(XsOpenFlags::ReadOnly).map_err(|e| anyhow::anyhow!("{e}"))?;
 
     let mut plugin_state = PluginState::default();
@@ -124,7 +135,7 @@ async fn main() -> anyhow::Result<()> {
     let plugin = MetricsPlugin::new(
         "xcp-metrics-plugin-xenstored",
         generate_metrics(&mut plugin_state, &xs)?.into(),
-        None,
+        Some(&args.target),
     )
     .await?;
 
