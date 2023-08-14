@@ -1,16 +1,15 @@
 //! Forwarded request support.
+mod request;
 mod response;
 mod routes;
 
 use std::{
-    collections::HashMap,
     os::fd::{FromRawFd, RawFd},
     slice,
     sync::Arc,
 };
 
 use sendfd::RecvWithFd;
-use serde::Deserialize;
 use tokio::{
     io::AsyncWriteExt,
     net::{TcpStream, UnixListener, UnixStream},
@@ -18,31 +17,10 @@ use tokio::{
 };
 use xcp_metrics_common::xapi;
 
-use crate::{forwarded::routes::route_forwarded, XcpMetricsShared};
-
-/// xapi-project/xen-api/blob/master/ocaml/libs/http-lib/http.ml for reference
-#[derive(Clone, Debug, Deserialize)]
-struct ForwardedRequest {
-    pub m: Box<str>,
-    pub uri: Box<str>,
-    pub query: HashMap<Box<str>, Box<str>>,
-    pub version: Box<str>,
-    pub frame: bool,
-    pub transfer_encoding: Option<Box<str>>,
-    pub accept: Option<Box<str>>,
-    pub content_length: Option<usize>,
-    pub auth: Option<Box<[Box<str>]>>,
-    pub cookie: HashMap<Box<str>, Box<str>>,
-    pub task: Option<Box<str>>,
-    pub subtask_of: Option<Box<str>>,
-    pub content_type: Option<Box<str>>,
-    pub host: Option<Box<str>>,
-    pub user_agent: Option<Box<str>>,
-    pub close: bool,
-    pub additional_headers: HashMap<Box<str>, Box<str>>,
-    pub body: Option<Box<str>>,
-    pub traceparent: Option<Box<str>>,
-}
+use crate::{
+    forwarded::{request::ForwardedRequest, routes::route_forwarded},
+    XcpMetricsShared,
+};
 
 async fn forwarded_handler(
     stream: UnixStream,
@@ -50,7 +28,7 @@ async fn forwarded_handler(
 ) -> anyhow::Result<()> {
     let (buffer, fd) = task::spawn_blocking(move || {
         let mut buffer = vec![0u8; 10240];
-        let mut fd: RawFd = Default::default();
+        let mut fd: RawFd = RawFd::default();
 
         let std_stream = stream
             .into_std()
@@ -68,7 +46,10 @@ async fn forwarded_handler(
     .await?;
 
     // Get the fd from the forwarded response.
-    let mut destination = TcpStream::from_std(unsafe { std::net::TcpStream::from_raw_fd(fd) })?;
+    let std_destination = unsafe { std::net::TcpStream::from_raw_fd(fd) };
+    std_destination.set_nonblocking(true)?;
+
+    let mut destination = TcpStream::from_std(std_destination)?;
 
     let request: ForwardedRequest = serde_json::from_slice(&buffer)?;
     tracing::info!("Captured request: {request:?}");

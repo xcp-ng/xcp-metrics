@@ -1,15 +1,14 @@
 use std::{fmt::Debug, io::Write};
 
-use xcp_metrics_common::xapi::hyper::http::Response;
+use xcp_metrics_common::xapi::hyper::{body, http::Response, Body};
 
 /// Write the HTTP response into some writer.
-pub async fn write_response<W, B>(
+pub async fn write_response<W>(
     writer: &mut W,
-    mut response: Response<B>,
+    mut response: Response<Body>,
 ) -> Result<(), anyhow::Error>
 where
     W: Write + Debug,
-    B: AsRef<[u8]> + Debug,
 {
     tracing::trace!("Sending HTTP response {response:?} to {writer:?}");
 
@@ -20,9 +19,11 @@ where
         response.status().canonical_reason().unwrap_or_default()
     )?;
 
+    let body = body::to_bytes(response.body_mut()).await?;
+
     // Add content-length if not defined
     if !response.headers().contains_key("content-length") {
-        let body_length = response.body().as_ref().len();
+        let body_length = body.len();
         response
             .headers_mut()
             .insert("content-length", body_length.into());
@@ -38,7 +39,7 @@ where
     }
 
     write!(writer, "\r\n")?;
-    writer.write_all(response.body().as_ref())?;
+    writer.write_all(&body)?;
 
     Ok(())
 }

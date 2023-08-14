@@ -5,23 +5,25 @@ use std::{
 
 use tokio::sync::mpsc;
 
-use xcp_metrics_common::xapi::hyper::Response;
+use xcp_metrics_common::xapi::hyper::{Body, Response};
 
-use super::ForwardedRequest;
 use crate::{
     publishers::rrdd::{server::RrddServerMessage, RrdXportFilter, RrdXportInfo},
-    XcpMetricsShared,
+    rpc, XcpMetricsShared,
 };
+
+use super::request::ForwardedRequest;
 
 pub(super) async fn route_forwarded(
     shared: Arc<XcpMetricsShared>,
     request: ForwardedRequest,
-) -> anyhow::Result<Response<Vec<u8>>> {
+) -> anyhow::Result<Response<Body>> {
     match request.uri.as_ref() {
         "/rrd_updates" => rrd_update_handler(shared, request).await,
+        "/" => rpc::entrypoint(shared, request.try_into()?).await,
         _ => Response::builder()
             .status(404)
-            .body("Invalid request".to_string().as_bytes().to_vec())
+            .body("Invalid request".into())
             .map_err(|err| anyhow::anyhow!(err)),
     }
 }
@@ -29,7 +31,7 @@ pub(super) async fn route_forwarded(
 async fn rrd_update_handler(
     shared: Arc<XcpMetricsShared>,
     request: ForwardedRequest,
-) -> anyhow::Result<Response<Vec<u8>>> {
+) -> anyhow::Result<Response<Body>> {
     let (tx, mut rx) = mpsc::channel(1);
 
     let with_host = request
@@ -92,6 +94,6 @@ async fn rrd_update_handler(
 
     Response::builder()
         .status(200)
-        .body(buffer)
+        .body(Body::from(buffer))
         .map_err(|err| anyhow::anyhow!(err))
 }
