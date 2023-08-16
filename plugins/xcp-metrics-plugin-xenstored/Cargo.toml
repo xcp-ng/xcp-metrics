@@ -14,11 +14,13 @@ xcp-metrics-plugin-common = { path = "../xcp-metrics-plugin-common" }
 uuid = "1.4"
 anyhow = "1.0"
 dashmap = "5.5"
-
-tokio = { version = "1", features = ["full"] }
 futures = "0.3"
 
-clap = { version = "4.3.19", features = ["derive"] }
+tokio = { version = "1", features = ["full"] }
+
+[dependencies.clap]
+version = "4.3"
+features = ["derive"]
 
 [dependencies.xenstore-rs]
 git = "https://github.com/tsnake41/xenstore-rs"

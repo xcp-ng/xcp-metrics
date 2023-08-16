@@ -11,8 +11,12 @@ categories.workspace = true
 xcp-metrics-common = { path = "../../xcp-metrics-common" }
 xcp-metrics-plugin-common = { path = "../xcp-metrics-plugin-common" }
 
-tokio = { version = "1", features = ["full"] }
 uuid = "1.4"
 anyhow = "1.0"
 fastrand = "2.0"
-clap = { version = "4.3.19", features = ["derive"] }
+
+tokio = { version = "1", features = ["full"] }
+
+[dependencies.clap]
+version = "4.3"
+features = ["derive"]
