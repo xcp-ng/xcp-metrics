@@ -316,7 +316,7 @@ impl crate::metrics::Metric {
         value: DataSourceValue,
         timestamp: SystemTime,
         // Used for derive creation timestamp.
-        created: SystemTime,
+        created: Option<SystemTime>,
     ) -> Self {
         let metric_point = MetricPoint::from_protocol_v2(metadata, value, timestamp, created);
 
@@ -333,7 +333,7 @@ impl crate::metrics::MetricPoint {
         value: DataSourceValue,
         timestamp: SystemTime,
         // Used for derive creation timestamp.
-        created: SystemTime,
+        created: Option<SystemTime>,
     ) -> Self {
         let value = match metadata.ds_type {
             DataSourceType::Gauge => MetricValue::Gauge(value.into()),

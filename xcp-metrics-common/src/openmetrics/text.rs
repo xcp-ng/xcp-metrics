@@ -164,7 +164,7 @@ fn write_metric<W: Write>(writer: &mut W, name: &str, metric: &Metric) -> Result
                     writer,
                     "{name}_created{{{}}} {}",
                     format_labels(&metric.labels),
-                    format_timestamp(created),
+                    created.map(|ts| format_timestamp(&ts)).unwrap_or_default(),
                 )?;
             }
             MetricValue::Histogram {

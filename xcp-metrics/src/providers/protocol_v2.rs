@@ -129,7 +129,7 @@ impl ProtocolV2Provider {
                     metadata,
                     value,
                     state.timestamp,
-                    self.last_reset,
+                    Some(self.last_reset),
                 );
 
                 match self.registered_metrics.get(name) {
@@ -167,7 +167,7 @@ impl ProtocolV2Provider {
                                     metadata,
                                     value,
                                     state.timestamp,
-                                    self.last_reset,
+                                    Some(self.last_reset),
                                 ),
                             }))
                             .unwrap();

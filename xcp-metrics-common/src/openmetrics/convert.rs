@@ -274,7 +274,7 @@ impl From<MetricValue> for openmetrics::metric_point::Value {
                 created,
                 exemplar,
             } => Self::CounterValue(openmetrics::CounterValue {
-                created: Some(created.into()),
+                created: created.map(Into::into),
                 total: Some(total.into()),
                 exemplar: exemplar.map(|e| (*e).into()),
             }),
@@ -324,9 +324,7 @@ impl From<openmetrics::metric_point::Value> for MetricValue {
                 created,
                 exemplar,
             }) => Self::Counter {
-                created: created
-                    .map(protobuf_ts_to_std)
-                    .unwrap_or_else(SystemTime::now),
+                created: created.map(protobuf_ts_to_std),
                 exemplar: exemplar.map(|e| Box::new(e.into())),
                 total: total.map(Into::into).unwrap_or_default(),
             },

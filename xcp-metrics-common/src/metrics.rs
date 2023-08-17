@@ -74,7 +74,7 @@ pub enum MetricValue {
     Gauge(NumberValue),
     Counter {
         total: NumberValue,
-        created: SystemTime,
+        created: Option<SystemTime>,
         exemplar: Option<Box<Exemplar>>,
     },
     Histogram {

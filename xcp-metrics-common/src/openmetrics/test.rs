@@ -27,7 +27,7 @@ fn metrics_to_openmetrics_counter() {
     let metric_point = MetricPoint {
         value: MetricValue::Counter {
             total: NumberValue::Int64(42),
-            created: SystemTime::UNIX_EPOCH + Duration::from_secs(123456789),
+            created: Some(SystemTime::UNIX_EPOCH + Duration::from_secs(123456789)),
             exemplar: None,
         },
         timestamp: SystemTime::now(),
