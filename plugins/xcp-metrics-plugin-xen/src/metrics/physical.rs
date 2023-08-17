@@ -36,9 +36,12 @@ impl PCpuTime {
                 labels: vec![Label("id".into(), id.to_string().into())],
                 value: MetricValue::Gauge(NumberValue::Double(
                     // Compute busy ratio over time.
-                    1.0 - (((current_idle_time - previous_idle_time) as f64)
-                        / 1.0e9
-                        / self.latest_instant.elapsed().as_secs_f64()),
+                    f64::max(
+                        0.0,
+                        1.0 - (((current_idle_time - previous_idle_time) as f64)
+                            / 1.0e9
+                            / self.latest_instant.elapsed().as_secs_f64()),
+                    ),
                 )),
             })
         } else {

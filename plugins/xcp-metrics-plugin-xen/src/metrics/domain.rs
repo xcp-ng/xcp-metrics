@@ -52,9 +52,10 @@ impl VCpuTime {
                         format!("vm {}", Uuid::from_bytes(dominfo.handle).as_hyphenated()).into(),
                     ),
                 ],
-                value: MetricValue::Gauge(NumberValue::Double(
+                value: MetricValue::Gauge(NumberValue::Double(f64::max(
+                    0.0,
                     (cputime - previous_cputime) / self.latest_instant.elapsed().as_secs_f64(),
-                )),
+                ))),
             })
         } else {
             // We don't have the previous time.

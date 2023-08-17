@@ -8,7 +8,7 @@ use self::{
     domain::VCpuTime,
     host::LoadAvg,
     physical::{MemoryFree, MemoryTotal, PCpuTime},
-    pm::{CpuCState, CpuPState, CpuAvgFrequency},
+    pm::{CpuAvgFrequency, CpuCState, CpuPState},
 };
 
 mod domain;
