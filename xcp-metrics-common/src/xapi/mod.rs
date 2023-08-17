@@ -6,6 +6,7 @@ pub const XAPI_SOCKET_PATH: &str = "/var/lib/xcp";
 pub const METRICS_SHM_PATH: &str = "/dev/shm/metrics/";
 
 pub use hyper;
+use hyper::body;
 pub use hyperlocal;
 
 /// Get the path of the socket of some module.
@@ -24,9 +25,8 @@ pub async fn send_xmlrpc_at<M: XcpRpcMethod>(
 ) -> anyhow::Result<hyper::Response<hyper::Body>> {
     let module_uri = hyperlocal::Uri::new(get_module_path(name), "/");
 
-    let mut rpc_buffer = vec![];
-    rpc_method.write_xmlrpc(&mut rpc_buffer)?;
-    let rpc = String::from_utf8(rpc_buffer).unwrap();
+    let mut rpc = vec![];
+    rpc_method.write_xmlrpc(&mut rpc)?;
 
     let request = hyper::Request::builder()
         .uri(Into::<hyper::Uri>::into(module_uri))
@@ -35,7 +35,7 @@ pub async fn send_xmlrpc_at<M: XcpRpcMethod>(
         .header("content-length", rpc.len())
         .header("host", "localhost")
         .header("content-type", "text/xml")
-        .body(rpc)?;
+        .body(body::Body::from(rpc))?;
 
     Ok(hyper::Client::builder()
         .build(hyperlocal::UnixConnector)

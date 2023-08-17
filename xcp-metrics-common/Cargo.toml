@@ -35,7 +35,7 @@ features = ["derive"]
 default-features = false # no client/server stuff
 
 [dependencies.quick-xml]
-version = "0.26"
+version = "0.30"
 features = ["serialize"]
 
 [dependencies.hyper]

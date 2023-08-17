@@ -8,6 +8,8 @@ use std::io::Write;
 use dxr::{TryFromValue, TryToValue};
 use serde::{de::DeserializeOwned, Serialize};
 
+use crate::utils::write_bridge::WriterWrapper;
+
 #[macro_export]
 macro_rules! rpc_method {
     ($struct:ty, $name:stmt) => {
@@ -38,8 +40,12 @@ where
     fn write_xmlrpc<W: Write>(&self, w: &mut W) -> anyhow::Result<()> {
         w.write_all(r#"<?xml version="1.0"?>"#.as_bytes())?;
 
+        let mut writer = WriterWrapper(w);
+        let mut serializer = quick_xml::se::Serializer::new(&mut writer);
+        serializer.expand_empty_elements(true);
+
         let method = dxr::MethodCall::new(M::get_method_name().into(), vec![self.try_to_value()?]);
-        quick_xml::se::to_writer(w, &method)?;
+        method.serialize(serializer)?;
 
         Ok(())
     }
