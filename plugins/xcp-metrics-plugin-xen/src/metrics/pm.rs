@@ -55,7 +55,11 @@ impl XenMetric for CpuPState {
                     Label("state".into(), state.to_string().into()),
                 ]
                 .into(),
-                value: MetricValue::Gauge(NumberValue::Int64(val.residency as i64)),
+                value: MetricValue::Counter {
+                    created: None,
+                    total: NumberValue::Int64(val.residency as i64 / 1000),
+                    exemplar: None,
+                },
             })
             .collect();
 
@@ -63,7 +67,7 @@ impl XenMetric for CpuPState {
             "cpu-pstate".into(),
             SimpleMetricFamily {
                 metric_type: MetricType::Gauge,
-                unit: "MHz".into(),
+                unit: "".into(),
                 help: "P-State times of CPU".into(),
                 metrics,
             },
@@ -89,7 +93,12 @@ impl XenMetric for CpuCState {
                     Label("state".into(), state.to_string().into()),
                 ]
                 .into(),
-                value: MetricValue::Gauge(NumberValue::Int64(val as i64)),
+                // Values are in milliseconds, convert it to seconds.
+                value: MetricValue::Counter {
+                    created: None,
+                    total: NumberValue::Int64(val as i64 / 1000),
+                    exemplar: None,
+                },
             })
             .collect();
 
@@ -97,7 +106,7 @@ impl XenMetric for CpuCState {
             "cpu-cstate".into(),
             SimpleMetricFamily {
                 metric_type: MetricType::Gauge,
-                unit: "MHz".into(),
+                unit: "".into(),
                 help: "C-State times of CPU".into(),
                 metrics,
             },
