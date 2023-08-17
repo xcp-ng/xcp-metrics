@@ -160,12 +160,14 @@ fn write_metric<W: Write>(writer: &mut W, name: &str, metric: &Metric) -> Result
                     format_exemplar(exemplar.as_deref())
                 )?;
 
-                writeln!(
-                    writer,
-                    "{name}_created{{{}}} {}",
-                    format_labels(&metric.labels),
-                    created.map(|ts| format_timestamp(&ts)).unwrap_or_default(),
-                )?;
+                if let Some(ts) = created {
+                    writeln!(
+                        writer,
+                        "{name}_created{{{}}} {}",
+                        format_labels(&metric.labels),
+                        format_timestamp(ts),
+                    )?;
+                }
             }
             MetricValue::Histogram {
                 sum,
