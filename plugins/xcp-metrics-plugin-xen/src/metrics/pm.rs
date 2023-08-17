@@ -19,7 +19,7 @@ impl XenMetric for CpuAvgFrequency {
             .map(|(cpuid, &frequency)| {
                 SimpleMetric {
                     labels: [Label("id".into(), cpuid.to_string().into())].into(),
-                    value: MetricValue::Gauge(NumberValue::Int64((frequency / 1_000_000) as i64)),
+                    value: MetricValue::Gauge(NumberValue::Double(frequency as f64 / 1_000_000.0)),
                 }
                 .into()
             })
@@ -55,9 +55,10 @@ impl XenMetric for CpuPState {
                     Label("state".into(), state.to_string().into()),
                 ]
                 .into(),
+                // Values are in ns, convert it to seconds.
                 value: MetricValue::Counter {
                     created: None,
-                    total: NumberValue::Int64(val.residency as i64 / 1000),
+                    total: NumberValue::Double(val.residency as f64 / 1_000_000_000f64),
                     exemplar: None,
                 },
             })
@@ -93,10 +94,10 @@ impl XenMetric for CpuCState {
                     Label("state".into(), state.to_string().into()),
                 ]
                 .into(),
-                // Values are in milliseconds, convert it to seconds.
+                // Values are in ns, convert it to seconds.
                 value: MetricValue::Counter {
                     created: None,
-                    total: NumberValue::Int64(val as i64 / 1000),
+                    total: NumberValue::Double(val as f64 / 1_000_000_000f64),
                     exemplar: None,
                 },
             })
