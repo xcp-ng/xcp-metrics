@@ -66,7 +66,7 @@ impl XenMetric for CpuPState {
         Some((
             "cpu-pstate".into(),
             SimpleMetricFamily {
-                metric_type: MetricType::Gauge,
+                metric_type: MetricType::Counter,
                 unit: "".into(),
                 help: "P-State times of CPU".into(),
                 metrics,
@@ -105,7 +105,7 @@ impl XenMetric for CpuCState {
         Some((
             "cpu-cstate".into(),
             SimpleMetricFamily {
-                metric_type: MetricType::Gauge,
+                metric_type: MetricType::Counter,
                 unit: "".into(),
                 help: "C-State times of CPU".into(),
                 metrics,
