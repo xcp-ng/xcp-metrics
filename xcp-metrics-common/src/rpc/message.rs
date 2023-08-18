@@ -59,8 +59,8 @@ impl RpcRequest {
                 // TODO: Handle chained requests ?
 
                 if let Some(Ok(bytes)) = req.into_body().data().await {
-                    let buffer = bytes.to_vec();
-                    parse_method_jsonrpc(&mut buffer.as_slice()).map(RpcRequest::JsonRpc)
+                    let buffer = String::from_utf8(bytes.to_vec())?;
+                    parse_method_jsonrpc(&buffer).map(RpcRequest::JsonRpc)
                 } else {
                     Err(anyhow::anyhow!("No content"))
                 }

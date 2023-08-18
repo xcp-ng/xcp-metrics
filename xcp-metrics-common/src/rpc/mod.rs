@@ -88,6 +88,6 @@ pub fn parse_method_xmlrpc(s: &str) -> anyhow::Result<dxr::MethodCall> {
 }
 
 /// s may be readed partially (chained requests)
-pub fn parse_method_jsonrpc(s: &mut &[u8]) -> anyhow::Result<jsonrpc_base::Request> {
-    Ok(serde_json::from_reader(s)?)
+pub fn parse_method_jsonrpc(s: &str) -> anyhow::Result<jsonrpc_base::Request> {
+    Ok(serde_json::from_str(s)?)
 }
