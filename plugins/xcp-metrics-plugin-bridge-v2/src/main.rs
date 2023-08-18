@@ -1,9 +1,11 @@
+use std::{collections::HashMap, time::Duration};
+
 use clap::{command, Parser};
-use std::time::Duration;
 use tokio::time;
 use xcp_metrics_common::{
     metrics::MetricSet,
     protocol_v3::{self, ProtocolV3Header},
+    utils::mapping::CustomMapping,
     xapi::METRICS_SHM_PATH,
 };
 
@@ -20,6 +22,19 @@ struct Args {
     /// Target daemon.
     #[arg(short, long, default_value_t = String::from("xcp-metrics"))]
     target: String,
+
+    /// V3 to V2 mapping file (JSON format)
+    #[arg(short, long)]
+    mapping_path: Option<String>,
+}
+
+fn load_mapping(args: &Args) -> HashMap<Box<str>, CustomMapping> {
+    if let Some(path) = &args.mapping_path {
+        let content = std::fs::read_to_string(&path).expect("Unable to read mapping file");
+        serde_json::from_str(&content).expect("Invalid mapping file.")
+    } else {
+        Default::default()
+    }
 }
 
 async fn read_protocol_v3(path: &str) -> anyhow::Result<(ProtocolV3Header, MetricSet)> {
@@ -41,7 +56,7 @@ async fn main() {
     println!("Protocol v3 header: {header:?}");
     println!("Initial MetricsSet: {metrics_set:?}");
 
-    let mut bridge = BridgeToV2::default();
+    let mut bridge = BridgeToV2::with_mappings(load_mapping(&args));
     bridge.update(metrics_set);
 
     let mut plugin = RrddPlugin::new(
