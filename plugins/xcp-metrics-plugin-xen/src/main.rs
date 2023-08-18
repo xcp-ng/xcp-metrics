@@ -55,6 +55,36 @@ async fn main() {
     }
 }
 
+
+fn generate_mappings() -> HashMap<Box<str>, CustomMapping> {
+    hashmap! {
+        "cpu-cstate".into() => CustomMapping {
+            pattern: "cpu{id}-C{state}".into(),
+            min: 0.0,
+            max: f32::INFINITY,
+            default: true,
+        },
+        "cpu-pstate".into() => CustomMapping {
+            pattern: "cpu{id}-P{state}".into(),
+            min: 0.0,
+            max: f32::INFINITY,
+            default: true,
+        },
+        "cpu".into() => CustomMapping {
+            pattern: "cpu{id}".into(),
+            min: 0.0,
+            max: 1.0,
+            default: true,
+        },
+        "cpu-freq".into() => CustomMapping {
+            pattern: "CPU{id}-avg-freq".into(),
+            min: 0.0,
+            max: f32::INFINITY,
+            default: true
+        },
+    }
+}
+
 async fn plugin_v2(
     args: Args,
     mut sources: Box<[Box<dyn XenMetric>]>,
@@ -94,30 +124,6 @@ async fn plugin_v2(
         time::sleep(Duration::from_secs(1)).await;
     }
 }
-
-fn generate_mappings() -> HashMap<Box<str>, CustomMapping> {
-    hashmap! {
-        "cpu-cstate".into() => CustomMapping {
-            pattern: "cpu{id}-C{state}".into(),
-            min: 0.0,
-            max: f32::INFINITY,
-            default: true,
-        },
-        "cpu-pstate".into() => CustomMapping {
-            pattern: "cpu{id}-P{state}".into(),
-            min: 0.0,
-            max: f32::INFINITY,
-            default: true,
-        },
-        "cpu".into() => CustomMapping {
-            pattern: "cpu{id}".into(),
-            min: 0.0,
-            max: 1.0,
-            default: true,
-        }
-    }
-}
-
 async fn plugin_v3(
     args: Args,
     mut sources: Box<[Box<dyn XenMetric>]>,
