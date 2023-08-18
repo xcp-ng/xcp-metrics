@@ -1,86 +1,26 @@
 //! Adapter to convert from protocol v3 to protocol v2.
-use std::{fmt::Write, iter};
+use std::{collections::HashMap, iter};
 
 use xcp_metrics_common::{
-    metrics::{
-        Label, Metric, MetricFamily, MetricPoint, MetricSet, MetricType, MetricValue, NumberValue,
-    },
+    metrics::{Label, Metric, MetricFamily, MetricPoint, MetricSet, MetricValue},
     rrdd::{
-        protocol_common::{DataSourceMetadata, DataSourceOwner, DataSourceType, DataSourceValue},
+        protocol_common::{DataSourceMetadata, DataSourceValue},
         protocol_v2::{indexmap::IndexMap, RrddMetadata},
     },
-    utils::delta::MetricSetModel,
+    utils::{
+        delta::MetricSetModel,
+        mapping::{CustomMapping, DefaultMapping, MetadataMapping},
+    },
 };
 
 /// Adapter to convert protocol v3 metrics set into protocol v2 metadata and data.
 pub struct BridgeToV2 {
     model: MetricSetModel,
     latest_set: MetricSet,
+    custom_mappings: HashMap<Box<str>, CustomMapping>,
 
     metadata: RrddMetadata,
     metadata_map: Vec<(Box<str>, Box<[Label]>)>,
-}
-
-/// Convert a Metric into a DataSourceMetadata entry.
-fn metric_to_v2_metadata(
-    family_name: &str,
-    family: &MetricFamily,
-    metric: &Metric,
-) -> (Box<str>, DataSourceMetadata) {
-    let owner = metric
-        .labels
-        .iter()
-        .filter(|l| l.0.as_ref() == "owner")
-        .map(|l| l.1.as_ref())
-        .next()
-        .unwrap_or("host");
-
-    // Parse owner
-    let owner = DataSourceOwner::try_from(owner).unwrap_or(DataSourceOwner::Host);
-
-    let name = metric
-        .labels
-        .iter()
-        // Ignore owner label
-        .filter(|l| l.0.as_ref() != "owner")
-        .fold(String::from(family_name), |mut buffer, label| {
-            write!(buffer, "_{}", label.1).ok();
-            buffer
-        });
-
-    let ds_type = match family.metric_type {
-        MetricType::Gauge => DataSourceType::Gauge,
-        MetricType::Counter => DataSourceType::Absolute,
-        _ => unreachable!("MetricType should be filtered out"),
-    };
-
-    let first_metric = metric
-        .metrics_point
-        .first()
-        .map(|metric_point| &metric_point.value);
-
-    let value = first_metric.map_or(DataSourceValue::Undefined, |metric| match metric {
-        MetricValue::Gauge(value) | MetricValue::Counter { total: value, .. } => match value {
-            NumberValue::Double(_) => DataSourceValue::Float(0.0),
-            NumberValue::Int64(_) => DataSourceValue::Int64(0),
-            NumberValue::Undefined => DataSourceValue::Undefined,
-        },
-        _ => DataSourceValue::Undefined,
-    });
-
-    (
-        name.into_boxed_str(),
-        DataSourceMetadata {
-            description: family.help.clone(),
-            units: family.unit.clone(),
-            ds_type,
-            value,
-            min: f32::NEG_INFINITY,
-            max: f32::INFINITY,
-            owner,
-            default: true,
-        },
-    )
 }
 
 /// Convert a MetricPoint into a protocol-v2 value.
@@ -97,10 +37,31 @@ impl BridgeToV2 {
         Self {
             model: MetricSetModel::default(),
             latest_set: MetricSet::default(),
+            custom_mappings: HashMap::default(),
             metadata: RrddMetadata {
                 datasources: IndexMap::default(),
             },
             metadata_map: vec![],
+        }
+    }
+
+    pub fn with_mappings(custom_mappings: HashMap<Box<str>, CustomMapping>) -> Self {
+        Self {
+            custom_mappings,
+            ..Default::default()
+        }
+    }
+
+    fn metric_to_v2_metadata(
+        &self,
+        family_name: &str,
+        family: &MetricFamily,
+        metric: &Metric,
+    ) -> Option<(Box<str>, DataSourceMetadata)> {
+        if let Some(custom_mapping) = self.custom_mappings.get(family_name) {
+            custom_mapping.convert(family_name, family, metric)
+        } else {
+            DefaultMapping.convert(family_name, family, metric)
         }
     }
 
@@ -162,16 +123,10 @@ impl BridgeToV2 {
             .flat_map(|(name, family)| {
                 iter::zip(iter::repeat((name, family)), family.metrics.iter())
             })
-            // Only consider gauge and counter values.
-            .filter(|((_, family), _)| {
-                matches!(family.metric_type, MetricType::Gauge | MetricType::Counter)
-            })
             // Convert this data to protocol v2 metadata and mapping information.
-            .map(|((family_name, family), (_, metric))| {
-                (
-                    metric_to_v2_metadata(family_name, family, metric),
-                    (family_name.clone(), metric.labels.clone()),
-                )
+            .filter_map(|((family_name, family), (_, metric))| {
+                self.metric_to_v2_metadata(family_name, family, metric)
+                    .map(|mapping| (mapping, (family_name.clone(), metric.labels.clone())))
             })
             .unzip();
 

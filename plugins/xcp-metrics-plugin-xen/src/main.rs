@@ -1,10 +1,12 @@
 mod metrics;
 
 use clap::Parser;
+use maplit::hashmap;
 use metrics::{discover_xen_metrics, XenMetric, XenMetricsShared};
-use std::{rc::Rc, time::Duration};
+use std::{collections::HashMap, rc::Rc, time::Duration};
 use tokio::time;
 
+use xcp_metrics_common::utils::mapping::CustomMapping;
 use xcp_metrics_plugin_common::{
     bridge::v3_to_v2::BridgeToV2,
     protocol_v2::RrddPlugin,
@@ -60,7 +62,7 @@ async fn plugin_v2(
 ) {
     let mut metrics = generate_metrics(&shared, &mut sources);
 
-    let mut bridge = BridgeToV2::default();
+    let mut bridge = BridgeToV2::with_mappings(generate_mappings());
     bridge.update(metrics.into());
 
     let mut plugin = RrddPlugin::new(
@@ -90,6 +92,29 @@ async fn plugin_v2(
         plugin.update_values(&bridge.get_data()).await.unwrap();
 
         time::sleep(Duration::from_secs(1)).await;
+    }
+}
+
+fn generate_mappings() -> HashMap<Box<str>, CustomMapping> {
+    hashmap! {
+        "cpu-cstate".into() => CustomMapping {
+            pattern: "cpu{id}-C{state}".into(),
+            min: 0.0,
+            max: f32::INFINITY,
+            default: true,
+        },
+        "cpu-pstate".into() => CustomMapping {
+            pattern: "cpu{id}-P{state}".into(),
+            min: 0.0,
+            max: f32::INFINITY,
+            default: true,
+        },
+        "cpu".into() => CustomMapping {
+            pattern: "cpu{id}".into(),
+            min: 0.0,
+            max: 1.0,
+            default: true,
+        }
     }
 }
 
