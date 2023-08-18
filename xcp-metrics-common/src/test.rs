@@ -6,11 +6,11 @@ use crate::{
     metrics::{
         Label, Metric, MetricFamily, MetricPoint, MetricSet, MetricType, MetricValue, NumberValue,
     },
-    protocol_v3,
     utils::delta::MetricSetModel,
 };
 
-fn make_test_metrics_set() -> MetricSet {
+#[cfg(test)]
+pub(crate) fn make_test_metrics_set() -> MetricSet {
     MetricSet {
         families: [
             (
@@ -124,20 +124,138 @@ fn assert_metrics_set_equals(a: &MetricSet, b: &MetricSet) {
         })
 }
 
-#[test]
-fn test_protocol_v3_header() {
-    let metrics_set = make_test_metrics_set();
+mod protocol_v3 {
+    use std::time::{Duration, SystemTime};
 
-    // Generate raw payload.
-    let mut buffer = vec![];
-    protocol_v3::generate_v3(&mut buffer, None, metrics_set.clone()).unwrap();
+    use crate::protocol_v3::{
+        self, generate_v3, generate_v3_async, parse_v3, parse_v3_async, ProtocolV3Error,
+    };
 
-    let (_, metrics_readed) = protocol_v3::parse_v3(&mut buffer.as_slice()).unwrap();
+    use super::{assert_metrics_set_equals, make_test_metrics_set};
 
-    // We can't lazily compare them as xcp-metrics metrics has some additional informations
-    // (like internal uuid) that are randomly generated when parsing from OpenMetrics.
+    #[test]
+    fn header() {
+        let metrics_set = make_test_metrics_set();
 
-    // Compare readed and original.
-    assert_metrics_set_equals(&metrics_set, &metrics_readed);
+        // Generate raw payload.
+        let mut buffer = vec![];
+        generate_v3(&mut buffer, None, metrics_set.clone()).unwrap();
+
+        let (_, metrics_readed) = protocol_v3::parse_v3(&mut buffer.as_slice()).unwrap();
+
+        // We can't lazily compare them as xcp-metrics metrics has some additional informations
+        // (like internal uuid) that are randomly generated when parsing from OpenMetrics.
+
+        // Compare readed and original.
+        assert_metrics_set_equals(&metrics_set, &metrics_readed);
+    }
+
+    #[test]
+    fn invalid_header() {
+        // Empty header is invalid.
+        let invalid_header = [0u8; 28];
+
+        assert!(matches!(
+            parse_v3(&mut invalid_header.as_slice()),
+            Err(ProtocolV3Error::InvalidHeader)
+        ));
+    }
+
+    #[test]
+    fn invalid_header_async() {
+        tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap()
+            .block_on(async {
+                // Empty header is invalid.
+                let invalid_header = [0u8; 28];
+
+                assert!(matches!(
+                    parse_v3_async(&mut invalid_header.as_slice()).await,
+                    Err(ProtocolV3Error::InvalidHeader)
+                ));
+            });
+    }
+
+    #[test]
+    fn invalid_checksum() {
+        // Empty header is invalid.
+        let mut dest = vec![];
+
+        generate_v3(
+            &mut dest,
+            Some(SystemTime::UNIX_EPOCH + Duration::from_secs(123456789)),
+            crate::test::make_test_metrics_set(),
+        )
+        .unwrap();
+
+        // mess with dest checksum
+        dest.get_mut(12..16)
+            .unwrap()
+            .copy_from_slice(&[0xde, 0xad, 0xbe, 0xef]);
+
+        assert!(matches!(
+            parse_v3(&mut dest.as_slice()),
+            Err(ProtocolV3Error::InvalidChecksum { .. })
+        ));
+    }
+
+    #[test]
+    fn invalid_checksum_async() {
+        tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap()
+            .block_on(async {
+                // Empty header is invalid.
+                let mut dest = vec![];
+
+                generate_v3_async(
+                    &mut dest,
+                    Some(SystemTime::UNIX_EPOCH + Duration::from_secs(123456789)),
+                    crate::test::make_test_metrics_set(),
+                )
+                .await
+                .unwrap();
+
+                // mess with dest checksum
+                dest.get_mut(12..16)
+                    .unwrap()
+                    .copy_from_slice(&[0xde, 0xad, 0xbe, 0xef]);
+
+                assert!(matches!(
+                    parse_v3_async(&mut dest.as_slice()).await,
+                    Err(ProtocolV3Error::InvalidChecksum { .. })
+                ));
+            });
+    }
+
+    #[test]
+    fn invalid_openmetrics() {
+        tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap()
+            .block_on(async {
+                // Empty header is invalid.
+                let mut dest = vec![];
+
+                generate_v3_async(
+                    &mut dest,
+                    Some(SystemTime::UNIX_EPOCH + Duration::from_secs(123456789)),
+                    crate::test::make_test_metrics_set(),
+                )
+                .await
+                .unwrap();
+
+                // mess with dest checksum
+                dest.get_mut(12..16)
+                    .unwrap()
+                    .copy_from_slice(&[0xde, 0xad, 0xbe, 0xef]);
+
+                assert!(matches!(
+                    parse_v3_async(&mut dest.as_slice()).await,
+                    Err(ProtocolV3Error::InvalidChecksum { .. })
+                ));
+            });
+    }
 }
 

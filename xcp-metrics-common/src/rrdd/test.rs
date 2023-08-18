@@ -9,7 +9,7 @@ use crate::rrdd::protocol_v2::{RrddMessageHeader, RrddMetadata, RrddMetadataRaw}
 
 /// Check if metadata stays the same after being encoded then decoded.
 #[test]
-fn test_metadata_invariance() {
+fn metadata_invariance() {
     let metadata = RrddMetadata {
         datasources: indexmap! {
           "A".into() => Default::default(),
@@ -27,7 +27,7 @@ fn test_metadata_invariance() {
 /// Check if protocol v2 header stays the same after being encoded then decoded.
 /// NOTE: Timestamp precision is not kept.
 #[test]
-fn test_protocol_v2_invariance() {
+fn invariance() {
     let metadata = RrddMetadata {
         datasources: indexmap! {
           "A".into() => Default::default()
