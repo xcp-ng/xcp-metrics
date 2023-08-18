@@ -258,4 +258,3 @@ mod protocol_v3 {
             });
     }
 }
-

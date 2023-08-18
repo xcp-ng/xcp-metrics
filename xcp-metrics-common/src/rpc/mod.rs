@@ -3,6 +3,9 @@ pub mod message;
 pub mod methods;
 pub mod response;
 
+#[cfg(test)]
+mod test;
+
 use std::io::Write;
 
 use dxr::{TryFromValue, TryToValue};
