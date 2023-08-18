@@ -173,3 +173,12 @@ fn round_robin_test_insert() {
         assert_eq!(reference, *val as i32);
     });
 }
+
+#[test]
+fn round_robin_test_iter_count() {
+    let buffer = RoundRobinBuffer::new(32, f64::NAN);
+    assert_eq!(buffer.iter().count(), 32);
+
+    let buffer = RoundRobinBuffer::new(1, f64::NAN);
+    assert_eq!(buffer.iter().count(), 1);
+}
