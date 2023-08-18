@@ -24,10 +24,7 @@ fn metadata_invariance() {
     assert_eq!(metadata, metadata_reparsed);
 }
 
-/// Check if protocol v2 header stays the same after being encoded then decoded.
-/// NOTE: Timestamp precision is not kept.
-#[test]
-fn invariance() {
+fn generate_test_rrdd() -> (RrddMetadata, RrddMessageHeader, Vec<u8>) {
     let metadata = RrddMetadata {
         datasources: indexmap! {
           "A".into() => Default::default()
@@ -48,6 +45,14 @@ fn invariance() {
     let mut buffer = vec![];
     header.write(&mut buffer).unwrap();
     buffer.write_all(metadata_str.as_bytes()).unwrap();
+    (metadata, header, buffer)
+}
+
+/// Check if protocol v2 header stays the same after being encoded then decoded.
+/// NOTE: Timestamp precision is not kept.
+#[test]
+fn invariance() {
+    let (metadata, header, buffer) = generate_test_rrdd();
 
     let mut reader = buffer.as_slice();
     let header_readed = RrddMessageHeader::parse_from(&mut reader).unwrap();
@@ -59,4 +64,26 @@ fn invariance() {
     let metadata_readed = metadata_raw_readed.try_into().unwrap();
 
     assert_eq!(metadata, metadata_readed);
+}
+
+#[test]
+fn invariance_async() {
+    tokio::runtime::Builder::new_current_thread()
+        .build()
+        .unwrap()
+        .block_on(async {
+            let (metadata, header, buffer) = generate_test_rrdd();
+
+            let mut reader = buffer.as_slice();
+            let header_readed = RrddMessageHeader::parse_async(&mut reader).await.unwrap();
+            assert_eq!(header, header_readed);
+
+            let mut metadata_buffer = vec![0u8; header_readed.metadata_length as usize];
+            reader.read_exact(&mut metadata_buffer).unwrap();
+            let metadata_raw_readed: RrddMetadataRaw =
+                serde_json::from_slice(&metadata_buffer).unwrap();
+            let metadata_readed = metadata_raw_readed.try_into().unwrap();
+
+            assert_eq!(metadata, metadata_readed);
+        });
 }
