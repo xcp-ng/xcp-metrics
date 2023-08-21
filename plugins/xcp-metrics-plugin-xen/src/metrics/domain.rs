@@ -88,7 +88,7 @@ impl XenMetric for VCpuTime {
         self.latest_instant = Instant::now();
 
         Some((
-            "dom_vcpu".into(),
+            "vcpu".into(),
             SimpleMetricFamily {
                 help: "vCPU usages".into(),
                 unit: "usage".into(),
@@ -122,7 +122,7 @@ impl XenMetric for DomainMemory {
             .collect();
 
         Some((
-            "dom_memory".into(),
+            "memory".into(),
             SimpleMetricFamily {
                 help: "Memory currently allocated to VM".into(),
                 metric_type: MetricType::Gauge,

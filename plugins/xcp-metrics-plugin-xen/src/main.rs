@@ -55,7 +55,6 @@ async fn main() {
     }
 }
 
-
 fn generate_mappings() -> HashMap<Box<str>, CustomMapping> {
     hashmap! {
         "cpu-cstate".into() => CustomMapping {
