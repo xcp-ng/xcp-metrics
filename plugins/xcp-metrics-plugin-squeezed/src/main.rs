@@ -87,7 +87,8 @@ fn generate_metrics(xs: &Xs) -> anyhow::Result<SimpleMetricSet> {
                 help: "Host memory reclaimed by squeezed".into(),
                 metrics: vec![SimpleMetric {
                     labels: vec![],
-                    value: MetricValue::Gauge(NumberValue::Int64(reclaimed as _)),
+                    // KiB to Bytes
+                    value: MetricValue::Gauge(NumberValue::Int64((reclaimed * 1024) as _)),
                 }],
             },
         "memory_reclaimed_max".into() =>
@@ -97,7 +98,8 @@ fn generate_metrics(xs: &Xs) -> anyhow::Result<SimpleMetricSet> {
                 help: "Host memory that could be reclaimed by squeezed".into(),
                 metrics: vec![SimpleMetric {
                     labels: vec![],
-                    value: MetricValue::Gauge(NumberValue::Int64(reclaimed_max as _)),
+                    // KiB to Bytes
+                    value: MetricValue::Gauge(NumberValue::Int64((reclaimed_max * 1024) as _)),
                 }],
             }
         },
