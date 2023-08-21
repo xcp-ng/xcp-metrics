@@ -296,7 +296,7 @@ impl From<RrddMetadata> for RrddMetadataRaw {
 }
 
 /// A parsed metadata (datasource list)
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RrddMetadata {
     pub datasources: IndexMap<Box<str>, DataSourceMetadata>,
 }

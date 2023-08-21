@@ -1,10 +1,11 @@
 pub mod forwarded;
 pub mod hub;
+mod mappings;
 pub mod providers;
 pub mod publishers;
 pub mod rpc;
 
-use std::{fs, sync::Arc};
+use std::{collections::HashMap, fs, sync::Arc};
 
 use clap::{command, Parser};
 use dashmap::DashMap;
@@ -12,7 +13,7 @@ use rpc::routes::RpcRoutes;
 use tokio::{net::UnixStream, select, sync::mpsc, task::JoinHandle};
 
 use publishers::rrdd::server::{RrddServer, RrddServerMessage};
-use xcp_metrics_common::xapi::XAPI_SOCKET_PATH;
+use xcp_metrics_common::{utils::mapping::CustomMapping, xapi::XAPI_SOCKET_PATH};
 
 #[derive(Debug)]
 pub struct XcpMetricsShared {
@@ -33,6 +34,9 @@ struct Args {
     /// xcp-metrics daemon name
     #[arg(long, default_value_t = String::from("xcp-metrics"))]
     daemon_name: String,
+
+    /// Custom RrddServer v3-to-v2 mapping file.
+    mapping_file: Option<String>,
 }
 
 /// Check if the XAPI socket is active and unlink it if it isn't.
@@ -65,6 +69,17 @@ async fn check_unix_socket(daemon_name: &str) -> anyhow::Result<bool> {
     }
 }
 
+/// Load the mappings from file or use default ones (for now).
+async fn get_mappings(
+    mapping_path: Option<&String>,
+) -> anyhow::Result<HashMap<Box<str>, CustomMapping>> {
+    if let Some(path) = mapping_path {
+        Ok(serde_json::from_str(&fs::read_to_string(&path)?)?)
+    } else {
+        Ok(mappings::default_mappings())
+    }
+}
+
 #[tokio::main]
 async fn main() {
     let args = Args::parse();
@@ -90,7 +105,8 @@ async fn main() {
     }
 
     let (hub, hub_channel) = hub::MetricsHub::default().start().await;
-    let (rrdd_server, rrdd_channel) = RrddServer::new();
+    let (rrdd_server, rrdd_channel) =
+        RrddServer::new(get_mappings(args.mapping_file.as_ref()).await.unwrap());
 
     let shared = Arc::new(XcpMetricsShared {
         hub_channel,

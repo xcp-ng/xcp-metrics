@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use xcp_metrics_common::rrdd::protocol_common::DataSourceOwner;
+use xcp_metrics_common::rrdd::protocol_common::{DataSourceMetadata, DataSourceOwner};
 
 use super::{round_robin::RoundRobinBuffer, Granuality};
 
@@ -7,6 +7,8 @@ use super::{round_robin::RoundRobinBuffer, Granuality};
 pub struct RrdEntry {
     /// Full entry name (KIND:owner:uuid:metric_name)
     pub name: Box<str>,
+
+    pub metadata: DataSourceMetadata,
 
     pub owner: DataSourceOwner,
 
@@ -24,10 +26,11 @@ pub struct RrdEntry {
 }
 
 impl RrdEntry {
-    pub fn new(name: Box<str>, owner: DataSourceOwner) -> Self {
+    pub fn new(name: Box<str>, owner: DataSourceOwner, metadata: DataSourceMetadata) -> Self {
         Self {
             name,
             owner,
+            metadata,
 
             // Per five seconds, past ten minutes.
             five_seconds: RoundRobinBuffer::new(

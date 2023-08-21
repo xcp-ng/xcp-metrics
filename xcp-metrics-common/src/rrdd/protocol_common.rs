@@ -1,7 +1,7 @@
 //! xcp-rrdd JSON data source parser and writer.
 use std::{borrow::Cow, time::SystemTime};
 
-use serde::{Deserialize, Serialize};
+use serde::{de::Error, Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::metrics::{Label, MetricPoint, MetricValue, NumberValue};
@@ -61,7 +61,7 @@ impl From<DataSourceType> for Cow<'static, str> {
 }
 
 /// Owner of the data source.
-#[derive(Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum DataSourceOwner {
     Host,
     VM(Uuid),
@@ -197,6 +197,18 @@ impl Serialize for DataSourceMetadata {
         S: serde::Serializer,
     {
         Into::<DataSourceMetadataRaw>::into(self).serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for DataSourceMetadata {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        match DataSourceMetadataRaw::deserialize(deserializer) {
+            Ok(metadata_raw) => Ok((&metadata_raw).try_into().map_err(D::Error::custom)?),
+            Err(e) => Err(e),
+        }
     }
 }
 

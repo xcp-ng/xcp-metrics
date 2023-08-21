@@ -1,6 +1,5 @@
 use std::{
     collections::HashMap,
-    fmt::Write,
     iter,
     sync::Arc,
     time::{Duration, SystemTime},
@@ -8,8 +7,12 @@ use std::{
 use tokio::{self, select, sync::mpsc, task::JoinHandle};
 
 use xcp_metrics_common::{
-    metrics::{Metric, MetricSet, MetricType, MetricValue, NumberValue},
-    rrdd::{protocol_common::DataSourceOwner, rrd_updates::RrdXport},
+    metrics::{Metric, MetricFamily, MetricSet, MetricType, MetricValue, NumberValue},
+    rrdd::{
+        protocol_common::{DataSourceMetadata, DataSourceOwner},
+        rrd_updates::RrdXport,
+    },
+    utils::mapping::{CustomMapping, DefaultMapping, MetadataMapping},
 };
 
 use super::{entry::RrdEntry, Granuality, RrdXportFilter, RrdXportInfo};
@@ -25,6 +28,7 @@ pub enum RrddServerMessage {
 pub struct RrddServer {
     receiver: mpsc::UnboundedReceiver<RrddServerMessage>,
     host_uuid: uuid::Uuid,
+    mappings: HashMap<Box<str>, CustomMapping>,
 
     /// Map a UUID from hub's MetricSet with a RrdEntry.
     entry_database: HashMap<uuid::Uuid, RrdEntry>,
@@ -39,18 +43,6 @@ pub struct RrddServer {
 
     day_update_counter: u32,
     latest_day_update: SystemTime,
-}
-
-fn to_name_v2(metric: &Metric, family_name: &str) -> String {
-    metric
-        .labels
-        .iter()
-        // Ignore owner label
-        .filter(|l| l.0.as_ref() != "owner")
-        .fold(String::from(family_name), |mut buffer, label| {
-            write!(buffer, "_{}", label.1).ok();
-            buffer
-        })
 }
 
 /// Get the owner part of the rrd name (i.e vm:UUID).
@@ -76,13 +68,16 @@ fn get_owner_part(metric: &Metric, host_uuid: uuid::Uuid) -> (String, DataSource
 }
 
 impl RrddServer {
-    pub fn new() -> (Self, mpsc::UnboundedSender<RrddServerMessage>) {
+    pub fn new(
+        mappings: HashMap<Box<str>, CustomMapping>,
+    ) -> (Self, mpsc::UnboundedSender<RrddServerMessage>) {
         let (sender, receiver) = mpsc::unbounded_channel();
 
         (
             Self {
                 receiver,
                 host_uuid: uuid::Uuid::new_v4(),
+                mappings,
 
                 entry_database: HashMap::new(),
 
@@ -99,6 +94,19 @@ impl RrddServer {
             },
             sender,
         )
+    }
+
+    fn to_name_v2(
+        mappings: &HashMap<Box<str>, CustomMapping>,
+        metric: &Metric,
+        family: &MetricFamily,
+        family_name: &str,
+    ) -> Option<(Box<str>, DataSourceMetadata)> {
+        if let Some(custom_mapping) = mappings.get(family_name) {
+            custom_mapping.convert(family_name, family, metric)
+        } else {
+            DefaultMapping.convert(family_name, family, metric)
+        }
     }
 
     pub async fn pull_metrics(
@@ -147,10 +155,11 @@ impl RrddServer {
             .flat_map(|(name, family)| {
                 iter::zip(iter::repeat((name, family)), family.metrics.iter())
             })
-            .for_each(|((family_name, _), (&uuid, metric))| {
+            .for_each(|((family_name, family), (&uuid, metric))| {
                 self.do_update_metric(
                     uuid,
                     metric,
+                    family,
                     family_name,
                     do_update_minute,
                     do_update_hour,
@@ -164,6 +173,7 @@ impl RrddServer {
         &mut self,
         uuid: uuid::Uuid,
         metric: &Metric,
+        family: &MetricFamily,
         family_name: &str,
         do_update_minute: bool,
         do_update_hour: bool,
@@ -172,13 +182,15 @@ impl RrddServer {
         // Get (or create) the entry.
         let entry = self.entry_database.entry(uuid).or_insert_with(|| {
             tracing::debug!("New entry {uuid}");
-            let v2_name = to_name_v2(metric, family_name);
+            let (v2_name, metadata) = Self::to_name_v2(&self.mappings, metric, family, family_name)
+                .expect("Unexpected to_name_v2 failure");
             let (owner_part, owner) = get_owner_part(metric, self.host_uuid);
 
             // Consider only AVERAGE metrics for now.
             RrdEntry::new(
                 format!("AVERAGE:{owner_part}:{v2_name}").into_boxed_str(),
                 owner,
+                metadata,
             )
         });
 
