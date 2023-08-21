@@ -1,0 +1,28 @@
+[package]
+name = "xcp-metrics-plugin-squeezed"
+edition = "2021"
+version.workspace = true
+repository.workspace = true
+categories.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+xcp-metrics-common = { path = "../../xcp-metrics-common" }
+xcp-metrics-plugin-common = { path = "../xcp-metrics-plugin-common" }
+
+uuid = "1.4"
+anyhow = "1.0"
+dashmap = "5.5"
+futures = "0.3"
+maplit = "1.0"
+
+tokio = { version = "1", features = ["full"] }
+
+[dependencies.clap]
+version = "4.3"
+features = ["derive"]
+
+[dependencies.xenstore-rs]
+git = "https://github.com/tsnake41/xenstore-rs"
+branch = "xs_watch"
