@@ -5,7 +5,7 @@ use xenctrl::{CxStat, PxStat, XenControl};
 use xenctrl_sys::{xc_cpuinfo_t, xc_dominfo_t, xc_physinfo_t};
 
 use self::{
-    domain::VCpuTime,
+    domain::{VCpuTime, DomainMemory},
     host::LoadAvg,
     physical::{MemoryFree, MemoryTotal, PCpuTime, PCpuAvg},
     pm::{CpuAvgFrequency, CpuCState, CpuPState},
@@ -125,6 +125,8 @@ pub fn discover_xen_metrics(_xc: Rc<XenControl>) -> Box<[Box<dyn XenMetric>]> {
     // Memory infos
     metrics.push(Box::<MemoryTotal>::default());
     metrics.push(Box::<MemoryFree>::default());
+
+    metrics.push(Box::<DomainMemory>::default());
 
     metrics.into_boxed_slice()
 }
