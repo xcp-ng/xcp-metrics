@@ -15,6 +15,7 @@ hyperlocal = "0.8"
 jsonrpc-base = "0.2.0"
 prost = "0.11"
 prost-types = "0.11"
+json5 = "0.4.1"
 
 [dependencies.serde]
 version = "1.0"

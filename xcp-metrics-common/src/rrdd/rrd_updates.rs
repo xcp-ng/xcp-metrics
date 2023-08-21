@@ -5,6 +5,8 @@ use std::{
 
 use serde::Serialize;
 
+use crate::utils::write_bridge::WriterWrapper;
+
 #[derive(Debug, Clone)]
 pub struct RrdXport {
     pub start: SystemTime,
@@ -16,7 +18,9 @@ pub struct RrdXport {
 }
 
 impl RrdXport {
-    fn write_metadata_xml<W: Write>(&self, writer: &mut W) -> anyhow::Result<()> {
+    fn write_metadata_xml<W: std::io::Write>(&self, writer: &mut W) -> anyhow::Result<()> {
+        let writer = &mut WriterWrapper(writer);
+
         write!(writer, "<meta>")?;
 
         write!(
@@ -47,7 +51,9 @@ impl RrdXport {
         Ok(())
     }
 
-    fn write_data_xml<W: Write>(&self, writer: &mut W) -> anyhow::Result<()> {
+    fn write_data_xml<W: std::io::Write>(&self, writer: &mut W) -> anyhow::Result<()> {
+        let writer = &mut WriterWrapper(writer);
+
         write!(writer, "<data>")?;
 
         for (t, values) in &self.data {
@@ -68,12 +74,14 @@ impl RrdXport {
         Ok(())
     }
 
-    pub fn write_xml<W: Write>(&self, writer: &mut W) -> anyhow::Result<()> {
+    pub fn write_xml<W: std::io::Write>(&self, writer: &mut W) -> anyhow::Result<()> {
+        let writer = &mut WriterWrapper(writer);
+
         write!(writer, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>")?;
         write!(writer, "<xport>")?;
 
-        self.write_metadata_xml(writer)?;
-        self.write_data_xml(writer)?;
+        self.write_metadata_xml(writer.0)?;
+        self.write_data_xml(writer.0)?;
         write!(writer, "<script />")?;
 
         write!(writer, "</xport>")?;
@@ -141,6 +149,13 @@ impl RrdXport {
     pub fn write_json<W: std::io::Write>(&self, writer: &mut W) -> anyhow::Result<()> {
         serde_json::to_writer(writer, &RrdXportJson::try_from(self)?)?;
 
+        Ok(())
+    }
+
+    pub fn write_json5<W: std::io::Write>(&self, writer: &mut W) -> anyhow::Result<()> {
+        let content = json5::to_string(&RrdXportJson::try_from(self)?)?;
+
+        write!(writer, "{content}")?;
         Ok(())
     }
 }

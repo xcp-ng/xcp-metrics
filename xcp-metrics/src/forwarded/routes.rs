@@ -82,18 +82,16 @@ async fn rrd_update_handler(
         .await
         .ok_or(anyhow::anyhow!("No value received from channel"))??;
 
-    let buffer = if use_json {
-        let mut bytes = Vec::with_capacity(1024);
-        response.write_json(&mut bytes)?;
-        bytes
+    let mut bytes = Vec::with_capacity(1024);
+
+    if use_json {
+        response.write_json5(&mut bytes)?;
     } else {
-        let mut s = String::new();
-        response.write_xml(&mut s)?;
-        s.into_bytes()
+        response.write_xml(&mut bytes)?;
     };
 
     Response::builder()
         .status(200)
-        .body(Body::from(buffer))
+        .body(Body::from(bytes))
         .map_err(|err| anyhow::anyhow!(err))
 }
