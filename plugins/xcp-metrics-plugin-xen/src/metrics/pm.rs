@@ -16,12 +16,9 @@ impl XenMetric for CpuAvgFrequency {
             .cpufreqs
             .iter()
             .enumerate()
-            .map(|(cpuid, &frequency)| {
-                SimpleMetric {
-                    labels: [Label("id".into(), cpuid.to_string().into())].into(),
-                    value: MetricValue::Gauge(NumberValue::Double(frequency as f64 / 1_000_000.0)),
-                }
-                .into()
+            .map(|(cpuid, &frequency)| SimpleMetric {
+                labels: [Label("id".into(), cpuid.to_string().into())].into(),
+                value: MetricValue::Gauge(NumberValue::Double(frequency as f64 / 1_000_000.0)),
             })
             .collect();
 

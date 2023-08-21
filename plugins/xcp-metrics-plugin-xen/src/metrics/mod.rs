@@ -7,7 +7,7 @@ use xenctrl_sys::{xc_cpuinfo_t, xc_dominfo_t, xc_physinfo_t};
 use self::{
     domain::VCpuTime,
     host::LoadAvg,
-    physical::{MemoryFree, MemoryTotal, PCpuTime},
+    physical::{MemoryFree, MemoryTotal, PCpuTime, PCpuAvg},
     pm::{CpuAvgFrequency, CpuCState, CpuPState},
 };
 
@@ -109,6 +109,9 @@ pub fn discover_xen_metrics(_xc: Rc<XenControl>) -> Box<[Box<dyn XenMetric>]> {
 
     // pcpu infos
     metrics.push(Box::<PCpuTime>::default());
+
+    // pcpu avg
+    metrics.push(Box::<PCpuAvg>::default());
 
     // CPU frequency
     metrics.push(Box::<CpuAvgFrequency>::default());

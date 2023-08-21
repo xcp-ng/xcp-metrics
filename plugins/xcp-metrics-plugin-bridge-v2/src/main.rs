@@ -30,7 +30,7 @@ struct Args {
 
 fn load_mapping(args: &Args) -> HashMap<Box<str>, CustomMapping> {
     if let Some(path) = &args.mapping_path {
-        let content = std::fs::read_to_string(&path).expect("Unable to read mapping file");
+        let content = std::fs::read_to_string(path).expect("Unable to read mapping file");
         serde_json::from_str(&content).expect("Invalid mapping file.")
     } else {
         Default::default()
