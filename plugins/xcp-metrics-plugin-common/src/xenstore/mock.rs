@@ -109,7 +109,8 @@ impl XsTrait for MockXs {
         // Create all parents (if needed)
         // Take all path parts (subdirectory names), and build the path progressively,
         // creating all missings entries in the tree.
-        path.split('/').fold(String::from("/"), |mut path, part| {
+        path.split('/').fold(String::new(), |mut path, part| {
+            path.push('/');
             path.push_str(part);
 
             // Create the directory (if not exists)
