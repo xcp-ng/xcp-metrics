@@ -13,3 +13,17 @@ xcp-metrics-common = { path = "../../xcp-metrics-common" }
 anyhow = "1.0"
 tokio = "1"
 uuid = "1.4"
+dashmap = { version = "5.5", optional = true }
+
+[dependencies.futures]
+version = "0.3"
+optional = true
+
+[dependencies.xenstore-rs]
+git = "https://github.com/tsnake41/xenstore-rs"
+branch = "xs_watch"
+optional = true
+
+[features]
+default = []
+xenstore = ["xenstore-rs", "futures", "dashmap"]

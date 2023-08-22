@@ -9,7 +9,7 @@ categories.workspace = true
 
 [dependencies]
 xcp-metrics-common = { path = "../../xcp-metrics-common" }
-xcp-metrics-plugin-common = { path = "../xcp-metrics-plugin-common" }
+xcp-metrics-plugin-common = { path = "../xcp-metrics-plugin-common", features = ["xenstore"] }
 
 uuid = "1.4"
 anyhow = "1.0"
@@ -21,7 +21,3 @@ tokio = { version = "1", features = ["full"] }
 [dependencies.clap]
 version = "4.3"
 features = ["derive"]
-
-[dependencies.xenstore-rs]
-git = "https://github.com/tsnake41/xenstore-rs"
-branch = "xs_watch"

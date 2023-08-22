@@ -1,3 +1,4 @@
+//! A watch-based xenstore cache that tracks specific values.
 use dashmap::DashMap;
 use futures::StreamExt;
 use std::sync::Arc;
@@ -6,7 +7,8 @@ use tokio::{
     sync::mpsc::{self, error::SendError},
     task::{self, JoinHandle},
 };
-use xenstore_rs::{XBTransaction, Xs, XsOpenFlags};
+
+use super::xs::{XBTransaction, XsOpenFlags, XsTrait};
 
 /// A Xs watch cache that passively update values.
 pub struct WatchCache {
@@ -16,12 +18,12 @@ pub struct WatchCache {
     unwatch_channel: mpsc::UnboundedSender<String>,
 }
 
-async fn watch_task(
+async fn watch_task<XS: XsTrait + 'static>(
     cache: Arc<DashMap<String, String>>,
     mut watch_channel: mpsc::UnboundedReceiver<String>,
     mut unwatch_channel: mpsc::UnboundedReceiver<String>,
 ) {
-    let xs = Arc::new(Xs::new(XsOpenFlags::ReadOnly).unwrap());
+    let xs = Arc::new(XS::new(XsOpenFlags::ReadOnly).unwrap());
 
     let watch_task = task::spawn({
         let cache = cache.clone();
@@ -76,16 +78,15 @@ async fn watch_task(
 }
 
 impl WatchCache {
-    pub fn new() -> Self {
+    pub fn new<XS: XsTrait + 'static>() -> Self {
         let cache = Arc::new(DashMap::new());
         let (watch_sender, watch_receiver) = mpsc::unbounded_channel();
         let (unwatch_sender, unwatch_receiver) = mpsc::unbounded_channel();
 
         let watch_cache = cache.clone();
-        let watch_task =
-            task::spawn(
-                async move { watch_task(watch_cache, watch_receiver, unwatch_receiver).await },
-            );
+        let watch_task = task::spawn(async move {
+            watch_task::<XS>(watch_cache, watch_receiver, unwatch_receiver).await
+        });
 
         Self {
             cache,
@@ -105,11 +106,5 @@ impl WatchCache {
 
     pub fn read(&self, path: &str) -> Option<String> {
         self.cache.get(path).map(|value| value.clone())
-    }
-}
-
-impl Default for WatchCache {
-    fn default() -> Self {
-        Self::new()
     }
 }

@@ -1,10 +1,10 @@
 use std::collections::HashSet;
 
-use xenstore_rs::{XBTransaction, Xs};
+use xcp_metrics_plugin_common::xenstore::{
+    watch_cache::WatchCache,
+    xs::{XBTransaction, XsTrait},
+};
 
-use crate::watch_cache::WatchCache;
-
-#[derive(Default)]
 pub struct PluginState {
     watch_cache: WatchCache,
 
@@ -13,6 +13,16 @@ pub struct PluginState {
 
     /// VM ID -> Paths
     pub vms: HashSet<String>,
+}
+
+impl PluginState {
+    pub fn new<XS: XsTrait + 'static>() -> Self {
+        Self {
+            watch_cache: WatchCache::new::<XS>(),
+            domains: HashSet::default(),
+            vms: HashSet::default(),
+        }
+    }
 }
 
 static TRACKED_DOMAIN_ATTRIBUTES: &[&str] = &["memory/target", "vm"];
@@ -72,7 +82,7 @@ impl PluginState {
     }
 
     /// Check for removed and new domains, and update watcher.
-    pub fn update_domains(&mut self, xs: &Xs) -> anyhow::Result<()> {
+    pub fn update_domains<XS: XsTrait>(&mut self, xs: &XS) -> anyhow::Result<()> {
         let real_domains: HashSet<String> = xs
             .directory(XBTransaction::Null, "/local/domain")?
             .into_iter()
@@ -100,7 +110,7 @@ impl PluginState {
     }
 
     /// Check for removed and new vms, and update watcher.
-    pub fn update_vms(&mut self, xs: &Xs) -> anyhow::Result<()> {
+    pub fn update_vms<XS: XsTrait>(&mut self, xs: &XS) -> anyhow::Result<()> {
         let real_vms: HashSet<String> = xs
             .directory(XBTransaction::Null, "/vm")?
             .into_iter()

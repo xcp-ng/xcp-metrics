@@ -1,5 +1,4 @@
 mod plugin;
-mod watch_cache;
 
 use std::{collections::HashMap, time::Duration};
 
@@ -7,11 +6,13 @@ use clap::{command, Parser};
 use plugin::PluginState;
 use tokio::time;
 use xcp_metrics_common::metrics::{Label, MetricType, MetricValue, NumberValue};
-use xcp_metrics_plugin_common::protocol_v3::{
-    utils::{SimpleMetric, SimpleMetricFamily, SimpleMetricSet},
-    MetricsPlugin,
+use xcp_metrics_plugin_common::{
+    protocol_v3::{
+        utils::{SimpleMetric, SimpleMetricFamily, SimpleMetricSet},
+        MetricsPlugin,
+    },
+    xenstore::xs::{Xs, XsOpenFlags, XsTrait},
 };
-use xenstore_rs::{Xs, XsOpenFlags};
 
 /// OpenMetrics http proxy, used to provide metrics for collectors such as Prometheus.
 #[derive(Clone, Parser, Debug)]
@@ -74,7 +75,10 @@ fn get_memory_target_value(plugin: &PluginState, domid: &str) -> Option<i64> {
         })
 }
 
-fn generate_metrics(plugin: &mut PluginState, xs: &Xs) -> anyhow::Result<SimpleMetricSet> {
+fn generate_metrics<XS: XsTrait>(
+    plugin: &mut PluginState,
+    xs: &XS,
+) -> anyhow::Result<SimpleMetricSet> {
     if let Err(e) = plugin.update_domains(xs) {
         eprintln!("Unable to get domains: {e}");
     }
@@ -130,7 +134,7 @@ async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     let xs = Xs::new(XsOpenFlags::ReadOnly).map_err(|e| anyhow::anyhow!("{e}"))?;
 
-    let mut plugin_state = PluginState::default();
+    let mut plugin_state = PluginState::new::<Xs>();
 
     let plugin = MetricsPlugin::new(
         "xcp-metrics-plugin-xenstored",
