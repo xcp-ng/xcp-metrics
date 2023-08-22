@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use xcp_metrics_plugin_common::xenstore::{
     watch_cache::WatchCache,
-    xs::{XBTransaction, XsTrait},
+    xs::{XBTransaction, Xs, XsOpenFlags, XsTrait},
 };
 
 pub struct PluginState {
@@ -16,9 +16,9 @@ pub struct PluginState {
 }
 
 impl PluginState {
-    pub fn new<XS: XsTrait + 'static>() -> Self {
+    pub fn new<XS: XsTrait>() -> Self {
         Self {
-            watch_cache: WatchCache::new::<XS>(),
+            watch_cache: WatchCache::new(Xs::new(XsOpenFlags::ReadOnly).unwrap()),
             domains: HashSet::default(),
             vms: HashSet::default(),
         }
