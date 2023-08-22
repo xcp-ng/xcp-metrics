@@ -14,8 +14,8 @@ fn main() {
         ],
     };
 
-    let mut xml = String::new();
+    let mut xml = vec![];
     rrd.write_xml(&mut xml).unwrap();
 
-    println!("{xml}");
+    println!("{}", String::from_utf8(xml).unwrap());
 }
