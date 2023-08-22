@@ -1,4 +1,7 @@
-use xcp_metrics_plugin_common::xenstore::{mock::MockXs, xs::{XsTrait, XBTransaction}};
+use xcp_metrics_plugin_common::xenstore::{
+    mock::MockXs,
+    xs::{XBTransaction, XsTrait},
+};
 
 use crate::SqueezedInfo;
 
@@ -25,17 +28,34 @@ fn test_single_vm() {
 
     xs.write(XBTransaction::Null, "/local", "").unwrap();
     xs.write(XBTransaction::Null, "/local/domain", "").unwrap();
-    xs.write(XBTransaction::Null, "/local/domain/0", "").unwrap();
-    xs.write(XBTransaction::Null, "/local/domain/0/memory/", "").unwrap();
-    xs.write(XBTransaction::Null, "/local/domain/0/memory/target", "123456").unwrap();
-    xs.write(XBTransaction::Null, "/local/domain/0/memory/dynamic-min", "0").unwrap();
-    xs.write(XBTransaction::Null, "/local/domain/0/memory/dynamic-max", "654321").unwrap();
+    xs.write(XBTransaction::Null, "/local/domain/0", "")
+        .unwrap();
+    xs.write(XBTransaction::Null, "/local/domain/0/memory/", "")
+        .unwrap();
+    xs.write(
+        XBTransaction::Null,
+        "/local/domain/0/memory/target",
+        "123456",
+    )
+    .unwrap();
+    xs.write(
+        XBTransaction::Null,
+        "/local/domain/0/memory/dynamic-min",
+        "0",
+    )
+    .unwrap();
+    xs.write(
+        XBTransaction::Null,
+        "/local/domain/0/memory/dynamic-max",
+        "654321",
+    )
+    .unwrap();
 
     assert_eq!(
         SqueezedInfo::get(&xs).unwrap(),
         SqueezedInfo {
-            reclaimed: 123456,
-            reclaimed_max: 555555
+            reclaimed: 555555,
+            reclaimed_max: 123456
         }
     );
 }
