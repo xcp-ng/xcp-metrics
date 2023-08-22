@@ -106,18 +106,32 @@ impl XsTrait for MockXs {
     fn write(&self, _: XBTransaction, path: &str, data: &str) -> Result<(), Error> {
         self.tree.insert(path.into(), data.into());
 
+        // Create all parents (if needed)
+        // Take all path parts (subdirectory names), and build the path progressively,
+        // creating all missings entries in the tree.
+        path.split('/').fold(String::from("/"), |mut path, part| {
+            path.push_str(part);
+
+            // Create the directory (if not exists)
+            if self.tree.get(path.as_str()).is_none() {
+                self.tree.insert(path.clone().into(), "".into());
+            }
+
+            path
+        });
+
         // Fire any related watcher
-        for entry in self
-            .watch_map
-            .iter()
-            .filter(|entry| path.starts_with(entry.0.as_ref()))
-        {
-            self.watch_sender
-                .send(XsWatchEntry {
-                    path: path.into(),
-                    token: entry.1.to_string(),
-                })
-                .map_err(|_| Error::new(ErrorKind::BrokenPipe, "Unable to send entry"))?;
+        for entry in self.watch_map.iter() {
+            // Make sure it is either the same path or a subdirectory and not
+            // a path in the same directory, with a name that has the same prefix.
+            if entry.0.as_ref() == path || path.starts_with(&format!("{}/", entry.0)) {
+                self.watch_sender
+                    .send(XsWatchEntry {
+                        path: path.into(),
+                        token: entry.1.to_string(),
+                    })
+                    .map_err(|_| Error::new(ErrorKind::BrokenPipe, "Unable to send entry"))?;
+            }
         }
 
         Ok(())
@@ -174,4 +188,17 @@ fn test_watch() {
     assert!(watched[0].path == "/test1");
     assert!(watched[1].path == "/test2");
     assert!(watched[2].path == "/test2/123");
+}
+
+#[test]
+fn test_subdirectories() {
+    let xs = MockXs::default();
+
+    xs.write(XBTransaction::Null, "/1/2/3/4/5", "hello world")
+        .unwrap();
+
+    for path in ["/1", "/1/2", "/1/2/3", "/1/2/3/4", "/1/2/3/4/5"] {
+        xs.read(XBTransaction::Null, path)
+            .expect(&format!("Missing {path}"));
+    }
 }
