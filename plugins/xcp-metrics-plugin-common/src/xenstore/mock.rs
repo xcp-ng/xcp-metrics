@@ -9,7 +9,7 @@ use std::{
 };
 
 use dashmap::{DashMap, DashSet};
-use futures::{Stream, StreamExt};
+use futures::Stream;
 use tokio::sync::{mpsc, Mutex};
 
 use super::xs::{XBTransaction, XsStreamTrait, XsTrait, XsWatchEntry};
@@ -65,17 +65,17 @@ impl XsTrait for MockXs {
       Self: 'a;
 
     fn directory(&self, _: XBTransaction, path: &str) -> Result<Vec<String>, Error> {
-        let entries: Vec<String> = self
-            .tree
-            .iter()
-            .filter(|entry| entry.key().starts_with(&format!("{path}/")))
-            .map(|entry| entry.key().to_string())
-            .collect();
+        if self.tree.get(path).is_some() {
+            let entries: Vec<String> = self
+                .tree
+                .iter()
+                .filter(|entry| entry.key().starts_with(&format!("{path}/")))
+                .map(|entry| entry.key().to_string())
+                .collect();
 
-        if entries.is_empty() {
-            Err(Error::new(ErrorKind::NotFound, "Not found"))
-        } else {
             Ok(entries)
+        } else {
+            Err(Error::new(ErrorKind::NotFound, "Not found"))
         }
     }
 
