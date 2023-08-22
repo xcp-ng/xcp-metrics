@@ -68,7 +68,7 @@ impl XsTrait for MockXs {
         let entries: Vec<String> = self
             .tree
             .iter()
-            .filter(|entry| entry.key().starts_with(path))
+            .filter(|entry| entry.key().starts_with(&format!("{path}/")))
             .map(|entry| entry.key().to_string())
             .collect();
 
