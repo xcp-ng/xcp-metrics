@@ -1,4 +1,3 @@
-use std::error::Error;
 use std::io::Error as IoError;
 
 use futures::Stream;
@@ -9,8 +8,6 @@ pub trait XsTrait: 'static + Sized + Send + Sync {
     type XsStreamType<'a>: XsStreamTrait<'a>
     where
         Self: 'a;
-
-    fn new(open_type: XsOpenFlags) -> Result<Self, Box<dyn Error>>;
 
     fn directory(&self, transaction: XBTransaction, path: &str) -> Result<Vec<String>, IoError>;
 
@@ -35,10 +32,6 @@ pub trait XsStreamTrait<'a>: Send + Sync + Stream<Item = XsWatchEntry> + Unpin {
 
 impl XsTrait for Xs {
     type XsStreamType<'a> = XsStream<'a>;
-
-    fn new(open_type: XsOpenFlags) -> Result<Self, Box<dyn Error>> {
-        Self::new(open_type)
-    }
 
     fn directory(&self, transaction: XBTransaction, path: &str) -> Result<Vec<String>, IoError> {
         self.directory(transaction, path)

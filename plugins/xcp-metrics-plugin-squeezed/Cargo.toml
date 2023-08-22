@@ -22,7 +22,3 @@ tokio = { version = "1", features = ["full"] }
 [dependencies.clap]
 version = "4.3"
 features = ["derive"]
-
-[dependencies.xenstore-rs]
-git = "https://github.com/tsnake41/xenstore-rs"
-branch = "xs_watch"

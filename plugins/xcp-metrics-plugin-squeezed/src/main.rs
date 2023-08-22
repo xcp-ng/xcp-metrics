@@ -1,25 +1,30 @@
+#[cfg(test)]
+mod test;
+
 use std::time::Duration;
 
 use maplit::hashmap;
 use tokio::time;
 use xcp_metrics_common::metrics::{MetricType, MetricValue, NumberValue};
-use xcp_metrics_plugin_common::protocol_v3::{
-    utils::{SimpleMetric, SimpleMetricFamily, SimpleMetricSet},
-    MetricsPlugin,
+use xcp_metrics_plugin_common::{
+    protocol_v3::{
+        utils::{SimpleMetric, SimpleMetricFamily, SimpleMetricSet},
+        MetricsPlugin,
+    },
+    xenstore::xs::{XBTransaction, Xs, XsOpenFlags, XsTrait},
 };
-use xenstore_rs::{XBTransaction, Xs, XsOpenFlags};
 
-struct SqueezedInfo {
+pub struct SqueezedInfo {
     /// Host memory reclaimed by squeezed.
     /// dynamic_max - target
-    reclaimed: u32,
+    pub reclaimed: u32,
     /// Host memory that could be reclaimed by squeezed.
     /// target - dynamic_min
-    reclaimed_max: u32,
+    pub reclaimed_max: u32,
 }
 
 impl SqueezedInfo {
-    fn get(xs: &Xs) -> anyhow::Result<Self> {
+    pub fn get<XS: XsTrait>(xs: &XS) -> anyhow::Result<Self> {
         let (reclaimed, reclaimed_max) = xs
             // Get the list of domains.
             .directory(XBTransaction::Null, "/local/domain")?
@@ -72,7 +77,7 @@ impl SqueezedInfo {
     }
 }
 
-fn generate_metrics(xs: &Xs) -> anyhow::Result<SimpleMetricSet> {
+fn generate_metrics<XS: XsTrait>(xs: &XS) -> anyhow::Result<SimpleMetricSet> {
     let SqueezedInfo {
         reclaimed,
         reclaimed_max,
