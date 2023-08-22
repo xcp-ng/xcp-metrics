@@ -69,8 +69,25 @@ impl XsTrait for MockXs {
             let entries: Vec<String> = self
                 .tree
                 .iter()
-                .filter(|entry| entry.key().starts_with(&format!("{path}/")))
-                .map(|entry| entry.key().to_string())
+                .filter_map(|entry| {
+                    let key = entry.key().as_ref();
+                    let prefix = format!("{path}/");
+
+                    // This is at least a entry (or sub-entry) of this directory.
+                    if key.starts_with(&prefix) {
+                        // Strip the 'path/' part.
+                        let without_prefix: String = key.chars().skip(prefix.len()).collect();
+
+                        // If there is a '/' with path with prefix, this is a subdirectory entry, skip it.
+                        if without_prefix.contains('/') {
+                            None
+                        } else {
+                            Some(without_prefix)
+                        }
+                    } else {
+                        None
+                    }
+                })
                 .collect();
 
             Ok(entries)

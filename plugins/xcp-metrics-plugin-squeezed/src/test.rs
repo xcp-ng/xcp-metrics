@@ -17,3 +17,22 @@ fn test_no_vm() {
         }
     );
 }
+
+#[test]
+fn test_single_vm() {
+    let xs = MockXs::default();
+
+    xs.write(XBTransaction::Null, "/local/domain", "").unwrap();
+    xs.write(XBTransaction::Null, "/local/domain/0/memory/", "").unwrap();
+    xs.write(XBTransaction::Null, "/local/domain/0/memory/target", "123456").unwrap();
+    xs.write(XBTransaction::Null, "/local/domain/0/memory/dynamic-min", "0").unwrap();
+    xs.write(XBTransaction::Null, "/local/domain/0/memory/dynamic-max", "654321").unwrap();
+
+    assert_eq!(
+        SqueezedInfo::get(&xs).unwrap(),
+        SqueezedInfo {
+            reclaimed: 123456,
+            reclaimed_max: 555555
+        }
+    );
+}
