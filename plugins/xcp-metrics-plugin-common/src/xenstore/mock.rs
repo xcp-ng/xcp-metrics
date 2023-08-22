@@ -109,17 +109,19 @@ impl XsTrait for MockXs {
         // Create all parents (if needed)
         // Take all path parts (subdirectory names), and build the path progressively,
         // creating all missings entries in the tree.
-        path.split('/').fold(String::new(), |mut path, part| {
-            path.push('/');
-            path.push_str(part);
+        path.split('/')
+            .skip(1) // Ignore first entry (empty before root)
+            .fold(String::new(), |mut path, part| {
+                path.push('/');
+                path.push_str(part);
 
-            // Create the directory (if not exists)
-            if self.tree.get(path.as_str()).is_none() {
-                self.tree.insert(path.clone().into(), "".into());
-            }
+                // Create the directory (if not exists)
+                if self.tree.get(path.as_str()).is_none() {
+                    self.tree.insert(path.clone().into(), "".into());
+                }
 
-            path
-        });
+                path
+            });
 
         // Fire any related watcher
         for entry in self.watch_map.iter() {
