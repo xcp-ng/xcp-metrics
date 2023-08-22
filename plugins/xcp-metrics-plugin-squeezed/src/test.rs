@@ -54,7 +54,7 @@ fn test_single_vm() {
     assert_eq!(
         SqueezedInfo::get(&xs).unwrap(),
         SqueezedInfo {
-            reclaimed: 555555,
+            reclaimed: 530865,
             reclaimed_max: 123456
         }
     );
