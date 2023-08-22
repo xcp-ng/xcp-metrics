@@ -146,15 +146,15 @@ impl XsTrait for MockXs {
 fn test_watch() {
     let xs = MockXs::default();
 
-    xs.watch("/test", "token").unwrap();
+    xs.watch("/test1", "token").unwrap();
     xs.watch("/test2", "token").unwrap();
 
-    xs.write(XBTransaction::Null, "/test", "test").unwrap();
+    xs.write(XBTransaction::Null, "/test1", "test").unwrap();
     xs.write(XBTransaction::Null, "/test2", "test").unwrap();
     xs.write(XBTransaction::Null, "/test2/123", "test").unwrap();
 
     let watched = xs.read_watch().unwrap();
-    assert!(watched[0].path == "/test");
+    assert!(watched[0].path == "/test1");
     assert!(watched[1].path == "/test2");
     assert!(watched[2].path == "/test2/123");
 }
