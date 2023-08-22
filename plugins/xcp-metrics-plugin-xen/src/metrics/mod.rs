@@ -5,9 +5,9 @@ use xenctrl::{CxStat, PxStat, XenControl};
 use xenctrl_sys::{xc_cpuinfo_t, xc_dominfo_t, xc_physinfo_t};
 
 use self::{
-    domain::{VCpuTime, DomainMemory},
+    domain::{DomainMemory, VCpuTime},
     host::LoadAvg,
-    physical::{MemoryFree, MemoryTotal, PCpuTime, PCpuAvg},
+    physical::{MemoryFree, MemoryTotal, PCpuAvg, PCpuTime},
     pm::{CpuAvgFrequency, CpuCState, CpuPState},
 };
 

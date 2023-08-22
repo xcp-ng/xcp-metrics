@@ -74,7 +74,7 @@ async fn get_mappings(
     mapping_path: Option<&String>,
 ) -> anyhow::Result<HashMap<Box<str>, CustomMapping>> {
     if let Some(path) = mapping_path {
-        Ok(serde_json::from_str(&fs::read_to_string(&path)?)?)
+        Ok(serde_json::from_str(&fs::read_to_string(path)?)?)
     } else {
         Ok(mappings::default_mappings())
     }
