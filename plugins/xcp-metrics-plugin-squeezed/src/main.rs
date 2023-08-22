@@ -14,6 +14,7 @@ use xcp_metrics_plugin_common::{
     xenstore::xs::{XBTransaction, Xs, XsOpenFlags, XsTrait},
 };
 
+#[derive(Debug, PartialEq)]
 pub struct SqueezedInfo {
     /// Host memory reclaimed by squeezed.
     /// dynamic_max - target
