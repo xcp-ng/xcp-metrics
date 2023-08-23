@@ -19,6 +19,10 @@ struct Args {
     #[arg(short, long)]
     plugin_name: String,
 
+    /// Logging level
+    #[arg(short, long, default_value_t = tracing::Level::INFO)]
+    log_level: tracing::Level,
+
     /// Target daemon.
     #[arg(short, long, default_value_t = String::from("xcp-metrics"))]
     target: String,
@@ -46,15 +50,24 @@ async fn read_protocol_v3(path: &str) -> anyhow::Result<(ProtocolV3Header, Metri
 #[tokio::main]
 async fn main() {
     let args = Args::parse();
+
+    let text_subscriber = tracing_subscriber::fmt()
+        .with_ansi(true)
+        .with_max_level(args.log_level)
+        .compact()
+        .finish();
+
+    tracing::subscriber::set_global_default(text_subscriber).unwrap();
+
     let bridged_plugin_name = format!("{}_bridged", args.plugin_name);
 
     let path = format!("{METRICS_SHM_PATH}{}", args.plugin_name);
-    println!("{path}");
+    tracing::info!("Plugin to bridge path: {path}");
 
     let (header, metrics_set) = read_protocol_v3(&path).await.unwrap();
 
-    println!("Protocol v3 header: {header:?}");
-    println!("Initial MetricsSet: {metrics_set:?}");
+    tracing::debug!("Protocol v3 header: {header:?}");
+    tracing::debug!("Initial MetricsSet: {metrics_set:?}");
 
     let mut bridge = BridgeToV2::with_mappings(load_mapping(&args));
     bridge.update(metrics_set);
@@ -71,14 +84,14 @@ async fn main() {
     // Expose protocol v2
     loop {
         let (header, metrics_set) = read_protocol_v3(&path).await.unwrap();
-        println!("Updated: {header:?}");
-        println!(" - {metrics_set:?}");
+        tracing::debug!("Updated: {header:?}");
+        tracing::debug!(" - {metrics_set:?}");
 
         // Update sources
         if bridge.update(metrics_set) {
-            println!("Updating metadata");
+            tracing::debug!("Updating metadata");
             let metadata = bridge.get_metadata().clone();
-            println!(" - {metadata:?}");
+            tracing::debug!(" - {metadata:?}");
 
             plugin
                 .reset_metadata(metadata, Some(&bridge.get_data()))
