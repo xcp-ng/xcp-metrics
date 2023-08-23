@@ -1,0 +1,1 @@
+//! XML-RPC response types.

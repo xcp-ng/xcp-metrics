@@ -1,0 +1,32 @@
+[package]
+name = "xcp-metrics-plugin-common"
+description = "Library that helps making plugins for xcp-metrics and xcp-rrdd"
+version.workspace = true
+license = "AGPL-3.0-only"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+xcp-metrics-common = { path = "../../xcp-metrics-common" }
+
+anyhow = "1.0"
+tokio = "1"
+uuid = "1.4"
+dashmap = { version = "5.5", optional = true }
+
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+[dependencies.futures]
+version = "0.3"
+optional = true
+
+[dependencies.xenstore-rs]
+git = "https://github.com/tsnake41/xenstore-rs"
+branch = "xs_watch"
+optional = true
+
+[features]
+default = []
+xenstore = ["xenstore-rs", "futures", "dashmap"]
