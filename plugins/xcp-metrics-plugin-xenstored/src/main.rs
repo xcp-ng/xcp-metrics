@@ -4,7 +4,7 @@ use clap::{command, Parser};
 use std::collections::HashMap;
 
 use xcp_metrics_plugin_common::{
-    run::run_hybrid,
+    plugin::run_hybrid,
     xenstore::xs::{Xs, XsOpenFlags},
 };
 

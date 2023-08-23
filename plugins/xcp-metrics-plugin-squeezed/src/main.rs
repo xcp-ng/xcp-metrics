@@ -8,8 +8,8 @@ use maplit::hashmap;
 
 use xcp_metrics_common::metrics::{MetricType, MetricValue, NumberValue};
 use xcp_metrics_plugin_common::{
+    plugin::{run_hybrid, XcpPlugin},
     protocol_v3::utils::{SimpleMetric, SimpleMetricFamily, SimpleMetricSet},
-    run::{run_hybrid, XcpPlugin},
     xenstore::xs::{XBTransaction, Xs, XsOpenFlags, XsTrait},
 };
 

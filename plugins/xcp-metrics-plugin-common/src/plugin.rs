@@ -1,3 +1,5 @@
+//! Utilities that manages communication with daemon using protocol v3
+//! under the hood and converting to protocol v2 if needed.
 use std::{collections::HashMap, time::Duration};
 
 use tokio::time;
@@ -9,12 +11,22 @@ use crate::{
 };
 use xcp_metrics_common::utils::mapping::CustomMapping;
 
+/// Abstraction of a protocol v3 plugin.
 pub trait XcpPlugin {
+    /// Update the state of the plugin.
     fn update(&mut self);
+
+    // Generate a new metric set representing the current state of data.
     fn generate_metrics(&mut self) -> SimpleMetricSet;
 }
 
-/// Utility that manages a plugin for either protocol v2 (converting from v3) or protocol v3.
+/// Run the provided for either protocol v2 (converting from v3) or protocol v3 depending on `version`.
+///
+/// Versions :
+///   2: Use a internal v3 to v2 bridge with `mappings` to convert from protocol v3 to protocol v2.
+///   3: Directly expose protocol v3 metrics to target daemon.
+///
+/// If no target_daemon is provided, use default one.
 pub async fn run_hybrid(
     shared: impl XcpPlugin,
     mappings: HashMap<Box<str>, CustomMapping>,
@@ -29,7 +41,7 @@ pub async fn run_hybrid(
     }
 }
 
-async fn run_plugin_v2(
+pub async fn run_plugin_v2(
     mut shared: impl XcpPlugin,
     mappings: HashMap<Box<str>, CustomMapping>,
     plugin_name: &str,
@@ -83,7 +95,7 @@ async fn run_plugin_v2(
     }
 }
 
-async fn run_plugin_v3(mut shared: impl XcpPlugin, plugin_name: &str, target_daemon: Option<&str>) {
+pub async fn run_plugin_v3(mut shared: impl XcpPlugin, plugin_name: &str, target_daemon: Option<&str>) {
     tracing::info!("Running protocol v3 plugin: {plugin_name}");
     // Expose protocol v3
     // NOTE: some could be undefined values
