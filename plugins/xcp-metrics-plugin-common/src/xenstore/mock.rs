@@ -171,7 +171,7 @@ impl XsTrait for MockXs {
         Ok(())
     }
 
-    fn get_stream<'a>(&'a self) -> Result<Self::XsStreamType<'a>, Error> {
+    fn get_stream(&self) -> Result<Self::XsStreamType<'_>, Error> {
         Ok(MockStream { fake_xs: self })
     }
 }
