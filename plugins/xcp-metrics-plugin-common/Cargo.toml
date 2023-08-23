@@ -15,6 +15,9 @@ tokio = "1"
 uuid = "1.4"
 dashmap = { version = "5.5", optional = true }
 
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
 [dependencies.futures]
 version = "0.3"
 optional = true

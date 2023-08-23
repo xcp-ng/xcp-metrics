@@ -69,9 +69,9 @@ impl MetricsPlugin {
         )
         .await?;
 
-        println!("RPC Response: {response:?}");
+        tracing::debug!("RPC Response: {response:?}");
         if let Some(Ok(body)) = response.into_body().data().await {
-            println!("RPC Body:\n{:}", String::from_utf8_lossy(&body));
+            tracing::debug!("RPC Body:\n{:}", String::from_utf8_lossy(&body));
         }
 
         Ok(())
@@ -79,7 +79,7 @@ impl MetricsPlugin {
 
     /// Deregister the plugin from the daemon.
     pub async fn deregister_plugin(self) {
-        println!("Deregistering {}...", &self.uid);
+        tracing::debug!("Deregistering {}...", &self.uid);
 
         // Unregister plugin
         let request = PluginLocalDeregister {
@@ -95,14 +95,14 @@ impl MetricsPlugin {
         .await
         .unwrap();
 
-        println!("RPC Response: {response:?}");
+        tracing::debug!("RPC Response: {response:?}");
         if let Some(Ok(body)) = response.into_body().data().await {
-            println!("RPC Body:\n{:}", String::from_utf8_lossy(&body));
+            tracing::debug!("RPC Body:\n{:}", String::from_utf8_lossy(&body));
         }
 
         // Delete plugin file.
         if let Err(e) = tokio::fs::remove_file(self.metrics_path).await {
-            println!("Unable to remove plugin file: {e}");
+            tracing::warn!("Unable to remove plugin file: {e}");
         }
     }
 }

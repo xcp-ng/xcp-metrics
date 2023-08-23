@@ -1,18 +1,30 @@
 #[cfg(test)]
 mod test;
 
-use std::time::Duration;
+use std::collections::HashMap;
 
+use clap::Parser;
 use maplit::hashmap;
-use tokio::time;
+
 use xcp_metrics_common::metrics::{MetricType, MetricValue, NumberValue};
 use xcp_metrics_plugin_common::{
-    protocol_v3::{
-        utils::{SimpleMetric, SimpleMetricFamily, SimpleMetricSet},
-        MetricsPlugin,
-    },
+    protocol_v3::utils::{SimpleMetric, SimpleMetricFamily, SimpleMetricSet},
+    run::{run_hybrid, XcpPlugin},
     xenstore::xs::{XBTransaction, Xs, XsOpenFlags, XsTrait},
 };
+
+/// xcp-metrics Squeezed plugin.
+#[derive(Clone, Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    /// Target daemon.
+    #[arg(short, long, default_value_t = String::from("xcp-metrics"))]
+    target: String,
+
+    /// Used protocol
+    #[arg(short, long, default_value_t = 2)]
+    protocol: u32,
+}
 
 #[derive(Debug, PartialEq)]
 pub struct SqueezedInfo {
@@ -78,55 +90,74 @@ impl SqueezedInfo {
     }
 }
 
-fn generate_metrics<XS: XsTrait>(xs: &XS) -> anyhow::Result<SimpleMetricSet> {
-    let SqueezedInfo {
-        reclaimed,
-        reclaimed_max,
-    } = SqueezedInfo::get(xs)?;
+pub struct SqueezedPlugin<XS: XsTrait> {
+    xs: XS,
+}
 
-    Ok(SimpleMetricSet {
-        families: hashmap! {
-        "memory_reclaimed".into() =>
-            SimpleMetricFamily {
-                metric_type: MetricType::Gauge,
-                unit: "B".into(),
-                help: "Host memory reclaimed by squeezed".into(),
-                metrics: vec![SimpleMetric {
-                    labels: vec![],
-                    // KiB to Bytes
-                    value: MetricValue::Gauge(NumberValue::Int64((reclaimed * 1024) as _)),
-                }],
+impl<XS: XsTrait> XcpPlugin for SqueezedPlugin<XS> {
+    fn update(&mut self) {}
+
+    fn generate_metrics(&mut self) -> SimpleMetricSet {
+        let Ok(SqueezedInfo {
+            reclaimed,
+            reclaimed_max,
+        }) = SqueezedInfo::get(&self.xs) else {
+            // No data
+            tracing::warn!("No /local/domain found");
+            return SimpleMetricSet {
+                families: hashmap!{},
+            };
+        };
+
+        SimpleMetricSet {
+            families: hashmap! {
+            "memory_reclaimed".into() =>
+                SimpleMetricFamily {
+                    metric_type: MetricType::Gauge,
+                    unit: "B".into(),
+                    help: "Host memory reclaimed by squeezed".into(),
+                    metrics: vec![SimpleMetric {
+                        labels: vec![],
+                        // KiB to Bytes
+                        value: MetricValue::Gauge(NumberValue::Int64((reclaimed * 1024) as _)),
+                    }],
+                },
+            "memory_reclaimed_max".into() =>
+                SimpleMetricFamily {
+                    metric_type: MetricType::Gauge,
+                    unit: "B".into(),
+                    help: "Host memory that could be reclaimed by squeezed".into(),
+                    metrics: vec![SimpleMetric {
+                        labels: vec![],
+                        // KiB to Bytes
+                        value: MetricValue::Gauge(NumberValue::Int64((reclaimed_max * 1024) as _)),
+                    }],
+                }
             },
-        "memory_reclaimed_max".into() =>
-            SimpleMetricFamily {
-                metric_type: MetricType::Gauge,
-                unit: "B".into(),
-                help: "Host memory that could be reclaimed by squeezed".into(),
-                metrics: vec![SimpleMetric {
-                    labels: vec![],
-                    // KiB to Bytes
-                    value: MetricValue::Gauge(NumberValue::Int64((reclaimed_max * 1024) as _)),
-                }],
-            }
-        },
-    })
+        }
+    }
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    let xs = Xs::new(XsOpenFlags::ReadOnly).map_err(|e| anyhow::anyhow!("{e}"))?;
+async fn main() {
+    let args = Args::parse();
 
-    let plugin = MetricsPlugin::new(
+    let xs = match Xs::new(XsOpenFlags::ReadOnly) {
+        Ok(xs) => xs,
+        Err(e) => {
+            tracing::error!("Unable to initialize XenStore {e}");
+            return;
+        }
+    };
+
+    let plugin = SqueezedPlugin { xs };
+
+    run_hybrid(
+        plugin,
+        HashMap::default(),
         "xcp-metrics-plugin-squeezed",
-        generate_metrics(&xs)?.into(),
-        None,
+        Some(&args.target),
+        args.protocol,
     )
-    .await?;
-
-    loop {
-        // Fetch and push new metrics.
-        plugin.update(generate_metrics(&xs)?.into()).await.unwrap();
-
-        time::sleep(Duration::from_secs(1)).await;
-    }
+    .await;
 }

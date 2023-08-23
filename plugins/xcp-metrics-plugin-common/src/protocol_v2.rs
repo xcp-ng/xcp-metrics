@@ -30,7 +30,7 @@ impl RrddPlugin {
         initial_values: Option<&[DataSourceValue]>,
         target_daemon: Option<&str>,
     ) -> anyhow::Result<Self> {
-        let (header, metadata_str) = Self::generate_initial_header(metadata, initial_values)?;
+        let (header, metadata_str) = Self::generate_initial_header(metadata, initial_values);
 
         let plugin = Self {
             uid: uid.into(),
@@ -40,7 +40,12 @@ impl RrddPlugin {
         };
 
         plugin.reset_file(Some(&metadata_str)).await?;
-        plugin.advertise_plugin().await?;
+        plugin.advertise_plugin().await.map_err(|e| {
+            anyhow::anyhow!(
+                "Can't reach '{}' daemon ({e})",
+                target_daemon.unwrap_or("default")
+            )
+        })?;
 
         Ok(plugin)
     }
@@ -70,9 +75,9 @@ impl RrddPlugin {
         )
         .await?;
 
-        println!("RPC Response: {response:?}");
+        tracing::debug!("RPC Response: {response:?}");
         if let Some(Ok(body)) = response.into_body().data().await {
-            println!("RPC Body:\n{:}", String::from_utf8_lossy(&body));
+            tracing::debug!("RPC Body:\n{:}", String::from_utf8_lossy(&body));
         }
 
         Ok(())
@@ -88,7 +93,7 @@ impl RrddPlugin {
         initial_values: Option<&[DataSourceValue]>,
     ) -> anyhow::Result<()> {
         let (header, metadata_str) =
-            Self::generate_initial_header(metadata.clone(), initial_values)?;
+            Self::generate_initial_header(metadata.clone(), initial_values);
 
         self.header = header;
         self.reset_file(Some(&metadata_str)).await
@@ -119,19 +124,19 @@ impl RrddPlugin {
     fn generate_initial_header(
         metadata: RrddMetadata,
         initial_values: Option<&[DataSourceValue]>,
-    ) -> anyhow::Result<(RrddMessageHeader, Box<str>)> {
+    ) -> (RrddMessageHeader, Box<str>) {
         let raw_values = if let Some(init) = initial_values {
             values_to_raw(init)
         } else {
             vec![[0; 8]; metadata.datasources.len()].into_boxed_slice()
         };
 
-        Ok(RrddMessageHeader::generate(&raw_values, metadata))
+        RrddMessageHeader::generate(&raw_values, metadata)
     }
 
     /// Deregister the plugin from the daemon.
     pub async fn deregister_plugin(self) {
-        println!("Deregistering {}...", &self.uid);
+        tracing::info!("Deregistering {}...", &self.uid);
 
         // Unregister plugin
         let request = PluginLocalDeregister {
@@ -147,9 +152,9 @@ impl RrddPlugin {
         .await
         .unwrap();
 
-        println!("RPC Response: {response:?}");
+        tracing::debug!("RPC Response: {response:?}");
         if let Some(Ok(body)) = response.into_body().data().await {
-            println!("RPC Body:\n{:}", String::from_utf8_lossy(&body));
+            tracing::debug!("RPC Body:\n{:}", String::from_utf8_lossy(&body));
         }
     }
 }

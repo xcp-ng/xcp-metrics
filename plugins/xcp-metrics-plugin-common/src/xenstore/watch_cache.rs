@@ -36,11 +36,11 @@ async fn watch_task<XS: XsTrait>(
             while let Some(entry) = stream.next().await {
                 match xs.read(XBTransaction::Null, &entry.path) {
                     Ok(value) => {
-                        println!("Readed {} = {value}", entry.path);
+                        tracing::debug!("Readed {} = {value}", entry.path);
                         cache.insert(entry.path, value);
                     }
                     Err(e) => {
-                        println!("Removed {} ({e})", entry.path);
+                        tracing::debug!("Removed {} ({e})", entry.path);
                         cache.remove(&entry.path);
                     }
                 }
@@ -53,7 +53,7 @@ async fn watch_task<XS: XsTrait>(
 
         async move {
             while let Some(to_watch) = watch_channel.recv().await {
-                println!("Watching {to_watch}");
+                tracing::debug!("Watching {to_watch}");
                 xs.watch(&to_watch, "xcp-metrics-xenstored").ok();
             }
         }
@@ -64,7 +64,7 @@ async fn watch_task<XS: XsTrait>(
 
         async move {
             while let Some(to_unwatch) = unwatch_channel.recv().await {
-                println!("Unwatching {to_unwatch}");
+                tracing::debug!("Unwatching {to_unwatch}");
                 xs.unwatch(&to_unwatch, "xcp-metrics-xenstored").ok();
                 cache.remove(&to_unwatch);
             }
