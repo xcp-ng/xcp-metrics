@@ -10,7 +10,6 @@ fn test_no_vm() {
     // No virtual machine : all 0
     let xs = MockXs::default();
 
-    xs.write(XBTransaction::Null, "/local", "").unwrap();
     xs.write(XBTransaction::Null, "/local/domain", "").unwrap();
 
     assert_eq!(
@@ -26,12 +25,6 @@ fn test_no_vm() {
 fn test_single_vm() {
     let xs = MockXs::default();
 
-    xs.write(XBTransaction::Null, "/local", "").unwrap();
-    xs.write(XBTransaction::Null, "/local/domain", "").unwrap();
-    xs.write(XBTransaction::Null, "/local/domain/0", "")
-        .unwrap();
-    xs.write(XBTransaction::Null, "/local/domain/0/memory/", "")
-        .unwrap();
     xs.write(
         XBTransaction::Null,
         "/local/domain/0/memory/target",
@@ -56,6 +49,59 @@ fn test_single_vm() {
         SqueezedInfo {
             reclaimed: 530865,
             reclaimed_max: 123456
+        }
+    );
+}
+
+#[test]
+fn test_multiple_vm() {
+    let xs = MockXs::default();
+
+    xs.write(
+        XBTransaction::Null,
+        "/local/domain/0/memory/target",
+        "123456",
+    )
+    .unwrap();
+    xs.write(
+        XBTransaction::Null,
+        "/local/domain/0/memory/dynamic-min",
+        "0",
+    )
+    .unwrap();
+    xs.write(
+        XBTransaction::Null,
+        "/local/domain/0/memory/dynamic-max",
+        "654321",
+    )
+    .unwrap();
+
+    // Consider missing domain 1.
+
+    xs.write(
+        XBTransaction::Null,
+        "/local/domain/2/memory/target",
+        "111111",
+    )
+    .unwrap();
+    xs.write(
+        XBTransaction::Null,
+        "/local/domain/2/memory/dynamic-min",
+        "0",
+    )
+    .unwrap();
+    xs.write(
+        XBTransaction::Null,
+        "/local/domain/2/memory/dynamic-max",
+        "999999",
+    )
+    .unwrap();
+
+    assert_eq!(
+        SqueezedInfo::get(&xs).unwrap(),
+        SqueezedInfo {
+            reclaimed: 530865 + 888888,
+            reclaimed_max: 123456 + 111111
         }
     );
 }
