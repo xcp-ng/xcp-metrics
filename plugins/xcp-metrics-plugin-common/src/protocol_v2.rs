@@ -59,7 +59,7 @@ impl RrddPlugin {
         let request = PluginLocalRegister {
             info: "Five_Seconds".into(),
             protocol: "V2".into(),
-            uid: (*self.uid).into(),
+            uid: self.uid.to_string(),
         };
 
         let response = xapi::send_xmlrpc_at(
