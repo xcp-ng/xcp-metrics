@@ -6,7 +6,7 @@ use xcp_metrics_plugin_common::xenstore::{
 use crate::SqueezedInfo;
 
 #[test]
-fn test_no_vm() {
+fn no_vm() {
     // No virtual machine : all 0
     let xs = MockXs::default();
 
@@ -22,7 +22,7 @@ fn test_no_vm() {
 }
 
 #[test]
-fn test_single_vm() {
+fn single_vm() {
     let xs = MockXs::default();
 
     xs.write(
@@ -54,7 +54,7 @@ fn test_single_vm() {
 }
 
 #[test]
-fn test_multiple_vm() {
+fn multiple_vm() {
     let xs = MockXs::default();
 
     xs.write(
