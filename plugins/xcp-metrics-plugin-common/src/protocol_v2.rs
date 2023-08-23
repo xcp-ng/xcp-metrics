@@ -40,12 +40,7 @@ impl RrddPlugin {
         };
 
         plugin.reset_file(Some(&metadata_str)).await?;
-        plugin.advertise_plugin().await.map_err(|e| {
-            anyhow::anyhow!(
-                "Can't reach '{}' daemon ({e})",
-                target_daemon.unwrap_or("default")
-            )
-        })?;
+        plugin.advertise_plugin().await?;
 
         Ok(plugin)
     }
@@ -73,7 +68,8 @@ impl RrddPlugin {
             &request,
             &self.uid, /* use uid as user-agent */
         )
-        .await?;
+        .await
+        .map_err(|e| anyhow::anyhow!("Can't reach '{}' daemon ({e})", self.target_daemon))?;
 
         tracing::debug!("RPC Response: {response:?}");
         if let Some(Ok(body)) = response.into_body().data().await {
@@ -143,18 +139,28 @@ impl RrddPlugin {
             uid: self.uid.to_string(),
         };
 
-        let response = xapi::send_xmlrpc_at(
+        match xapi::send_xmlrpc_at(
             &self.target_daemon,
             "POST",
             &request,
             &self.uid, /* use uid as user-agent */
         )
         .await
-        .unwrap();
+        {
+            Ok(response) => {
+                tracing::debug!("RPC Response: {response:?}");
+                if let Some(Ok(body)) = response.into_body().data().await {
+                    tracing::debug!("RPC Body:\n{:}", String::from_utf8_lossy(&body));
+                }
+            }
+            Err(e) => {
+                tracing::error!("Unable to unregister plugin ({e})")
+            }
+        }
 
-        tracing::debug!("RPC Response: {response:?}");
-        if let Some(Ok(body)) = response.into_body().data().await {
-            tracing::debug!("RPC Body:\n{:}", String::from_utf8_lossy(&body));
+        // Delete plugin file.
+        if let Err(e) = tokio::fs::remove_file(self.metrics_path).await {
+            tracing::warn!("Unable to remove plugin file: {e}");
         }
     }
 }

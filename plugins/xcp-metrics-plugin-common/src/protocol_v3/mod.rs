@@ -67,7 +67,8 @@ impl MetricsPlugin {
             &request,
             &self.uid, /* use uid as user-agent */
         )
-        .await?;
+        .await
+        .map_err(|e| anyhow::anyhow!("Can't reach '{}' daemon ({e})", self.target_daemon))?;
 
         tracing::debug!("RPC Response: {response:?}");
         if let Some(Ok(body)) = response.into_body().data().await {
@@ -79,25 +80,30 @@ impl MetricsPlugin {
 
     /// Deregister the plugin from the daemon.
     pub async fn deregister_plugin(self) {
-        tracing::debug!("Deregistering {}...", &self.uid);
+        tracing::info!("Deregistering {}...", &self.uid);
 
         // Unregister plugin
         let request = PluginLocalDeregister {
             uid: self.uid.to_string(),
         };
 
-        let response = xapi::send_xmlrpc_at(
+        match xapi::send_xmlrpc_at(
             &self.target_daemon,
             "POST",
             &request,
             &self.uid, /* use uid as user-agent */
         )
         .await
-        .unwrap();
-
-        tracing::debug!("RPC Response: {response:?}");
-        if let Some(Ok(body)) = response.into_body().data().await {
-            tracing::debug!("RPC Body:\n{:}", String::from_utf8_lossy(&body));
+        {
+            Ok(response) => {
+                tracing::debug!("RPC Response: {response:?}");
+                if let Some(Ok(body)) = response.into_body().data().await {
+                    tracing::debug!("RPC Body:\n{:}", String::from_utf8_lossy(&body));
+                }
+            }
+            Err(e) => {
+                tracing::error!("Unable to unregister plugin ({e})")
+            }
         }
 
         // Delete plugin file.
