@@ -38,4 +38,4 @@ xcp-metrics-plugin-squeezed is meant as a drop-in replacecement for
 rrdp-squeezed, as a first Rust-written brick for XAPI.
 
 EOF
-git commit -F - --author=Teddy
+git commit -S -F - --author=Teddy
