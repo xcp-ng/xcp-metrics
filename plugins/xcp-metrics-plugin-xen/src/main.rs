@@ -20,7 +20,7 @@ struct Args {
     log_level: tracing::Level,
 
     /// Target daemon.
-    #[arg(short, long, default_value_t = String::from("xcp-metrics"))]
+    #[arg(short, long, default_value_t = String::from("xcp-rrdd"))]
     target: String,
 
     /// Used protocol
