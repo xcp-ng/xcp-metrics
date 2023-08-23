@@ -15,6 +15,10 @@ use xcp_metrics_plugin_common::{
 #[derive(Clone, Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
+    /// Logging level
+    #[arg(short, long, default_value_t = tracing::Level::INFO)]
+    log_level: tracing::Level,
+
     /// Target daemon.
     #[arg(short, long, default_value_t = String::from("xcp-metrics"))]
     target: String,
@@ -78,6 +82,14 @@ fn generate_mappings() -> HashMap<Box<str>, CustomMapping> {
 #[tokio::main]
 async fn main() {
     let args = Args::parse();
+
+    let text_subscriber = tracing_subscriber::fmt()
+        .with_ansi(true)
+        .with_max_level(args.log_level)
+        .compact()
+        .finish();
+
+    tracing::subscriber::set_global_default(text_subscriber).unwrap();
 
     let xc = Rc::new(xenctrl::XenControl::default().unwrap());
 
