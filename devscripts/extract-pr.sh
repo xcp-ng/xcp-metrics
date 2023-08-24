@@ -17,6 +17,8 @@ CONTENTS="
   .gitignore
   .github
   LICENSE
+  devscripts/gen-tarball.sh
+  devscripts/gen-vendor-tarball.sh
 "
 
 # new branch for initial commit
