@@ -3,7 +3,10 @@ mod methods {
     use serde::{Deserialize, Serialize};
 
     use crate::{
-        rpc::{message::RpcRequest, parse_method_jsonrpc, parse_method_xmlrpc, XcpRpcMethod},
+        rpc::{
+            message::{RpcKind, RpcRequest},
+            write_method_jsonrpc, write_method_xmlrpc,
+        },
         rpc_method,
     };
 
@@ -31,11 +34,10 @@ mod methods {
             another_struct: AnotherStruct { value: 123 },
         };
 
-        let mut xml_buffer = vec![];
-        test_method.write_xmlrpc(&mut xml_buffer).unwrap();
+        let mut xml = vec![];
+        write_method_xmlrpc(&mut xml, &test_method).unwrap();
 
-        let xml = String::from_utf8(xml_buffer).unwrap();
-        let request = RpcRequest::XmlRpc(parse_method_xmlrpc(&xml).unwrap());
+        let request = RpcRequest::parse(&xml, RpcKind::XmlRpc).unwrap();
 
         assert_eq!(
             request.try_into_method::<TestRpcMethod>().unwrap(),
@@ -52,11 +54,10 @@ mod methods {
             another_struct: AnotherStruct { value: 123 },
         };
 
-        let mut jsonrpc_buffer = vec![];
-        test_method.write_jsonrpc(&mut jsonrpc_buffer).unwrap();
+        let mut json = vec![];
+        write_method_jsonrpc(&mut json, &test_method).unwrap();
 
-        let json = String::from_utf8(jsonrpc_buffer).unwrap();
-        let request = RpcRequest::JsonRpc(parse_method_jsonrpc(&json).unwrap());
+        let request = RpcRequest::parse(&json, RpcKind::JsonRpc).unwrap();
 
         assert_eq!(
             request.try_into_method::<TestRpcMethod>().unwrap(),

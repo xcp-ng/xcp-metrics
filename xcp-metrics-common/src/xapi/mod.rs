@@ -1,5 +1,5 @@
 //! XAPI utilities
-use crate::rpc::XcpRpcMethod;
+use crate::rpc::{write_method_jsonrpc, write_method_xmlrpc, XcpRpcMethod};
 use std::{path::PathBuf, str::FromStr};
 
 pub const XAPI_SOCKET_PATH: &str = "/var/lib/xcp";
@@ -26,7 +26,7 @@ pub async fn send_xmlrpc_at<M: XcpRpcMethod>(
     let module_uri = hyperlocal::Uri::new(get_module_path(name), "/");
 
     let mut rpc = vec![];
-    rpc_method.write_xmlrpc(&mut rpc)?;
+    write_method_xmlrpc(&mut rpc, rpc_method)?;
 
     let request = hyper::Request::builder()
         .uri(hyper::Uri::from(module_uri))
@@ -52,12 +52,8 @@ pub async fn send_jsonrpc_at<M: XcpRpcMethod>(
 ) -> anyhow::Result<hyper::Response<hyper::Body>> {
     let module_uri = hyperlocal::Uri::new(get_module_path(name), "/");
 
-    let mut rpc_buffer = vec![];
-    rpc_method.write_jsonrpc(&mut rpc_buffer)?;
-
-    let rpc = String::from_utf8(rpc_buffer)?;
-
-    println!("{rpc:?}");
+    let mut rpc = vec![];
+    write_method_jsonrpc(&mut rpc, rpc_method)?;
 
     let request = hyper::Request::builder()
         .uri(hyper::Uri::from(module_uri))
@@ -66,7 +62,7 @@ pub async fn send_jsonrpc_at<M: XcpRpcMethod>(
         .header("content-length", rpc.len())
         .header("content-type", "application/json-rpc")
         .header("host", "localhost")
-        .body(rpc)?;
+        .body(body::Body::from(rpc))?;
 
     Ok(hyper::Client::builder()
         .build(hyperlocal::UnixConnector)

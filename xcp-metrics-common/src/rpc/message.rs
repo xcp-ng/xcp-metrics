@@ -1,7 +1,42 @@
+use std::{fmt::Display, io::Write, str::FromStr};
+
 use hyper::{body::HttpBody, Body, Request, Response};
 use serde::Serialize;
 
-use crate::rpc::{parse_method_jsonrpc, parse_method_xmlrpc, XcpRpcMethod};
+use super::xml::write_xml;
+use crate::rpc::XcpRpcMethod;
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum RpcKind {
+    #[default]
+    XmlRpc,
+    JsonRpc,
+}
+
+impl Display for RpcKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                RpcKind::XmlRpc => "XML-RPC",
+                RpcKind::JsonRpc => "JSON-RPC",
+            }
+        )
+    }
+}
+
+impl FromStr for RpcKind {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "xml" => Ok(Self::XmlRpc),
+            "json" => Ok(Self::JsonRpc),
+            _ => Err("Unknown RPC format".to_string()),
+        }
+    }
+}
 
 /// A RPC request that can be either in XML-RPC or JSON-RPC format.
 #[derive(Debug, Clone)]
@@ -10,7 +45,7 @@ pub enum RpcRequest {
     JsonRpc(jsonrpc_base::Request),
 }
 
-impl std::fmt::Display for RpcRequest {
+impl Display for RpcRequest {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -27,6 +62,25 @@ impl std::fmt::Display for RpcRequest {
 // TODO: Make a structure that implements Error and that can convert to RpcError ?
 
 impl RpcRequest {
+    pub fn new<M: XcpRpcMethod>(method: &M, kind: RpcKind) -> anyhow::Result<Self> {
+        Ok(match kind {
+            RpcKind::XmlRpc => Self::XmlRpc(method.to_xmlrpc()?),
+            RpcKind::JsonRpc => Self::JsonRpc(method.to_jsonrpc()?),
+        })
+    }
+
+    /// Parse the RPC request.
+    pub fn parse(data: &[u8], kind: RpcKind) -> anyhow::Result<Self> {
+        Ok(match kind {
+            RpcKind::XmlRpc => {
+                let s = std::str::from_utf8(data)?;
+
+                quick_xml::de::from_str(s).map(RpcRequest::XmlRpc)?
+            }
+            RpcKind::JsonRpc => serde_json::from_slice(data).map(RpcRequest::JsonRpc)?,
+        })
+    }
+
     /// Deserialize the inner RPC method into a XCP RPC method.
     pub fn try_into_method<T: XcpRpcMethod>(self) -> Option<T> {
         match self {
@@ -34,9 +88,7 @@ impl RpcRequest {
             RpcRequest::JsonRpc(request) => T::try_from_jsonrpc(request),
         }
     }
-}
 
-impl RpcRequest {
     /// Get the name of the inner RPC request.
     pub fn get_name(&self) -> &str {
         match self {
@@ -45,39 +97,51 @@ impl RpcRequest {
         }
     }
 
+    /// Write the serialized RPC request to `writer`.
+    pub fn write<W: Write>(&self, writer: &mut W) -> anyhow::Result<()> {
+        Ok(match self {
+            RpcRequest::XmlRpc(method) => write_xml(writer, method)?,
+            RpcRequest::JsonRpc(request) => serde_json::to_writer(writer, request)?,
+        })
+    }
+
     /// Parse a RPC request from a http request (either XML-RPC or JSON-RPC).
-    pub async fn from_http(req: Request<Body>) -> Result<Self, anyhow::Error> {
-        match req
-            .headers()
-            .get("content-type")
-            .map(|header| header.to_str())
-        {
-            Some(Ok("application/json"))
-            | Some(Ok("application/json-rpc"))
-            | Some(Ok("application/jsonrequest")) => {
-                // JSON
-                // TODO: Handle chained requests ?
-
-                if let Some(Ok(bytes)) = req.into_body().data().await {
-                    let buffer = String::from_utf8(bytes.to_vec())?;
-                    parse_method_jsonrpc(&buffer).map(RpcRequest::JsonRpc)
-                } else {
-                    Err(anyhow::anyhow!("No content"))
+    pub async fn from_http(req: Request<Body>) -> anyhow::Result<Self> {
+        Ok(
+            match req
+                .headers()
+                .get("content-type")
+                .map(|header| header.to_str())
+            {
+                Some(Ok("application/json"))
+                | Some(Ok("application/json-rpc"))
+                | Some(Ok("application/jsonrequest")) => {
+                    // JSON
+                    // TODO: Handle chained requests ?
+                    Self::from_body(&mut req.into_body(), RpcKind::JsonRpc).await?
                 }
-            }
-            Some(Ok("text/xml")) | _ => {
-                // XML
-                if let Some(Ok(bytes)) = req.into_body().data().await {
-                    let buffer = bytes.to_vec();
-                    let str = String::from_utf8_lossy(&buffer);
-                    //println!("RPC: XML:\n{str}");
-
-                    parse_method_xmlrpc(&str).map(RpcRequest::XmlRpc)
-                } else {
-                    Err(anyhow::anyhow!("No content"))
+                Some(Ok("text/xml")) | _ => {
+                    // XML
+                    Self::from_body(&mut req.into_body(), RpcKind::XmlRpc).await?
                 }
-            }
+            },
+        )
+    }
+
+    /// Parse a RPC request from a http body (either XML-RPC or JSON-RPC).
+    pub async fn from_body(body: &mut Body, kind: RpcKind) -> anyhow::Result<Self> {
+        if let Some(Ok(bytes)) = body.data().await {
+            Self::parse(bytes.as_ref(), kind)
+        } else {
+            Err(anyhow::anyhow!("No content"))
         }
+    }
+
+    pub fn to_body(&self) -> anyhow::Result<Body> {
+        Ok(Body::from(match self {
+            Self::XmlRpc(response) => quick_xml::se::to_string(response)?,
+            Self::JsonRpc(response) => serde_json::to_string(response)?,
+        }))
     }
 }
 

@@ -1,42 +1,15 @@
-use std::{fmt::Display, str::FromStr};
-
 use clap::Parser;
 use tokio::io::{stdout, AsyncWriteExt};
 use xcp_metrics_common::{
-    rpc::{methods::OpenMetricsMethod, XcpRpcMethod},
+    rpc::{
+        message::RpcKind, methods::OpenMetricsMethod, write_method_jsonrpc, write_method_xmlrpc,
+    },
     xapi::{
         get_module_path,
         hyper::{self, body, Body},
         hyperlocal,
     },
 };
-
-#[derive(Clone, Debug)]
-enum RpcFormat {
-    Xml,
-    Json,
-}
-
-impl FromStr for RpcFormat {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "xml" => Ok(Self::Xml),
-            "json" => Ok(Self::Json),
-            _ => Err("Unknown RPC format".to_string()),
-        }
-    }
-}
-
-impl Display for RpcFormat {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            RpcFormat::Xml => f.write_str("XML"),
-            RpcFormat::Json => f.write_str("JSON"),
-        }
-    }
-}
 
 /// Tool to get metrics from xcp-metrics in OpenMetrics format.
 #[derive(Parser, Debug)]
@@ -47,8 +20,8 @@ struct Args {
     daemon_name: String,
 
     /// RPC format to use
-    #[arg(long, default_value_t = RpcFormat::Json)]
-    rpc_format: RpcFormat,
+    #[arg(long, default_value_t = RpcKind::JsonRpc)]
+    rpc_format: RpcKind,
 
     /// Whether to use protocol buffers binary format.
     #[arg(short, long, default_value_t = false)]
@@ -67,13 +40,13 @@ async fn main() {
     };
 
     match args.rpc_format {
-        RpcFormat::Json => method.write_jsonrpc(&mut rpc_buffer).unwrap(),
-        RpcFormat::Xml => method.write_xmlrpc(&mut rpc_buffer).unwrap(),
+        RpcKind::JsonRpc => write_method_jsonrpc(&mut rpc_buffer, &method).unwrap(),
+        RpcKind::XmlRpc => write_method_xmlrpc(&mut rpc_buffer, &method).unwrap(),
     };
 
     let content_type = match args.rpc_format {
-        RpcFormat::Json => "application/json-rpc",
-        RpcFormat::Xml => "application/xml",
+        RpcKind::JsonRpc => "application/json-rpc",
+        RpcKind::XmlRpc => "application/xml",
     };
 
     eprintln!("Sent: {}", String::from_utf8_lossy(&rpc_buffer));
