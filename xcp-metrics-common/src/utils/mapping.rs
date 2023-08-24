@@ -85,7 +85,7 @@ impl MetadataMapping for DefaultMapping {
     }
 }
 
-/// Simple yet effective that has specified min/max/default values, and use a pattern inspired of Rust formatting for metric name.
+/// Simple yet effective mapping that has specified min/max/default values, and use a pattern inspired of Rust formatting for metric name.
 ///
 /// # Pattern syntax
 ///

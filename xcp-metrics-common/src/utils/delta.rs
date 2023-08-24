@@ -1,4 +1,97 @@
-//! Utilities to track changes between two metric sets.
+/*!
+Utilities to track changes between two [MetricSet].
+
+# Usage
+```rust
+use std::time::SystemTime;
+use maplit::hashmap;
+use xcp_metrics_common::{
+    metrics::{
+        Metric, MetricFamily, MetricPoint, MetricSet, MetricType, MetricValue, NumberValue,
+    },
+    utils::delta::MetricSetModel,
+};
+
+// Generate a test metric family.
+let (test_metric_uuid, test_metric) = (
+    uuid::Uuid::new_v4(),
+    Metric {
+        labels: [].into(),
+        metrics_point: [MetricPoint {
+            value: MetricValue::Gauge(NumberValue::Double(42.0)),
+            timestamp: SystemTime::now(),
+        }]
+        .into(),
+    },
+);
+let test_family = MetricFamily {
+    metric_type: MetricType::Gauge,
+    unit: "test".into(),
+    help: "test metric family".into(),
+    metrics: hashmap! { test_metric_uuid => test_metric.clone() },
+};
+
+// Create a empty metric set and a metric set with test_family.
+let set1 = MetricSet::default();
+let set2 = MetricSet {
+    families: hashmap! { "test_family".into() => test_family.clone() },
+};
+
+// Create related models.
+let mut set1_model = MetricSetModel::from(set1.clone());
+let set2_model = MetricSetModel::from(set2.clone());
+
+// We can also create a empty model.
+let empty_model = MetricSetModel::default();
+
+// Should be the same as set1_model, as set1 is empty.
+assert_eq!(set1_model, empty_model);
+
+// Compute the differences between set1 and set2.
+let delta1 = set1_model.compute_delta(&set2);
+
+// test_family and its related metric has been added.
+assert_eq!(&delta1.added_families, &[("test_family", &test_family)]);
+assert_eq!(
+    &delta1.added_metrics,
+    &[("test_family", &test_metric, test_metric_uuid)]
+);
+
+// Nothing has been removed (empty set initially).
+assert!(&delta1.orphaned_families.is_empty());
+assert!(&delta1.removed_metrics.is_empty());
+
+// Compute the differences between set2 and set1.
+let delta2 = set2_model.compute_delta(&set1);
+
+// Nothing has been added
+assert!(delta2.added_families.is_empty());
+assert!(delta2.added_metrics.is_empty());
+
+// test_metric is removed
+assert_eq!(&delta2.removed_metrics, &[test_metric_uuid]);
+// test_family is now empty, thus 'orphaned'
+assert_eq!(&delta2.orphaned_families, &["test_family".into()]);
+
+// Update set1 model to match set2, to do this, apply delta1 (difference between set1 and set2).
+set1_model.apply_delta(&delta1);
+
+// set1 model now matches set2.
+assert_eq!(set1_model, set2_model);
+let delta_updated = set1_model.compute_delta(&set2);
+
+assert!(delta_updated.added_families.is_empty());
+assert!(delta_updated.added_metrics.is_empty());
+assert!(delta_updated.orphaned_families.is_empty());
+assert!(delta_updated.removed_metrics.is_empty());
+```
+
+# Note
+
+This module doesn't rely on [uuid::Uuid] but rather on [Label]s to compute differences between
+a [MetricSet] and the [MetricSetModel], which makes it usable to compare between [crate::openmetrics::MetricSet]
+(which have randomized [uuid::Uuid]).
+*/
 
 // TODO: Consider supporting changes in metric families metadata ?
 
@@ -38,7 +131,7 @@ pub struct MetricSetDelta<'a> {
 }
 
 /// A MetricSet model, used to compute MetricSet delta.
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, Default, Debug, PartialEq)]
 pub struct MetricSetModel {
     /// Track metrics per family and labels set.
     pub metrics_map: HashMap<(Box<str>, Box<[Label]>), uuid::Uuid>,
@@ -84,13 +177,13 @@ impl MetricSetModel {
             // Combine family name with each family metric.
             .flat_map(|(name, family)| iter::zip(iter::repeat(name), family.metrics.iter()))
             // Only consider metrics we don't have, and generate a new proper UUID.
-            .filter_map(|(name, (_, metric))| {
+            .filter_map(|(name, (&uuid, metric))| {
                 // Due to contains_key expecting a tuple, we need to provide it a proper tuple (by cloning).
                 // TODO: Find a better solution than cloning.
                 (!self
                     .metrics_map
                     .contains_key(&(name.clone(), metric.labels.clone())))
-                .then(|| (name.as_ref(), metric, uuid::Uuid::new_v4()))
+                .then(|| (name.as_ref(), metric, uuid))
             })
             .collect();
 
@@ -149,9 +242,7 @@ impl From<&MetricSet> for MetricSetModel {
             .families
             .iter()
             .flat_map(|(name, family)| iter::zip(iter::repeat(name), &family.metrics))
-            .map(|(name, (_, metric))| {
-                ((name.clone(), metric.labels.clone()), uuid::Uuid::new_v4())
-            })
+            .map(|(name, (&uuid, metric))| ((name.clone(), metric.labels.clone()), uuid))
             .collect();
 
         MetricSetModel {
