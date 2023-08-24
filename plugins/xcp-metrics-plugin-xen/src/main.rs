@@ -7,8 +7,8 @@ use std::{collections::HashMap, rc::Rc};
 
 use xcp_metrics_common::utils::mapping::CustomMapping;
 use xcp_metrics_plugin_common::{
-    protocol_v3::utils::SimpleMetricSet,
     plugin::{run_hybrid, XcpPlugin},
+    protocol_v3::utils::SimpleMetricSet,
 };
 
 /// xcp-metrics Xen plugin.

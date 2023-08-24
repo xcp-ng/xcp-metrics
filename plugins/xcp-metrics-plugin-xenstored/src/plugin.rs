@@ -2,8 +2,8 @@ use std::collections::{HashMap, HashSet};
 
 use xcp_metrics_common::metrics::{Label, MetricType, MetricValue, NumberValue};
 use xcp_metrics_plugin_common::{
-    protocol_v3::utils::{SimpleMetric, SimpleMetricFamily, SimpleMetricSet},
     plugin::XcpPlugin,
+    protocol_v3::utils::{SimpleMetric, SimpleMetricFamily, SimpleMetricSet},
     xenstore::{
         watch_cache::WatchCache,
         xs::{XBTransaction, Xs, XsOpenFlags, XsTrait},

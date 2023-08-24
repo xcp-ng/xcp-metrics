@@ -57,7 +57,7 @@ impl From<openmetrics::MetricType> for MetricType {
     }
 }
 
-/// Serialize [Label] into a [openmetrics::Label].
+/// Convert a [Label] into a [openmetrics::Label].
 impl From<Label> for openmetrics::Label {
     fn from(Label(name, value): Label) -> Self {
         Self {
@@ -378,7 +378,7 @@ impl From<openmetrics::MetricPoint> for MetricPoint {
     }
 }
 
-/// Serialize [Metric] into a [openmetrics::Metric].
+/// Convert a [Metric] to a [openmetrics::Metric].
 impl From<Metric> for openmetrics::Metric {
     fn from(
         Metric {
@@ -411,7 +411,7 @@ impl From<openmetrics::Metric> for Metric {
     }
 }
 
-/// Serialize [MetricSet] into a [openmetrics::MetricSet].
+/// Convert a [MetricSet] into a [openmetrics::MetricSet].
 impl From<MetricSet> for openmetrics::MetricSet {
     fn from(MetricSet { families }: MetricSet) -> Self {
         Self {

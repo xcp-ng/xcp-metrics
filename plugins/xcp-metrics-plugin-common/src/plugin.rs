@@ -95,7 +95,11 @@ pub async fn run_plugin_v2(
     }
 }
 
-pub async fn run_plugin_v3(mut shared: impl XcpPlugin, plugin_name: &str, target_daemon: Option<&str>) {
+pub async fn run_plugin_v3(
+    mut shared: impl XcpPlugin,
+    plugin_name: &str,
+    target_daemon: Option<&str>,
+) {
     tracing::info!("Running protocol v3 plugin: {plugin_name}");
     // Expose protocol v3
     // NOTE: some could be undefined values
