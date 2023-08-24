@@ -210,7 +210,7 @@ fn write_metric<W: Write>(writer: &mut W, name: &str, metric: &Metric) -> Result
                         "{name}{{{formatted_labels}{}{}}} {}",
                         if metric.labels.is_empty() { "" } else { "," },
                         format_label(name, &state.name),
-                        Into::<u32>::into(state.enabled)
+                        u32::from(state.enabled)
                     )?;
                 }
             }

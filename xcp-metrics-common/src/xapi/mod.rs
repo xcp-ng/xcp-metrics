@@ -29,7 +29,7 @@ pub async fn send_xmlrpc_at<M: XcpRpcMethod>(
     rpc_method.write_xmlrpc(&mut rpc)?;
 
     let request = hyper::Request::builder()
-        .uri(Into::<hyper::Uri>::into(module_uri))
+        .uri(hyper::Uri::from(module_uri))
         .method(http_method)
         .header("User-agent", user_agent)
         .header("content-length", rpc.len())
@@ -60,7 +60,7 @@ pub async fn send_jsonrpc_at<M: XcpRpcMethod>(
     println!("{rpc:?}");
 
     let request = hyper::Request::builder()
-        .uri(Into::<hyper::Uri>::into(module_uri))
+        .uri(hyper::Uri::from(module_uri))
         .method(http_method)
         .header("User-agent", user_agent)
         .header("content-length", rpc.len())

@@ -271,7 +271,7 @@ impl RrddMessageHeader {
             .collect();
 
         let metadata_length =
-            u32::from_be_bytes(TryInto::<[u8; 4]>::try_into(metadata_length_buffer).unwrap());
+            u32::from_be_bytes(<[u8; 4]>::try_from(metadata_length_buffer).unwrap());
 
         Ok((values, metadata_length))
     }

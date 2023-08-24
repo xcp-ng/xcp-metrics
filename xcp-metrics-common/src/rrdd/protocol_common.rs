@@ -196,7 +196,7 @@ impl Serialize for DataSourceMetadata {
     where
         S: serde::Serializer,
     {
-        Into::<DataSourceMetadataRaw>::into(self).serialize(serializer)
+        DataSourceMetadataRaw::from(self).serialize(serializer)
     }
 }
 
