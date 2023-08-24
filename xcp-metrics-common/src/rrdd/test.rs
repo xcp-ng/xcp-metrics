@@ -7,6 +7,8 @@ use indexmap::indexmap;
 
 use crate::rrdd::protocol_v2::{RrddMessageHeader, RrddMetadata, RrddMetadataRaw};
 
+use super::{protocol_common::DataSourceValue, protocol_v2::values_to_raw};
+
 /// Check if metadata stays the same after being encoded then decoded.
 #[test]
 fn metadata_invariance() {
@@ -86,4 +88,21 @@ fn invariance_async() {
 
             assert_eq!(metadata, metadata_readed);
         });
+}
+
+#[test]
+fn test_values_to_raw() {
+    let values = [
+        DataSourceValue::Float(123.0),
+        DataSourceValue::Int64(0),
+        DataSourceValue::Int64(1),
+        DataSourceValue::Undefined,
+    ];
+
+    let raw = values_to_raw(&values);
+
+    assert_eq!(
+        raw.as_ref(),
+        &[123.0f64.to_be_bytes(), [0; 8], 1i64.to_be_bytes(), [0; 8]]
+    );
 }
