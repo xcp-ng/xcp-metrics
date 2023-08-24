@@ -102,7 +102,7 @@ impl RpcResponse {
             Self::JsonRpc(_) => builder.header("content-type", "application/json"),
         };
 
-        Ok(builder.body(response.into_body()?)?)
+        Ok(builder.body(response.to_body()?)?)
     }
 
     /// Make a RPC response object with `message` for some RPC request.
@@ -120,10 +120,10 @@ impl RpcResponse {
         })
     }
 
-    pub fn into_body(self) -> anyhow::Result<Body> {
+    pub fn to_body(&self) -> anyhow::Result<Body> {
         Ok(Body::from(match self {
-            Self::XmlRpc(response) => quick_xml::se::to_string(&response)?,
-            Self::JsonRpc(response) => serde_json::to_string(&response)?,
+            Self::XmlRpc(response) => quick_xml::se::to_string(response)?,
+            Self::JsonRpc(response) => serde_json::to_string(response)?,
         }))
     }
 }
@@ -151,7 +151,7 @@ impl RpcError {
             Self::JsonRpc(_) => builder.header("content-type", "application/json"),
         };
 
-        Ok(builder.body(response.into_body()?)?)
+        Ok(builder.body(response.to_body()?)?)
     }
 
     /// Make a RPC error object with `code`, `message` and optional data for some RPC request.
@@ -178,10 +178,10 @@ impl RpcError {
         })
     }
 
-    pub fn into_body(self) -> anyhow::Result<Body> {
+    pub fn to_body(&self) -> anyhow::Result<Body> {
         Ok(Body::from(match self {
-            Self::XmlRpc(response) => quick_xml::se::to_string(&response)?,
-            Self::JsonRpc(response) => serde_json::to_string(&response)?,
+            Self::XmlRpc(response) => quick_xml::se::to_string(response)?,
+            Self::JsonRpc(response) => serde_json::to_string(response)?,
         }))
     }
 }
