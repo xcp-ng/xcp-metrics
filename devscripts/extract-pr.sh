@@ -1,6 +1,7 @@
 #!/bin/sh
 set -e
 
+SOURCEBRANCH="ydi/upstream-xenstore-rs"
 TARGETBRANCH="$1"
 
 CRATES="
@@ -24,7 +25,7 @@ CONTENTS="
 # new branch for initial commit
 git switch --orphan "$TARGETBRANCH"
 # with specified contents
-git restore -WS --source="main" $CONTENTS
+git restore -WS --source="$SOURCEBRANCH" $CONTENTS
 
 # and only specified crates in workspace
 sed -E -i Cargo.toml -e '/^[^ ]/ p

@@ -23,8 +23,7 @@ version = "0.3"
 optional = true
 
 [dependencies.xenstore-rs]
-git = "https://github.com/tsnake41/xenstore-rs"
-branch = "xs_watch"
+version = "0.3.2"
 optional = true
 
 [features]
