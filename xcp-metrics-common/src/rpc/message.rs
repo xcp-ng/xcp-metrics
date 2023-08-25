@@ -3,7 +3,7 @@ use std::{fmt::Display, io::Write, str::FromStr};
 use hyper::{body::HttpBody, Body, Request, Response};
 use serde::Serialize;
 
-use super::xml::write_xml;
+use super::xml::{write_xml, xml_to_string};
 use crate::rpc::XcpRpcMethod;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -139,7 +139,7 @@ impl RpcRequest {
 
     pub fn to_body(&self) -> anyhow::Result<Body> {
         Ok(Body::from(match self {
-            Self::XmlRpc(response) => quick_xml::se::to_string(response)?,
+            Self::XmlRpc(response) => xml_to_string(response)?,
             Self::JsonRpc(response) => serde_json::to_string(response)?,
         }))
     }
@@ -186,7 +186,7 @@ impl RpcResponse {
 
     pub fn to_body(&self) -> anyhow::Result<Body> {
         Ok(Body::from(match self {
-            Self::XmlRpc(response) => quick_xml::se::to_string(response)?,
+            Self::XmlRpc(response) => xml_to_string(response)?,
             Self::JsonRpc(response) => serde_json::to_string(response)?,
         }))
     }
@@ -244,7 +244,7 @@ impl RpcError {
 
     pub fn to_body(&self) -> anyhow::Result<Body> {
         Ok(Body::from(match self {
-            Self::XmlRpc(response) => quick_xml::se::to_string(response)?,
+            Self::XmlRpc(fault) => xml_to_string(fault)?,
             Self::JsonRpc(response) => serde_json::to_string(response)?,
         }))
     }
