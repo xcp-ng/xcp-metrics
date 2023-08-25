@@ -291,3 +291,50 @@ impl RpcError {
         }))
     }
 }
+
+impl Display for RpcError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RpcError::XmlRpc(response) => match dxr::Fault::try_from(response.clone()) {
+                Ok(fault) => write!(f, "XML-RPC: Fault {} ({})", fault.string(), fault.code()),
+                Err(err) => {
+                    write!(f, "XML-RPC: DXR error {err}")
+                }
+            },
+            RpcError::JsonRpc(response) => match &response.error {
+                Some(error) => write!(f, "{error} ({})", response.id),
+                None => write!(f, "JSON-RPC: error id {}", response.id),
+            },
+        }
+    }
+}
+
+impl std::error::Error for RpcError {}
+
+fn make_rpc_error(code: i32, message: String, kind: RpcKind) -> RpcError {
+    match kind {
+        RpcKind::XmlRpc => RpcError::XmlRpc(dxr::Fault::new(code, message).into()),
+        RpcKind::JsonRpc => RpcError::JsonRpc(jsonrpc_base::Response::ok(
+            serde_json::Value::Null,
+            serde_json::to_value(jsonrpc_base::Error {
+                code,
+                message,
+                data: None,
+            })
+            .unwrap_or(serde_json::Value::Null),
+        )),
+    }
+}
+
+/// Parse a RPC response, report a RpcError on failure.
+pub fn parse_rpc_response(data: &[u8], kind: RpcKind) -> Result<RpcResponse, RpcError> {
+    // Try to parse as RpcResponse.
+    RpcResponse::parse(data, kind)
+        // Retry as RpcError
+        .map_err(|_| {
+            RpcError::parse(data, kind).unwrap_or_else(|err| {
+                // Other parse error
+                make_rpc_error(-32700, format!("Unable to parse RPC response: {err}"), kind)
+            })
+        })
+}
