@@ -8,7 +8,7 @@ use tokio::{
     task::{self, JoinHandle},
 };
 
-use super::xs::{XBTransaction, XsTrait};
+use super::{watch::XsWatch, xs::XBTransaction};
 
 /// A Xs watch cache that passively update values.
 pub struct WatchCache {
@@ -18,7 +18,7 @@ pub struct WatchCache {
     unwatch_channel: mpsc::UnboundedSender<String>,
 }
 
-async fn watch_task<XS: XsTrait>(
+async fn watch_task<XS: XsWatch>(
     xs: XS,
     cache: Arc<DashMap<String, String>>,
     mut watch_channel: mpsc::UnboundedReceiver<String>,
@@ -79,7 +79,7 @@ async fn watch_task<XS: XsTrait>(
 }
 
 impl WatchCache {
-    pub fn new<XS: XsTrait>(xs: XS) -> Self {
+    pub fn new<XS: XsWatch>(xs: XS) -> Self {
         let cache = Arc::new(DashMap::new());
         let (watch_sender, watch_receiver) = mpsc::unbounded_channel();
         let (unwatch_sender, unwatch_receiver) = mpsc::unbounded_channel();

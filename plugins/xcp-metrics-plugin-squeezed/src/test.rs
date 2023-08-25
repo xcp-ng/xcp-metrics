@@ -1,7 +1,4 @@
-use xcp_metrics_plugin_common::xenstore::{
-    mock::MockXs,
-    xs::{XBTransaction, XsTrait},
-};
+use xcp_metrics_plugin_common::xenstore::{mock::MockXs, write::XsWrite, xs::XBTransaction};
 
 use crate::SqueezedInfo;
 

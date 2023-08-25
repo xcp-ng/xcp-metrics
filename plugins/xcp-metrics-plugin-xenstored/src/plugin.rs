@@ -6,11 +6,11 @@ use xcp_metrics_plugin_common::{
     protocol_v3::utils::{SimpleMetric, SimpleMetricFamily, SimpleMetricSet},
     xenstore::{
         watch_cache::WatchCache,
-        xs::{XBTransaction, Xs, XsOpenFlags, XsTrait},
+        xs::{XBTransaction, Xs, XsOpenFlags}, watch::XsWatch,
     },
 };
 
-pub struct XenStorePlugin<'a, XS: XsTrait> {
+pub struct XenStorePlugin<'a, XS: XsWatch> {
     watch_cache: WatchCache,
     xs: &'a XS,
 
@@ -21,7 +21,7 @@ pub struct XenStorePlugin<'a, XS: XsTrait> {
     pub vms: HashSet<String>,
 }
 
-impl<'a, XS: XsTrait> XenStorePlugin<'a, XS> {
+impl<'a, XS: XsWatch> XenStorePlugin<'a, XS> {
     pub fn new(xs: &'a XS) -> Self {
         Self {
             xs,
@@ -37,7 +37,7 @@ impl<'a, XS: XsTrait> XenStorePlugin<'a, XS> {
 static TRACKED_DOMAIN_ATTRIBUTES: &[&str] = &["memory/target", "vm"];
 static TRACKED_VM_ATTRIBUTES: &[&str] = &["name", "uuid"];
 
-impl<XS: XsTrait> XenStorePlugin<'_, XS> {
+impl<XS: XsWatch> XenStorePlugin<'_, XS> {
     pub fn get_vm_infos(&self, vm_uuid: &str, attributes: &[&str]) -> MetricValue {
         MetricValue::Info(
             attributes
@@ -198,7 +198,7 @@ impl<XS: XsTrait> XenStorePlugin<'_, XS> {
     }
 }
 
-impl<XS: XsTrait> XcpPlugin for XenStorePlugin<'_, XS> {
+impl<XS: XsWatch> XcpPlugin for XenStorePlugin<'_, XS> {
     fn update(&mut self) {
         if let Err(e) = self.update_domains() {
             tracing::warn!("Unable to get domains: {e}");

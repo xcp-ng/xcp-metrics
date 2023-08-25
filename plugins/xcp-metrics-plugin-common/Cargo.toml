@@ -13,20 +13,23 @@ xcp-metrics-common = { path = "../../xcp-metrics-common" }
 anyhow = "1.0"
 tokio = "1"
 uuid = "1.4"
-dashmap = { version = "5.5", optional = true }
-
 tracing = "0.1"
 tracing-subscriber = "0.3"
 
-[dependencies.futures]
+dashmap = "5.5"
+futures = "0.3"
+
+[dependencies.xenstore-rs]
 version = "0.3"
 optional = true
 
-[dependencies.xenstore-rs]
+[dependencies.xenstore-rs-wip]
 git = "https://github.com/tsnake41/xenstore-rs"
+package = "xenstore-rs"
 branch = "xs_watch"
 optional = true
 
 [features]
 default = []
-xenstore = ["xenstore-rs", "futures", "dashmap"]
+xenstore = ["dep:xenstore-rs"]
+xenstore-wip = ["xenstore", "dep:xenstore-rs-wip"]

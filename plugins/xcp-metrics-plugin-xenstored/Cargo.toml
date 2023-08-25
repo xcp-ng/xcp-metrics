@@ -9,7 +9,7 @@ categories.workspace = true
 
 [dependencies]
 xcp-metrics-common = { path = "../../xcp-metrics-common" }
-xcp-metrics-plugin-common = { path = "../xcp-metrics-plugin-common", features = ["xenstore"] }
+xcp-metrics-plugin-common = { path = "../xcp-metrics-plugin-common", features = ["xenstore-wip"] }
 
 uuid = "1.4"
 anyhow = "1.0"

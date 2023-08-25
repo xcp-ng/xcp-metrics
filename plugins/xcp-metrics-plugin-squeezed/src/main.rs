@@ -10,7 +10,7 @@ use xcp_metrics_common::metrics::{MetricType, MetricValue, NumberValue};
 use xcp_metrics_plugin_common::{
     plugin::{run_hybrid, XcpPlugin},
     protocol_v3::utils::{SimpleMetric, SimpleMetricFamily, SimpleMetricSet},
-    xenstore::xs::{XBTransaction, Xs, XsOpenFlags, XsTrait},
+    xenstore::{xs::{XBTransaction, Xs, XsOpenFlags}, read::XsRead},
 };
 
 /// xcp-metrics Squeezed plugin.
@@ -41,7 +41,7 @@ pub struct SqueezedInfo {
 }
 
 impl SqueezedInfo {
-    pub fn get<XS: XsTrait>(xs: &XS) -> anyhow::Result<Self> {
+    pub fn get<XS: XsRead>(xs: &XS) -> anyhow::Result<Self> {
         let (reclaimed, reclaimed_max) = xs
             // Get the list of domains.
             .directory(XBTransaction::Null, "/local/domain")?
@@ -94,11 +94,11 @@ impl SqueezedInfo {
     }
 }
 
-pub struct SqueezedPlugin<XS: XsTrait> {
+pub struct SqueezedPlugin<XS: XsRead> {
     xs: XS,
 }
 
-impl<XS: XsTrait> XcpPlugin for SqueezedPlugin<XS> {
+impl<XS: XsRead> XcpPlugin for SqueezedPlugin<XS> {
     fn update(&mut self) {}
 
     fn generate_metrics(&mut self) -> SimpleMetricSet {

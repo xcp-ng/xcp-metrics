@@ -12,7 +12,12 @@ use dashmap::{DashMap, DashSet};
 use futures::Stream;
 use tokio::sync::{mpsc, Mutex};
 
-use super::xs::{XBTransaction, XsStreamTrait, XsTrait, XsWatchEntry};
+use super::{
+    read::XsRead,
+    watch::{XsStreamTrait, XsWatch, XsWatchEntry},
+    write::XsWrite,
+    xs::XBTransaction,
+};
 
 pub struct MockXs {
     tree: DashMap<Box<str>, Box<str>>,
@@ -34,6 +39,7 @@ impl MockXs {
 
         Self {
             tree,
+
             watch_map: Default::default(),
             watch_reader: Mutex::new(reader),
             watch_sender: sender,
@@ -59,11 +65,7 @@ impl Stream for MockStream<'_> {
 
 impl<'a> XsStreamTrait<'a> for MockStream<'a> {}
 
-impl XsTrait for MockXs {
-    type XsStreamType<'a> = MockStream<'a>
-  where
-      Self: 'a;
-
+impl XsRead for MockXs {
     fn directory(&self, _: XBTransaction, path: &str) -> Result<Vec<String>, Error> {
         if self.tree.get(path).is_some() {
             let entries: Vec<String> = self
@@ -102,7 +104,9 @@ impl XsTrait for MockXs {
             .map(|entry| entry.value().to_string())
             .ok_or(Error::new(ErrorKind::NotFound, "Not found"))
     }
+}
 
+impl XsWrite for MockXs {
     fn write(&self, _: XBTransaction, path: &str, data: &str) -> Result<(), Error> {
         self.tree.insert(path.into(), data.into());
 
@@ -124,6 +128,7 @@ impl XsTrait for MockXs {
             });
 
         // Fire any related watcher
+
         for entry in self.watch_map.iter() {
             // Make sure it is either the same path or a subdirectory and not
             // a path in the same directory, with a name that has the same prefix.
@@ -145,6 +150,12 @@ impl XsTrait for MockXs {
 
         Ok(())
     }
+}
+
+impl XsWatch for MockXs {
+    type XsStreamType<'a> = MockStream<'a>
+    where
+        Self: 'a;
 
     fn watch(&self, path: &str, token: &str) -> Result<(), Error> {
         self.watch_map.insert((path.into(), token.into()));
@@ -177,6 +188,7 @@ impl XsTrait for MockXs {
 }
 
 #[test]
+
 fn test_watch() {
     let xs = MockXs::default();
 
@@ -194,6 +206,7 @@ fn test_watch() {
 }
 
 #[test]
+#[cfg(features = "xenstore-write")]
 fn test_subdirectories() {
     let xs = MockXs::default();
 
