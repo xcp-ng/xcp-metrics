@@ -1,3 +1,4 @@
+//! Various utilities to make and parse RPC requests.
 use std::{fmt::Display, io::Write, str::FromStr};
 
 use hyper::{body::HttpBody, Body, Request, Response};
@@ -6,6 +7,7 @@ use serde::Serialize;
 use super::xml::{write_xml, xml_to_string};
 use crate::rpc::XcpRpcMethod;
 
+/// A kind of RPC request.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum RpcKind {
     #[default]
@@ -31,8 +33,8 @@ impl FromStr for RpcKind {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "xml" => Ok(Self::XmlRpc),
-            "json" => Ok(Self::JsonRpc),
+            "xml" | "xmlrpc" => Ok(Self::XmlRpc),
+            "json" | "jsonrpc" => Ok(Self::JsonRpc),
             _ => Err("Unknown RPC format".to_string()),
         }
     }
@@ -59,9 +61,9 @@ impl Display for RpcRequest {
     }
 }
 
-// TODO: Make a structure that implements Error and that can convert to RpcError ?
-
 impl RpcRequest {
+    /// Create a new [RpcRequest] from a method.
+    /// Fails if the method cannot be converted to request.
     pub fn new<M: XcpRpcMethod>(method: &M, kind: RpcKind) -> anyhow::Result<Self> {
         Ok(match kind {
             RpcKind::XmlRpc => Self::XmlRpc(method.to_xmlrpc()?),
@@ -69,7 +71,7 @@ impl RpcRequest {
         })
     }
 
-    /// Parse the RPC request.
+    /// Parse the [RpcRequest].
     pub fn parse(data: &[u8], kind: RpcKind) -> anyhow::Result<Self> {
         Ok(match kind {
             RpcKind::XmlRpc => {
@@ -81,7 +83,8 @@ impl RpcRequest {
         })
     }
 
-    /// Deserialize the inner RPC method into a XCP RPC method.
+    /// Deserialize the inner request into a [XcpRpcMethod].
+    /// Fails if method doesn't match the request.
     pub fn try_into_method<T: XcpRpcMethod>(self) -> Option<T> {
         match self {
             RpcRequest::XmlRpc(method) => T::try_from_xmlrpc(method),
@@ -97,7 +100,7 @@ impl RpcRequest {
         }
     }
 
-    /// Write the serialized RPC request to `writer`.
+    /// Write the serialized [RpcRequest] to `writer`.
     pub fn write<W: Write>(&self, writer: &mut W) -> anyhow::Result<()> {
         Ok(match self {
             RpcRequest::XmlRpc(method) => write_xml(writer, method)?,
@@ -105,7 +108,7 @@ impl RpcRequest {
         })
     }
 
-    /// Parse a RPC request from a http request (either XML-RPC or JSON-RPC).
+    /// Parse a [RpcRequest] from a http request (either XML-RPC or JSON-RPC).
     pub async fn from_http(req: Request<Body>) -> anyhow::Result<Self> {
         Ok(
             match req
@@ -128,7 +131,7 @@ impl RpcRequest {
         )
     }
 
-    /// Parse a RPC request from a http body (either XML-RPC or JSON-RPC).
+    /// Parse a [RpcRequest] from a [Body].
     pub async fn from_body(body: &mut Body, kind: RpcKind) -> anyhow::Result<Self> {
         if let Some(Ok(bytes)) = body.data().await {
             Self::parse(bytes.as_ref(), kind)
@@ -137,6 +140,7 @@ impl RpcRequest {
         }
     }
 
+    /// Make a [Body] from `self`.
     pub fn to_body(&self) -> anyhow::Result<Body> {
         Ok(Body::from(match self {
             Self::XmlRpc(response) => xml_to_string(response)?,
@@ -153,7 +157,7 @@ pub enum RpcResponse {
 }
 
 impl RpcResponse {
-    /// Parse the RPC response.
+    /// Parse the [RpcResponse].
     pub fn parse(data: &[u8], kind: RpcKind) -> anyhow::Result<Self> {
         Ok(match kind {
             RpcKind::XmlRpc => {
@@ -165,7 +169,8 @@ impl RpcResponse {
         })
     }
 
-    /// Make a HTTP RPC response with `message` for some RPC request.
+    /// Make a [Response<Body>] with a `message` that respond to a [RpcRequest].
+    /// Fails if the method cannot be converted to response.
     pub fn respond_to<M>(request: &RpcRequest, message: M) -> anyhow::Result<Response<Body>>
     where
         M: Serialize + dxr::TryToValue,
@@ -181,7 +186,8 @@ impl RpcResponse {
         Ok(builder.body(response.to_body()?)?)
     }
 
-    /// Make a RPC response object with `message` for some RPC request.
+    /// Make a [RpcResponse] with `message` that respond to a [RpcRequest].
+    /// Fails if the method cannot be converted to response.
     pub fn make_response<M>(request: &RpcRequest, message: M) -> anyhow::Result<Self>
     where
         M: Serialize + dxr::TryToValue,
@@ -196,7 +202,7 @@ impl RpcResponse {
         })
     }
 
-    /// Parse a RPC request from a http body (either XML-RPC or JSON-RPC).
+    /// Parse a [RpcRequest] from a [Body].
     pub async fn from_body(body: &mut Body, kind: RpcKind) -> anyhow::Result<Self> {
         if let Some(Ok(bytes)) = body.data().await {
             Self::parse(bytes.as_ref(), kind)
@@ -205,6 +211,7 @@ impl RpcResponse {
         }
     }
 
+    /// Make a [Body] from `self`.
     pub fn to_body(&self) -> anyhow::Result<Body> {
         Ok(Body::from(match self {
             Self::XmlRpc(response) => xml_to_string(response)?,
@@ -221,7 +228,7 @@ pub enum RpcError {
 }
 
 impl RpcError {
-    /// Parse the RPC error.
+    /// Parse the [RpcError].
     pub fn parse(data: &[u8], kind: RpcKind) -> anyhow::Result<Self> {
         Ok(match kind {
             RpcKind::XmlRpc => {
@@ -233,7 +240,7 @@ impl RpcError {
         })
     }
 
-    /// Make a HTTP RPC error with `code`, `message` and optional data for some RPC request.
+    /// Make a RPC error [Response<Body>] with `code`, `message` and a optional data for some [RpcRequest].
     pub fn respond_to<D: Serialize>(
         request: Option<&RpcRequest>,
         code: i32,
@@ -251,7 +258,7 @@ impl RpcError {
         Ok(builder.body(response.to_body()?)?)
     }
 
-    /// Make a RPC error object with `code`, `message` and optional data for some RPC request.
+    /// Make a [RpcError] with `code`, `message` and optional data for some [RpcRequest].
     pub fn make_error<D: Serialize>(
         request: Option<&RpcRequest>,
         code: i32,
@@ -275,7 +282,7 @@ impl RpcError {
         })
     }
 
-    /// Parse a RPC error from a http body (either XML-RPC or JSON-RPC).
+    /// Parse a [RpcError] from a [Body].
     pub async fn from_body(body: &mut Body, kind: RpcKind) -> anyhow::Result<Self> {
         if let Some(Ok(bytes)) = body.data().await {
             Self::parse(bytes.as_ref(), kind)
@@ -284,6 +291,7 @@ impl RpcError {
         }
     }
 
+    /// Make a [Body] from `self`.
     pub fn to_body(&self) -> anyhow::Result<Body> {
         Ok(Body::from(match self {
             Self::XmlRpc(fault) => xml_to_string(fault)?,
@@ -311,7 +319,8 @@ impl Display for RpcError {
 
 impl std::error::Error for RpcError {}
 
-fn make_rpc_error(code: i32, message: String, kind: RpcKind) -> RpcError {
+/// Create a simple [RpcError].
+pub fn make_rpc_error(code: i32, message: String, kind: RpcKind) -> RpcError {
     match kind {
         RpcKind::XmlRpc => RpcError::XmlRpc(dxr::Fault::new(code, message).into()),
         RpcKind::JsonRpc => RpcError::JsonRpc(jsonrpc_base::Response::ok(
@@ -326,7 +335,8 @@ fn make_rpc_error(code: i32, message: String, kind: RpcKind) -> RpcError {
     }
 }
 
-/// Parse a RPC response, report a RpcError on failure.
+/// Parse either a [RpcResponse] or a [RpcError].
+/// Convert all internal errors to [RpcError].
 pub fn parse_rpc_response(data: &[u8], kind: RpcKind) -> Result<RpcResponse, RpcError> {
     // Try to parse as RpcResponse.
     RpcResponse::parse(data, kind)
@@ -334,7 +344,11 @@ pub fn parse_rpc_response(data: &[u8], kind: RpcKind) -> Result<RpcResponse, Rpc
         .map_err(|_| {
             RpcError::parse(data, kind).unwrap_or_else(|err| {
                 // Other parse error
-                make_rpc_error(-32700, format!("Unable to parse RPC response: {err}"), kind)
+                make_rpc_error(
+                    jsonrpc_base::Error::PARSE_ERROR,
+                    format!("Unable to parse RPC response: {err}"),
+                    kind,
+                )
             })
         })
 }
