@@ -153,6 +153,18 @@ pub enum RpcResponse {
 }
 
 impl RpcResponse {
+    /// Parse the RPC response.
+    pub fn parse(data: &[u8], kind: RpcKind) -> anyhow::Result<Self> {
+        Ok(match kind {
+            RpcKind::XmlRpc => {
+                let s = std::str::from_utf8(data)?;
+
+                quick_xml::de::from_str(s).map(RpcResponse::XmlRpc)?
+            }
+            RpcKind::JsonRpc => serde_json::from_slice(data).map(RpcResponse::JsonRpc)?,
+        })
+    }
+
     /// Make a HTTP RPC response with `message` for some RPC request.
     pub fn respond_to<M>(request: &RpcRequest, message: M) -> anyhow::Result<Response<Body>>
     where
@@ -184,6 +196,15 @@ impl RpcResponse {
         })
     }
 
+    /// Parse a RPC request from a http body (either XML-RPC or JSON-RPC).
+    pub async fn from_body(body: &mut Body, kind: RpcKind) -> anyhow::Result<Self> {
+        if let Some(Ok(bytes)) = body.data().await {
+            Self::parse(bytes.as_ref(), kind)
+        } else {
+            Err(anyhow::anyhow!("No content"))
+        }
+    }
+
     pub fn to_body(&self) -> anyhow::Result<Body> {
         Ok(Body::from(match self {
             Self::XmlRpc(response) => xml_to_string(response)?,
@@ -200,6 +221,18 @@ pub enum RpcError {
 }
 
 impl RpcError {
+    /// Parse the RPC error.
+    pub fn parse(data: &[u8], kind: RpcKind) -> anyhow::Result<Self> {
+        Ok(match kind {
+            RpcKind::XmlRpc => {
+                let s = std::str::from_utf8(data)?;
+
+                quick_xml::de::from_str(s).map(RpcError::XmlRpc)?
+            }
+            RpcKind::JsonRpc => serde_json::from_slice(data).map(RpcError::JsonRpc)?,
+        })
+    }
+
     /// Make a HTTP RPC error with `code`, `message` and optional data for some RPC request.
     pub fn respond_to<D: Serialize>(
         request: Option<&RpcRequest>,
@@ -240,6 +273,15 @@ impl RpcError {
                 ))
             }
         })
+    }
+
+    /// Parse a RPC error from a http body (either XML-RPC or JSON-RPC).
+    pub async fn from_body(body: &mut Body, kind: RpcKind) -> anyhow::Result<Self> {
+        if let Some(Ok(bytes)) = body.data().await {
+            Self::parse(bytes.as_ref(), kind)
+        } else {
+            Err(anyhow::anyhow!("No content"))
+        }
     }
 
     pub fn to_body(&self) -> anyhow::Result<Body> {
