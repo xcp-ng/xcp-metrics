@@ -32,6 +32,11 @@ sed -E -i Cargo.toml -e '/^[^ ]/ p
 d'
 git add Cargo.toml
 
+# For this plugin, unpatched xenstore-rs is enough
+sed -Ei '/^(git|branch) = / d' \
+      plugins/xcp-metrics-plugin-common/Cargo.toml
+git add plugins/xcp-metrics-plugin-common/Cargo.toml
+
 # commit
 <<EOF cat |
 WIP Introduce xcp-metrics-plugin-squeezed plugin for xcp-rrdd
