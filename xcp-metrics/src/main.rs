@@ -15,11 +15,19 @@ use tokio::{net::UnixStream, select, sync::mpsc, task::JoinHandle};
 use publishers::rrdd::server::{RrddServer, RrddServerMessage};
 use xcp_metrics_common::{utils::mapping::CustomMapping, xapi::XAPI_SOCKET_PATH};
 
+/// Shared xcp-metrics structure.
 #[derive(Debug)]
 pub struct XcpMetricsShared {
+    /// Handles of the tasks associated to each [providers]
     pub plugins: DashMap<Box<str>, JoinHandle<()>>,
+
+    /// Channel to communicate with hub.
     pub hub_channel: mpsc::UnboundedSender<hub::HubPushMessage>,
+
+    /// Channel to communicate with the rrdd compatibility server.
     pub rrdd_channel: mpsc::UnboundedSender<RrddServerMessage>,
+
+    /// List of RPC routes
     pub rpc_routes: RpcRoutes,
 }
 
