@@ -50,3 +50,14 @@ features = ["full"]
 
 [build-dependencies]
 prost-build = "0.11"
+
+
+# dependency pins to ensure 1.66 compatibility
+# (all are indirect dependencies, blame fast-moving ecosystem)
+
+[dependencies.anstream]
+version = "<0.5"
+[dependencies.clap_builder]
+version = "<4.4"
+[dependencies.clap_lex]
+version = "<0.5.1"
