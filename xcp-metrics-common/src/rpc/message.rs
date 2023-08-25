@@ -352,3 +352,51 @@ pub fn parse_rpc_response(data: &[u8], kind: RpcKind) -> Result<RpcResponse, Rpc
             })
         })
 }
+
+/// Parse either a [RpcResponse] or a [RpcError] from [Request<Body>].
+/// Convert all internal errors to [RpcError].
+pub async fn parse_http_response(response: Response<Body>) -> Result<RpcResponse, RpcError> {
+    // TODO: Handle chained requests ?
+    let (parts, mut body) = response.into_parts();
+
+    let kind = match parts
+        .headers
+        .get("content-type")
+        .map(|header| header.to_str())
+    {
+        // JSON
+        Some(Ok("application/json"))
+        | Some(Ok("application/json-rpc"))
+        | Some(Ok("application/jsonrequest")) => RpcKind::JsonRpc,
+        // XML
+        Some(Ok("text/xml")) => RpcKind::XmlRpc,
+
+        _ => {
+            return Err(make_rpc_error(
+                jsonrpc_base::Error::INVALID_REQUEST,
+                "Invalid or undefined content-type".to_string(),
+                RpcKind::XmlRpc,
+            ));
+        }
+    };
+
+    let data = match body.data().await {
+        Some(Ok(bytes)) => bytes.to_vec(),
+        Some(Err(e)) => {
+            return Err(make_rpc_error(
+                -32603, /* Internal error */
+                format!("Internal error: {e}"),
+                RpcKind::XmlRpc,
+            ));
+        }
+        None => {
+            return Err(make_rpc_error(
+                jsonrpc_base::Error::INVALID_REQUEST,
+                "No body provided".to_string(),
+                RpcKind::XmlRpc,
+            ))
+        }
+    };
+
+    parse_rpc_response(&data, kind)
+}
