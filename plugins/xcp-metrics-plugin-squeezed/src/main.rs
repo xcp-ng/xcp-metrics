@@ -10,7 +10,10 @@ use xcp_metrics_common::metrics::{MetricType, MetricValue, NumberValue};
 use xcp_metrics_plugin_common::{
     plugin::{run_hybrid, XcpPlugin},
     protocol_v3::utils::{SimpleMetric, SimpleMetricFamily, SimpleMetricSet},
-    xenstore::{xs::{XBTransaction, Xs, XsOpenFlags}, read::XsRead},
+    xenstore::{
+        read::XsRead,
+        xs::{XBTransaction, Xs, XsOpenFlags},
+    },
 };
 
 /// xcp-metrics Squeezed plugin.
@@ -105,11 +108,12 @@ impl<XS: XsRead> XcpPlugin for SqueezedPlugin<XS> {
         let Ok(SqueezedInfo {
             reclaimed,
             reclaimed_max,
-        }) = SqueezedInfo::get(&self.xs) else {
+        }) = SqueezedInfo::get(&self.xs)
+        else {
             // No data
             tracing::warn!("No /local/domain found");
             return SimpleMetricSet {
-                families: hashmap!{},
+                families: hashmap! {},
             };
         };
 

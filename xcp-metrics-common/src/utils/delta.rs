@@ -156,7 +156,7 @@ impl MetricSetModel {
             .filter_map(|((name, labels), uuid)| {
                 let Some(family) = metrics_set.families.get(name) else {
                     // Related family doesn't exist anymore, so do metric.
-                    return Some(*uuid)
+                    return Some(*uuid);
                 };
 
                 // Check for metric existence in family.

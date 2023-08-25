@@ -5,8 +5,9 @@ use xcp_metrics_plugin_common::{
     plugin::XcpPlugin,
     protocol_v3::utils::{SimpleMetric, SimpleMetricFamily, SimpleMetricSet},
     xenstore::{
+        watch::XsWatch,
         watch_cache::WatchCache,
-        xs::{XBTransaction, Xs, XsOpenFlags}, watch::XsWatch,
+        xs::{XBTransaction, Xs, XsOpenFlags},
     },
 };
 

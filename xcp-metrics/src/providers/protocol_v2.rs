@@ -120,7 +120,9 @@ impl ProtocolV2Provider {
 
     /// Send metrics to hub, registering them if they are not.
     async fn send_values(&mut self, hub_channel: &mpsc::UnboundedSender<HubPushMessage>) {
-        let Some(state) = self.state.as_ref() else { return };
+        let Some(state) = self.state.as_ref() else {
+            return;
+        };
 
         std::iter::zip(state.metadata.datasources.iter(), state.values.iter()).for_each(
             |((name, metadata), &value)| {

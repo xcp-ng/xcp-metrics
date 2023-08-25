@@ -56,7 +56,7 @@ impl Stream for MockStream<'_> {
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let Ok(mut reader) = self.fake_xs.watch_reader.try_lock() else {
-            return Poll::Ready(None)
+            return Poll::Ready(None);
         };
 
         reader.poll_recv(cx)
