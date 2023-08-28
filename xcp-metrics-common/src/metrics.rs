@@ -59,8 +59,6 @@ pub struct Metric {
     pub metrics_point: Box<[MetricPoint]>,
 }
 
-// TODO: Is it really needed ?
-//       Maybe consider removing MetricPoint to simplify structure.
 #[derive(Clone, PartialEq, Debug)]
 pub struct MetricPoint {
     /// *Its type should match with MetricFamily's MetricType for text export.*
