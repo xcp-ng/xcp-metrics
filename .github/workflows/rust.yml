@@ -25,6 +25,27 @@ jobs:
     - name: Build
       run: cargo build --verbose
 
+  doc:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: 1.66
+        override: true
+    - name: Installing dependency packages
+      run: sudo apt update && sudo apt install -y libxen-dev protobuf-compiler
+
+    - name: Build docs
+      run: cargo doc --workspace --no-deps
+
+    - name: Upload docs
+      uses: actions/upload-artifact@v3
+      with:
+        name: rustdoc-html
+        path: ./target/doc
+
   test:
     runs-on: ubuntu-latest
 
