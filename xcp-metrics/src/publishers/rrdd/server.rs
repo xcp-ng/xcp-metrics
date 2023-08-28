@@ -1,3 +1,4 @@
+//! [RrddServer] implementation
 use std::{
     collections::HashMap,
     iter,
@@ -19,11 +20,15 @@ use super::{entry::RrdEntry, Granuality, RrdXportFilter, RrdXportInfo};
 
 use crate::hub::{HubPullResponse, HubPushMessage, PullMetrics};
 
+/// Types of message to communicate with [RrddServer].
 #[derive(Debug)]
 pub enum RrddServerMessage {
     RequestRrdUpdates(RrdXportInfo, mpsc::Sender<anyhow::Result<RrdXport>>),
 }
 
+/// xcp-rrdd partially compatible server that stores the state of metrics over time.
+///
+/// See [super] for more information.
 #[derive(Debug)]
 pub struct RrddServer {
     receiver: mpsc::UnboundedReceiver<RrddServerMessage>,

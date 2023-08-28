@@ -169,7 +169,7 @@ impl RpcResponse {
         })
     }
 
-    /// Make a [Response<Body>] with a `message` that respond to a [RpcRequest].
+    /// Make a [`Response<Body>`] with a `message` that respond to a [RpcRequest].
     /// Fails if the method cannot be converted to response.
     pub fn respond_to<M>(request: &RpcRequest, message: M) -> anyhow::Result<Response<Body>>
     where
@@ -240,7 +240,7 @@ impl RpcError {
         })
     }
 
-    /// Make a RPC error [Response<Body>] with `code`, `message` and a optional data for some [RpcRequest].
+    /// Make a RPC error [`Response<Body>`] with `code`, `message` and a optional data for some [RpcRequest].
     pub fn respond_to<D: Serialize>(
         request: Option<&RpcRequest>,
         code: i32,
@@ -353,7 +353,7 @@ pub fn parse_rpc_response(data: &[u8], kind: RpcKind) -> Result<RpcResponse, Rpc
         })
 }
 
-/// Parse either a [RpcResponse] or a [RpcError] from [Request<Body>].
+/// Parse either a [RpcResponse] or a [RpcError] from [`Request<Body>`].
 /// Convert all internal errors to [RpcError].
 pub async fn parse_http_response(response: Response<Body>) -> Result<RpcResponse, RpcError> {
     // TODO: Handle chained requests ?

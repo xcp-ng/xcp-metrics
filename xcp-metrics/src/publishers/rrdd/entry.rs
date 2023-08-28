@@ -3,11 +3,13 @@ use xcp_metrics_common::rrdd::protocol_common::{DataSourceMetadata, DataSourceOw
 
 use super::{round_robin::RoundRobinBuffer, Granuality};
 
+/// A xcp-rrdd metric entry.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RrdEntry {
     /// Full entry name (KIND:owner:uuid:metric_name)
     pub name: Box<str>,
 
+    /// Protocol v2 metadata
     pub metadata: DataSourceMetadata,
 
     pub owner: DataSourceOwner,

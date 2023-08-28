@@ -1,3 +1,4 @@
+//! Protocol v2 to protocol v3 predefined [CustomMapping]s.
 use std::collections::HashMap;
 
 use maplit::hashmap;

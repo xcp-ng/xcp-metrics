@@ -1,9 +1,24 @@
+/*!
+xcp-rrdd compatible publisher
+
+This module is meant to be a compatibility layer on top of [crate::hub::MetricsHub], instead of being a full blown xcp-rrdd server.
+
+It is exposed mostly through [server::RrddServer], which contains a limited implementation of xcp-rrdd that communicates
+periodically with an external [crate::hub::MetricsHub] to fetch latest metrics.
+As xcp-rrdd uses a protocol-v2-alike metrics representation (instead of [xcp_metrics_common::metrics]), all metrics are passed through a
+[xcp_metrics_common::utils::mapping::MetadataMapping] specified on [server::RrddServer] creation.
+
+All requests to this server uses [server::RrddServerMessage] using the channel provided on [server::RrddServer] creation in a pull-fashion.
+Using the [server::RrddServerMessage::RequestRrdUpdates] message, it is possible to get [xcp_metrics_common::rrdd::rrd_updates::RrdXport] exports,
+that can be used to implement `/rrd_updates`.
+*/
 mod entry;
 pub mod round_robin;
 pub mod server;
 
 use std::time::{Duration, SystemTime};
 
+/// Rrdd Xport metrics filter.
 #[derive(Debug, Clone, Copy)]
 pub enum RrdXportFilter {
     All,
@@ -12,6 +27,7 @@ pub enum RrdXportFilter {
     SR(uuid::Uuid),
 }
 
+/// Rrdd Xport parameters.
 #[derive(Debug, Clone)]
 pub struct RrdXportInfo {
     pub start: SystemTime,

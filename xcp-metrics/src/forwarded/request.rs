@@ -1,3 +1,4 @@
+//! [ForwardedRequest] implementation.
 use std::{collections::HashMap, str::FromStr};
 
 use serde::Deserialize;

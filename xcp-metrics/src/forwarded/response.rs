@@ -1,3 +1,4 @@
+//! [write_response] implementation
 use std::{fmt::Debug, io::Write};
 
 use xapi::hyper::{body, http::Response, Body};
