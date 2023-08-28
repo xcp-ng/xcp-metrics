@@ -14,7 +14,7 @@ use xapi::{
 #[command(author, version, about, long_about = None)]
 struct Args {
     /// Name of the daemon to fetch metrics from.
-    #[arg(short, long, default_value_t = String::from("xcp-metrics"))]
+    #[arg(short, long, default_value_t = String::from("/var/lib/xcp/xcp-metrics"))]
     daemon_name: String,
 
     /// RPC format to use

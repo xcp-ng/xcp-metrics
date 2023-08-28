@@ -1,5 +1,6 @@
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
+    path::Path,
     sync::Arc,
 };
 
@@ -20,17 +21,17 @@ struct Args {
     #[arg(short, long)]
     port: u16,
 
-    /// Name of the daemon to fetch metrics from.
-    #[arg(short, long, default_value_t = String::from("xcp-metrics"))]
-    daemon_name: String,
+    /// Path to the xcp-metrics daemon socket to fetch metrics from.
+    #[arg(short, long, default_value_t = String::from("/var/lib/xcp/xcp-metrics"))]
+    daemon_path: String,
 }
 
 async fn redirect_openmetrics(
     request: Request<Body>,
-    daemon_name: &str,
+    daemon_path: &Path,
 ) -> anyhow::Result<Response<Body>> {
-    xapi::send_jsonrpc_at(
-        daemon_name,
+    xapi::send_jsonrpc_to(
+        daemon_path,
         "POST",
         &OpenMetricsMethod::default(),
         "xcp-metrics-openmetrics-proxy",
@@ -41,15 +42,16 @@ async fn redirect_openmetrics(
 #[tokio::main]
 async fn main() {
     let args = Arc::new(Args::parse());
+    let daemon_path = Path::new(&args.daemon_path).to_path_buf();
 
     let service_fn = make_service_fn(|addr: &AddrStream| {
         println!("Handling request {:?}", addr);
-        let args = args.clone();
+        let daemon_path = daemon_path.clone();
 
         async {
             anyhow::Ok(service_fn(move |request| {
-                let args = args.clone();
-                async move { redirect_openmetrics(request, &args.daemon_name).await }
+                let daemon_path = daemon_path.clone();
+                async move { redirect_openmetrics(request, &daemon_path).await }
             }))
         }
     });

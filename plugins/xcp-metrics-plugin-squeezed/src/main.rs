@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test;
 
-use std::collections::HashMap;
+use std::{collections::HashMap, path::Path};
 
 use clap::Parser;
 use maplit::hashmap;
@@ -25,7 +25,7 @@ struct Args {
     log_level: tracing::Level,
 
     /// Target daemon.
-    #[arg(short, long, default_value_t = String::from("xcp-rrdd"))]
+    #[arg(short, long, default_value_t = String::from("/var/lib/xcp/xcp-rrdd"))]
     target: String,
 
     /// Used protocol
@@ -144,6 +144,16 @@ impl<XS: XsRead> XcpPlugin for SqueezedPlugin<XS> {
             },
         }
     }
+
+    fn get_name(&self) -> &str {
+        "xcp-metrics-plugin-squeezed"
+    }
+
+    fn get_mappings(
+        &self,
+    ) -> Option<HashMap<Box<str>, xcp_metrics_common::utils::mapping::CustomMapping>> {
+        None
+    }
 }
 
 #[tokio::main]
@@ -168,12 +178,5 @@ async fn main() {
 
     let plugin = SqueezedPlugin { xs };
 
-    run_hybrid(
-        plugin,
-        HashMap::default(),
-        "xcp-metrics-plugin-squeezed",
-        Some(&args.target),
-        args.protocol,
-    )
-    .await;
+    run_hybrid(plugin, Some(&Path::new(&args.target)), args.protocol).await;
 }

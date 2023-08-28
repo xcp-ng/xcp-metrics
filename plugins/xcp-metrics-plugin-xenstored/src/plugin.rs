@@ -252,4 +252,14 @@ impl<XS: XsWatch> XcpPlugin for XenStorePlugin<'_, XS> {
 
         SimpleMetricSet { families }
     }
+
+    fn get_name(&self) -> &str {
+        "xcp-metrics-plugin-xenstored"
+    }
+
+    fn get_mappings(
+        &self,
+    ) -> Option<HashMap<Box<str>, xcp_metrics_common::utils::mapping::CustomMapping>> {
+        None
+    }
 }

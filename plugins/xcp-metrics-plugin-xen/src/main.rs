@@ -3,7 +3,7 @@ mod metrics;
 use clap::Parser;
 use maplit::hashmap;
 use metrics::{discover_xen_metrics, XenMetric, XenMetricsShared};
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, path::Path, rc::Rc};
 
 use xcp_metrics_common::utils::mapping::CustomMapping;
 use xcp_metrics_plugin_common::{
@@ -19,8 +19,8 @@ struct Args {
     #[arg(short, long, default_value_t = tracing::Level::INFO)]
     log_level: tracing::Level,
 
-    /// Target daemon.
-    #[arg(short, long, default_value_t = String::from("xcp-rrdd"))]
+    /// Target daemon path.
+    #[arg(short, long, default_value_t = String::from("/var/lib/xcp/xcp-rrdd"))]
     target: String,
 
     /// Used protocol
@@ -48,34 +48,38 @@ impl XcpPlugin for XenPlugin {
                 .collect(),
         }
     }
-}
 
-fn generate_mappings() -> HashMap<Box<str>, CustomMapping> {
-    hashmap! {
-        "cpu-cstate".into() => CustomMapping {
-            pattern: "cpu{id}-C{state}".into(),
-            min: 0.0,
-            max: f32::INFINITY,
-            default: true,
-        },
-        "cpu-pstate".into() => CustomMapping {
-            pattern: "cpu{id}-P{state}".into(),
-            min: 0.0,
-            max: f32::INFINITY,
-            default: true,
-        },
-        "cpu".into() => CustomMapping {
-            pattern: "cpu{id}".into(),
-            min: 0.0,
-            max: 1.0,
-            default: true,
-        },
-        "cpu-freq".into() => CustomMapping {
-            pattern: "CPU{id}-avg-freq".into(),
-            min: 0.0,
-            max: f32::INFINITY,
-            default: true
-        },
+    fn get_name(&self) -> &str {
+        "xcp-metrics-plugin-xen"
+    }
+
+    fn get_mappings(&self) -> Option<HashMap<Box<str>, CustomMapping>> {
+        Some(hashmap! {
+            "cpu-cstate".into() => CustomMapping {
+                pattern: "cpu{id}-C{state}".into(),
+                min: 0.0,
+                max: f32::INFINITY,
+                default: true,
+            },
+            "cpu-pstate".into() => CustomMapping {
+                pattern: "cpu{id}-P{state}".into(),
+                min: 0.0,
+                max: f32::INFINITY,
+                default: true,
+            },
+            "cpu".into() => CustomMapping {
+                pattern: "cpu{id}".into(),
+                min: 0.0,
+                max: 1.0,
+                default: true,
+            },
+            "cpu-freq".into() => CustomMapping {
+                pattern: "CPU{id}-avg-freq".into(),
+                min: 0.0,
+                max: f32::INFINITY,
+                default: true
+            },
+        })
     }
 }
 
@@ -98,12 +102,5 @@ async fn main() {
         shared: XenMetricsShared::new(xc),
     };
 
-    run_hybrid(
-        plugin,
-        generate_mappings(),
-        "xcp-metrics-plugin-xen",
-        Some(&args.target),
-        args.protocol,
-    )
-    .await;
+    run_hybrid(plugin, Some(&Path::new(&args.target)), args.protocol).await;
 }

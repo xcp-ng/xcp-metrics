@@ -14,22 +14,24 @@ use xcp_metrics_common::{metrics::MetricSet, protocol_v3};
 pub struct MetricsPlugin {
     uid: Box<str>,
     metrics_path: PathBuf,
-    target_daemon: Box<str>,
+    target_daemon_path: PathBuf,
 }
 
-const DEFAULT_DAEMON: &str = "xcp-metrics";
+const DEFAULT_DAEMON: &str = "/var/lib/xcp/xcp-metrics";
 
 impl MetricsPlugin {
     /// Create and register a new plugin.
     pub async fn new(
         uid: &'_ str,
         metrics: MetricSet,
-        target_daemon: Option<&str>,
+        target_daemon_path: Option<&Path>,
     ) -> anyhow::Result<Self> {
         let plugin = Self {
             uid: uid.into(),
             metrics_path: Path::new(METRICS_SHM_PATH).join(uid),
-            target_daemon: target_daemon.unwrap_or(DEFAULT_DAEMON).into(),
+            target_daemon_path: target_daemon_path
+                .unwrap_or(&Path::new(&DEFAULT_DAEMON))
+                .to_path_buf(),
         };
 
         plugin.update(metrics).await?;
@@ -61,14 +63,19 @@ impl MetricsPlugin {
             uid: self.uid.to_string(),
         };
 
-        let response = xapi::send_xmlrpc_at(
-            &self.target_daemon,
+        let response = xapi::send_xmlrpc_to(
+            &self.target_daemon_path,
             "POST",
             &request,
             &self.uid, /* use uid as user-agent */
         )
         .await
-        .map_err(|e| anyhow::anyhow!("Can't reach '{}' daemon ({e})", self.target_daemon))?;
+        .map_err(|e| {
+            anyhow::anyhow!(
+                "Can't reach '{}' daemon ({e})",
+                self.target_daemon_path.to_string_lossy()
+            )
+        })?;
 
         tracing::debug!("RPC Response: {response:?}");
         if let Some(Ok(body)) = response.into_body().data().await {
@@ -87,8 +94,8 @@ impl MetricsPlugin {
             uid: self.uid.to_string(),
         };
 
-        match xapi::send_xmlrpc_at(
-            &self.target_daemon,
+        match xapi::send_xmlrpc_to(
+            &self.target_daemon_path,
             "POST",
             &request,
             &self.uid, /* use uid as user-agent */

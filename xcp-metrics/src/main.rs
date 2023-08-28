@@ -5,7 +5,7 @@ pub mod providers;
 pub mod publishers;
 pub mod rpc;
 
-use std::{collections::HashMap, fs, sync::Arc};
+use std::{collections::HashMap, fs, path::Path, sync::Arc};
 
 use clap::{command, Parser};
 use dashmap::DashMap;
@@ -13,7 +13,7 @@ use rpc::routes::RpcRoutes;
 use tokio::{net::UnixStream, select, sync::mpsc, task::JoinHandle};
 
 use publishers::rrdd::server::{RrddServer, RrddServerMessage};
-use xapi::XAPI_SOCKET_PATH;
+
 use xcp_metrics_common::utils::mapping::CustomMapping;
 
 /// Shared xcp-metrics structure.
@@ -40,9 +40,9 @@ struct Args {
     #[arg(short, long, default_value_t = tracing::Level::INFO)]
     log_level: tracing::Level,
 
-    /// xcp-metrics daemon name
-    #[arg(long, default_value_t = String::from("xcp-metrics"))]
-    daemon_name: String,
+    /// xcp-metrics socket path
+    #[arg(long, default_value_t = String::from("/var/lib/xcp/xcp-metrics"))]
+    daemon_path: String,
 
     /// Custom RrddServer v3-to-v2 mapping file.
     mapping_file: Option<String>,
@@ -51,9 +51,7 @@ struct Args {
 /// Check if the XAPI socket is active and unlink it if it isn't.
 ///
 /// Returns true if the socket is active.
-async fn check_unix_socket(daemon_name: &str) -> anyhow::Result<bool> {
-    let socket_path = format!("{XAPI_SOCKET_PATH}/{daemon_name}");
-
+async fn check_unix_socket(socket_path: &Path) -> anyhow::Result<bool> {
     if !tokio::fs::try_exists(&socket_path).await? {
         // Socket doesn't exist.
         return Ok(false);
@@ -64,12 +62,15 @@ async fn check_unix_socket(daemon_name: &str) -> anyhow::Result<bool> {
         Err(e) => {
             if matches!(e.kind(), std::io::ErrorKind::ConnectionRefused) {
                 // Unlink socket
-                tracing::warn!(socket = socket_path, "Unlinking inactive XAPI socket");
+                tracing::warn!(
+                    socket = socket_path.to_str(),
+                    "Unlinking inactive XAPI socket"
+                );
                 fs::remove_file(&socket_path)?;
                 Ok(false)
             } else {
                 tracing::error!(
-                    socket = socket_path,
+                    socket = socket_path.to_str(),
                     "Unable to check XAPI socket status: {e}"
                 );
                 Err(e.into())
@@ -101,14 +102,20 @@ async fn main() {
 
     tracing::subscriber::set_global_default(text_subscriber).unwrap();
 
-    let forwarded_path = format!("{}.forwarded", args.daemon_name);
+    let forwarded_path = format!("{}.forwarded", args.daemon_path);
 
-    if check_unix_socket(&args.daemon_name).await.unwrap() {
+    if check_unix_socket(&Path::new(&args.daemon_path))
+        .await
+        .unwrap()
+    {
         tracing::error!("Unable to start: xcp-metrics socket is active");
         panic!("Unable to start: is xcp-metrics already running ?");
     }
 
-    if check_unix_socket(&forwarded_path).await.unwrap() {
+    if check_unix_socket(&Path::new(&forwarded_path))
+        .await
+        .unwrap()
+    {
         tracing::error!("Unable to start: xcp-metrics.forwarded socket is active");
         panic!("Unable to start: is xcp-metrics already running ?");
     }
@@ -124,7 +131,7 @@ async fn main() {
         rpc_routes: Default::default(),
     });
 
-    let socket = rpc::daemon::start_daemon(&args.daemon_name, shared.clone())
+    let socket = rpc::daemon::start_daemon(&args.daemon_path, shared.clone())
         .await
         .unwrap();
 

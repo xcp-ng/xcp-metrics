@@ -1,7 +1,7 @@
 mod plugin;
 
 use clap::{command, Parser};
-use std::collections::HashMap;
+use std::path::Path;
 
 use xcp_metrics_plugin_common::{
     plugin::run_hybrid,
@@ -49,9 +49,7 @@ async fn main() {
 
     run_hybrid(
         XenStorePlugin::new(&xs),
-        HashMap::default(),
-        "xcp-metrics-plugin-xenstored",
-        Some(&args.target),
+        Some(&Path::new(&args.target)),
         args.protocol,
     )
     .await;

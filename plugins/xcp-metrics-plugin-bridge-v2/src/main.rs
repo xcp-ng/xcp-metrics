@@ -1,4 +1,4 @@
-use std::{collections::HashMap, time::Duration};
+use std::{collections::HashMap, path::Path, time::Duration};
 
 use clap::{command, Parser};
 use tokio::time;
@@ -23,8 +23,8 @@ struct Args {
     #[arg(short, long, default_value_t = tracing::Level::INFO)]
     log_level: tracing::Level,
 
-    /// Target daemon.
-    #[arg(short, long, default_value_t = String::from("xcp-metrics"))]
+    /// Target daemon path.
+    #[arg(short, long, default_value_t = String::from("/var/lib/xcp/xcp-metrics"))]
     target: String,
 
     /// V3 to V2 mapping file (JSON format)
@@ -76,7 +76,7 @@ async fn main() {
         &bridged_plugin_name,
         bridge.get_metadata().clone(),
         Some(&bridge.get_data()),
-        Some(&args.target),
+        Some(&Path::new(&args.target)),
     )
     .await
     .unwrap();

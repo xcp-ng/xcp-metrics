@@ -2,7 +2,7 @@
 pub mod rpc;
 pub(crate) mod utils;
 
-use std::{path::PathBuf, str::FromStr};
+use std::path::{Path, PathBuf};
 
 use crate::rpc::{message::RpcKind, write_method_jsonrpc, write_method_xmlrpc, XcpRpcMethod};
 use hyper::{body, Body, Request, Response};
@@ -15,20 +15,18 @@ pub use hyperlocal;
 
 /// Get the path of the socket of some module.
 pub fn get_module_path(name: &str) -> PathBuf {
-    PathBuf::from_str(XAPI_SOCKET_PATH)
-        .expect("Invalid XAPI_SOCKET_PATH")
-        .join(name)
+    Path::new(XAPI_SOCKET_PATH).join(name)
 }
 
 /// Send a XML-RPC request to the module `name`.
-pub async fn send_rpc_at<M: XcpRpcMethod>(
-    name: &str,
+pub async fn send_rpc_to<M: XcpRpcMethod>(
+    xapi_daemon_path: &Path,
     http_method: &str,
     rpc_method: &M,
     user_agent: &str,
     kind: RpcKind,
 ) -> anyhow::Result<Response<Body>> {
-    let module_uri = hyperlocal::Uri::new(get_module_path(name), "/");
+    let module_uri = hyperlocal::Uri::new(xapi_daemon_path, "/");
 
     let mut rpc = vec![];
 
@@ -58,21 +56,35 @@ pub async fn send_rpc_at<M: XcpRpcMethod>(
 }
 
 /// Send a XML-RPC request to the module `name`.
-pub async fn send_xmlrpc_at<M: XcpRpcMethod>(
-    name: &str,
+pub async fn send_xmlrpc_to<M: XcpRpcMethod>(
+    xapi_daemon_path: &Path,
     http_method: &str,
     rpc_method: &M,
     user_agent: &str,
 ) -> anyhow::Result<Response<Body>> {
-    send_rpc_at(name, http_method, rpc_method, user_agent, RpcKind::XmlRpc).await
+    send_rpc_to(
+        xapi_daemon_path,
+        http_method,
+        rpc_method,
+        user_agent,
+        RpcKind::XmlRpc,
+    )
+    .await
 }
 
 /// Send a JSON-RPC request to the module `name`.
-pub async fn send_jsonrpc_at<M: XcpRpcMethod>(
-    name: &str,
+pub async fn send_jsonrpc_to<M: XcpRpcMethod>(
+    xapi_daemon_path: &Path,
     http_method: &str,
     rpc_method: &M,
     user_agent: &str,
 ) -> anyhow::Result<Response<Body>> {
-    send_rpc_at(name, http_method, rpc_method, user_agent, RpcKind::JsonRpc).await
+    send_rpc_to(
+        xapi_daemon_path,
+        http_method,
+        rpc_method,
+        user_agent,
+        RpcKind::JsonRpc,
+    )
+    .await
 }

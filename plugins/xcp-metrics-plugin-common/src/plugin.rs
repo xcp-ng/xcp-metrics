@@ -1,6 +1,6 @@
 //! Utilities that manages communication with daemon using protocol v3
 //! under the hood and converting to protocol v2 if needed.
-use std::{collections::HashMap, time::Duration};
+use std::{collections::HashMap, path::Path, time::Duration};
 
 use tokio::time;
 
@@ -18,6 +18,12 @@ pub trait XcpPlugin {
 
     // Generate a new metric set representing the current state of data.
     fn generate_metrics(&mut self) -> SimpleMetricSet;
+
+    /// Get the plugin name (uid).
+    fn get_name(&self) -> &str;
+
+    // Get plugin mappings
+    fn get_mappings(&self) -> Option<HashMap<Box<str>, CustomMapping>>;
 }
 
 /// Run the provided for either protocol v2 (converting from v3) or protocol v3 depending on `version`.
@@ -27,37 +33,26 @@ pub trait XcpPlugin {
 ///   3: Directly expose protocol v3 metrics to target daemon.
 ///
 /// If no target_daemon is provided, use default one.
-pub async fn run_hybrid(
-    shared: impl XcpPlugin,
-    mappings: HashMap<Box<str>, CustomMapping>,
-    plugin_name: &str,
-    target_daemon: Option<&str>,
-    version: u32,
-) {
+pub async fn run_hybrid(shared: impl XcpPlugin, target_daemon_path: Option<&Path>, version: u32) {
     match version {
-        2 => run_plugin_v2(shared, mappings, plugin_name, target_daemon).await,
-        3 => run_plugin_v3(shared, plugin_name, target_daemon).await,
+        2 => run_plugin_v2(shared, target_daemon_path).await,
+        3 => run_plugin_v3(shared, target_daemon_path).await,
         p => tracing::error!("Unknown protocol {p}"),
     }
 }
 
-pub async fn run_plugin_v2(
-    mut shared: impl XcpPlugin,
-    mappings: HashMap<Box<str>, CustomMapping>,
-    plugin_name: &str,
-    target_daemon: Option<&str>,
-) {
-    tracing::info!("Running protocol v2 plugin: {plugin_name}");
+pub async fn run_plugin_v2(mut shared: impl XcpPlugin, target_daemon_path: Option<&Path>) {
+    tracing::info!("Running protocol v2 plugin: {}", shared.get_name());
     let mut metrics = shared.generate_metrics();
 
-    let mut bridge = BridgeToV2::with_mappings(mappings);
+    let mut bridge = BridgeToV2::with_mappings(shared.get_mappings().unwrap_or_default());
     bridge.update(metrics.into());
 
     let mut plugin = match RrddPlugin::new(
-        plugin_name,
+        shared.get_name(),
         bridge.get_metadata().clone(),
         Some(&bridge.get_data()),
-        target_daemon,
+        target_daemon_path,
     )
     .await
     {
@@ -95,17 +90,17 @@ pub async fn run_plugin_v2(
     }
 }
 
-pub async fn run_plugin_v3(
-    mut shared: impl XcpPlugin,
-    plugin_name: &str,
-    target_daemon: Option<&str>,
-) {
-    tracing::info!("Running protocol v3 plugin: {plugin_name}");
+pub async fn run_plugin_v3(mut shared: impl XcpPlugin, target_daemon_path: Option<&Path>) {
+    tracing::info!("Running protocol v3 plugin: {}", shared.get_name());
     // Expose protocol v3
     // NOTE: some could be undefined values
-    let plugin = MetricsPlugin::new(plugin_name, shared.generate_metrics().into(), target_daemon)
-        .await
-        .unwrap();
+    let plugin = MetricsPlugin::new(
+        &shared.get_name().to_string(),
+        shared.generate_metrics().into(),
+        target_daemon_path,
+    )
+    .await
+    .unwrap();
 
     loop {
         tracing::debug!("Updating plugin state");

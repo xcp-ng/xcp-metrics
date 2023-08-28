@@ -18,10 +18,10 @@ pub struct RrddPlugin {
     uid: Box<str>,
     header: RrddMessageHeader,
     metrics_path: PathBuf,
-    target_daemon: Box<str>,
+    target_daemon_path: PathBuf,
 }
 
-const DEFAULT_DAEMON: &str = "xcp-metrics";
+const DEFAULT_DAEMON: &str = "/var/lib/xcp/xcp-metrics";
 
 impl RrddPlugin {
     /// Create and register a new plugin.
@@ -29,7 +29,7 @@ impl RrddPlugin {
         uid: &'_ str,
         metadata: RrddMetadata,
         initial_values: Option<&[DataSourceValue]>,
-        target_daemon: Option<&str>,
+        target_daemon_path: Option<&Path>,
     ) -> anyhow::Result<Self> {
         let (header, metadata_str) = Self::generate_initial_header(metadata, initial_values);
 
@@ -37,7 +37,9 @@ impl RrddPlugin {
             uid: uid.into(),
             header,
             metrics_path: Path::new(METRICS_SHM_PATH).join(uid),
-            target_daemon: target_daemon.unwrap_or(DEFAULT_DAEMON).into(),
+            target_daemon_path: target_daemon_path
+                .unwrap_or(&Path::new(DEFAULT_DAEMON))
+                .to_path_buf(),
         };
 
         plugin.reset_file(Some(&metadata_str)).await?;
@@ -63,14 +65,19 @@ impl RrddPlugin {
             uid: self.uid.to_string(),
         };
 
-        let response = xapi::send_xmlrpc_at(
-            &self.target_daemon,
+        let response = xapi::send_xmlrpc_to(
+            &self.target_daemon_path,
             "POST",
             &request,
             &self.uid, /* use uid as user-agent */
         )
         .await
-        .map_err(|e| anyhow::anyhow!("Can't reach '{}' daemon ({e})", self.target_daemon))?;
+        .map_err(|e| {
+            anyhow::anyhow!(
+                "Can't reach '{}' daemon ({e})",
+                self.target_daemon_path.to_string_lossy()
+            )
+        })?;
 
         tracing::debug!("RPC Response: {response:?}");
         if let Some(Ok(body)) = response.into_body().data().await {
@@ -140,8 +147,8 @@ impl RrddPlugin {
             uid: self.uid.to_string(),
         };
 
-        match xapi::send_xmlrpc_at(
-            &self.target_daemon,
+        match xapi::send_xmlrpc_to(
+            &self.target_daemon_path,
             "POST",
             &request,
             &self.uid, /* use uid as user-agent */
