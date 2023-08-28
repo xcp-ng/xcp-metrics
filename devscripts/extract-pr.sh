@@ -49,9 +49,12 @@ Metrics are read in Xenstore using the xenstore-rs bindings of
 libxenstore, structured in a suitable way for upcoming OpenMetrics
 support, and communicated to xcp-rrdd using its v2 protocol.
 
-NOTE: this currently references external git repository for
-xenstore-rs, as we had to add support for xs_watch there and the PR is
-still pending.
+NOTE: while the full xcp-metrics work currently references external
+git repository for xenstore-rs and xenctrl-rs as we had to add some
+features there and the PRs are still pending, this initial work
+explicitly does ot require any of those, and we went into some
+gymnastics to support this, which reflects in the scripts extracting
+this PR source code, as well as in parts of the code itself.
 
 Signed-off-by: Teddy Astie <teddy.astie@outlook.fr>
 Reviewed-by: Yann Dirson <yann.dirson@vates.fr>
