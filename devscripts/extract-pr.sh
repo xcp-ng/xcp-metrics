@@ -7,6 +7,7 @@ CRATES="
   plugins/xcp-metrics-plugin-squeezed
   plugins/xcp-metrics-plugin-common
   xcp-metrics-common
+  xapi-rs
 "
 
 CRATES_RE=$(echo $CRATES | tr ' ' '|')
