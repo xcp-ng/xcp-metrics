@@ -29,7 +29,7 @@ pub enum RrdXportFilter {
 
 /// Rrdd Xport parameters.
 #[derive(Debug, Clone)]
-pub struct RrdXportInfo {
+pub struct RrdXportParameters {
     pub start: SystemTime,
     pub interval: u32,
     pub filter: RrdXportFilter,

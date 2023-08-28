@@ -9,7 +9,7 @@ use tokio::sync::mpsc;
 use xapi::hyper::{Body, Response};
 
 use crate::{
-    publishers::rrdd::{server::RrddServerMessage, RrdXportFilter, RrdXportInfo},
+    publishers::rrdd::{server::RrddServerMessage, RrdXportFilter, RrdXportParameters},
     rpc, XcpMetricsShared,
 };
 
@@ -70,7 +70,7 @@ async fn rrd_update_handler(
     shared
         .rrdd_channel
         .send(RrddServerMessage::RequestRrdUpdates(
-            RrdXportInfo {
+            RrdXportParameters {
                 start,
                 interval,
                 filter,

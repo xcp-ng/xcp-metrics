@@ -16,14 +16,14 @@ use xcp_metrics_common::{
     utils::mapping::{CustomMapping, DefaultMapping, MetadataMapping},
 };
 
-use super::{entry::RrdEntry, Granuality, RrdXportFilter, RrdXportInfo};
+use super::{entry::RrdEntry, Granuality, RrdXportFilter, RrdXportParameters};
 
 use crate::hub::{HubPullResponse, HubPushMessage, PullMetrics};
 
 /// Types of message to communicate with [RrddServer].
 #[derive(Debug)]
 pub enum RrddServerMessage {
-    RequestRrdUpdates(RrdXportInfo, mpsc::Sender<anyhow::Result<RrdXport>>),
+    RequestRrdUpdates(RrdXportParameters, mpsc::Sender<anyhow::Result<RrdXport>>),
 }
 
 /// xcp-rrdd partially compatible server that stores the state of metrics over time.
@@ -51,25 +51,12 @@ pub struct RrddServer {
 }
 
 /// Get the owner part of the rrd name (i.e vm:UUID).
-fn get_owner_part(metric: &Metric, host_uuid: uuid::Uuid) -> (String, DataSourceOwner) {
-    metric
-        .labels
-        .iter()
-        .filter(|l| l.0.as_ref() == "owner")
-        .find_map(|l| {
-            let parts: Vec<&str> = l.1.split_ascii_whitespace().take(2).collect();
-            let (kind, uuid) = (parts.first()?, parts.get(1)?);
-
-            let owner = DataSourceOwner::try_from(l.1.as_ref()).unwrap_or(DataSourceOwner::Host);
-
-            Some((format!("{kind}:{uuid}"), owner))
-        })
-        .unwrap_or_else(|| {
-            (
-                format!("host:{}", host_uuid.as_hyphenated()),
-                DataSourceOwner::Host,
-            )
-        })
+fn format_owner_part(metadata: &DataSourceMetadata, host_uuid: uuid::Uuid) -> String {
+    match metadata.owner {
+        DataSourceOwner::Host => format!("host:{host_uuid}"),
+        DataSourceOwner::VM(uuid) => format!("vm:{uuid}"),
+        DataSourceOwner::SR(uuid) => format!("sr:{uuid}"),
+    }
 }
 
 impl RrddServer {
@@ -114,6 +101,7 @@ impl RrddServer {
         }
     }
 
+    /// Pull metrics from hub
     pub async fn pull_metrics(
         &mut self,
         hub_channel: &mpsc::UnboundedSender<HubPushMessage>,
@@ -189,12 +177,11 @@ impl RrddServer {
             tracing::debug!("New entry {uuid}");
             let (v2_name, metadata) = Self::to_name_v2(&self.mappings, metric, family, family_name)
                 .expect("Unexpected to_name_v2 failure");
-            let (owner_part, owner) = get_owner_part(metric, self.host_uuid);
+            let owner_part = format_owner_part(&metadata, self.host_uuid);
 
             // Consider only AVERAGE metrics for now.
             RrdEntry::new(
                 format!("AVERAGE:{owner_part}:{v2_name}").into_boxed_str(),
-                owner,
                 metadata,
             )
         });
@@ -263,9 +250,9 @@ impl RrddServer {
                         // Apply filter
                         match info.filter {
                             RrdXportFilter::All => true,
-                            RrdXportFilter::AllNoHost => !matches!(entry.owner, DataSourceOwner::Host),
-                            RrdXportFilter::VM(uuid) => matches!(entry.owner, DataSourceOwner::VM(entry_uuid) if uuid == entry_uuid),
-                            RrdXportFilter::SR(uuid) => matches!(entry.owner, DataSourceOwner::SR(entry_uuid) if uuid == entry_uuid),
+                            RrdXportFilter::AllNoHost => !matches!(entry.metadata.owner, DataSourceOwner::Host),
+                            RrdXportFilter::VM(uuid) => matches!(entry.metadata.owner, DataSourceOwner::VM(entry_uuid) if uuid == entry_uuid),
+                            RrdXportFilter::SR(uuid) => matches!(entry.metadata.owner, DataSourceOwner::SR(entry_uuid) if uuid == entry_uuid),
                         }
                     })
                     .map(|entry| (entry.name.clone(), entry.get_buffer(granuality).iter()))
