@@ -44,7 +44,7 @@ impl MetadataMapping for DefaultMapping {
             .iter()
             // Ignore owner label
             .filter(|l| l.0.as_ref() != "owner")
-            .fold(String::from(family_name), |mut buffer, label| {
+            .fold(family_name.to_string(), |mut buffer, label| {
                 write!(buffer, "_{}", label.1).ok();
                 buffer
             });
