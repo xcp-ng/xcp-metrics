@@ -4,12 +4,12 @@ pub mod utils;
 use std::path::{Path, PathBuf};
 
 use tokio::fs::{create_dir_all, OpenOptions};
-use xcp_metrics_common::{
-    metrics::MetricSet,
-    protocol_v3,
+use xapi::{
+    hyper::body::HttpBody,
     rpc::methods::{PluginLocalDeregister, PluginLocalRegister},
-    xapi::{self, hyper::body::HttpBody, METRICS_SHM_PATH},
+    METRICS_SHM_PATH,
 };
+use xcp_metrics_common::{metrics::MetricSet, protocol_v3};
 
 pub struct MetricsPlugin {
     uid: Box<str>,

@@ -1,4 +1,7 @@
 //! XAPI utilities
+pub mod rpc;
+pub(crate) mod utils;
+
 use std::{path::PathBuf, str::FromStr};
 
 use crate::rpc::{message::RpcKind, write_method_jsonrpc, write_method_xmlrpc, XcpRpcMethod};

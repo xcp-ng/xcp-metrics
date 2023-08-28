@@ -1,7 +1,7 @@
 use std::{collections::HashMap, str::FromStr};
 
 use serde::Deserialize;
-use xcp_metrics_common::xapi::hyper::{
+use xapi::hyper::{
     header::{ACCEPT, CONTENT_LENGTH, CONTENT_TYPE, HOST, TRANSFER_ENCODING, USER_AGENT},
     http::uri::PathAndQuery,
     Body, Request, Version,

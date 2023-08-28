@@ -10,7 +10,7 @@ use hyper::{
     Body, Request, Response,
 };
 
-use xcp_metrics_common::{rpc::methods::OpenMetricsMethod, xapi};
+use xapi::rpc::methods::OpenMetricsMethod;
 
 /// OpenMetrics http proxy, used to provide metrics for collectors such as Prometheus.
 #[derive(Clone, Parser, Debug)]

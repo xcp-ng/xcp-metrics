@@ -6,6 +6,7 @@ package.categories = ["virtualization"]
 members = [
   "xcp-metrics",
   "xcp-metrics-common",
+  "xapi-rs",
   "xcp-metrics-test",
   "plugins/xcp-metrics-plugin-common",
   "plugins/xcp-metrics-plugin-xen",

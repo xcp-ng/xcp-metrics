@@ -15,7 +15,6 @@ use tokio::{
     net::{TcpStream, UnixListener, UnixStream},
     task::{self, JoinHandle},
 };
-use xcp_metrics_common::xapi;
 
 use crate::{
     forwarded::{request::ForwardedRequest, routes::route_forwarded},

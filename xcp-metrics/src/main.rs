@@ -13,7 +13,8 @@ use rpc::routes::RpcRoutes;
 use tokio::{net::UnixStream, select, sync::mpsc, task::JoinHandle};
 
 use publishers::rrdd::server::{RrddServer, RrddServerMessage};
-use xcp_metrics_common::{utils::mapping::CustomMapping, xapi::XAPI_SOCKET_PATH};
+use xapi::XAPI_SOCKET_PATH;
+use xcp_metrics_common::utils::mapping::CustomMapping;
 
 /// Shared xcp-metrics structure.
 #[derive(Debug)]

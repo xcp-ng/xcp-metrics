@@ -1,13 +1,11 @@
 use clap::Parser;
 use tokio::io::{stdout, AsyncWriteExt};
-use xcp_metrics_common::{
+use xapi::{
+    get_module_path,
+    hyper::{self, body, Body},
+    hyperlocal,
     rpc::{
         message::RpcKind, methods::OpenMetricsMethod, write_method_jsonrpc, write_method_xmlrpc,
-    },
-    xapi::{
-        get_module_path,
-        hyper::{self, body, Body},
-        hyperlocal,
     },
 };
 

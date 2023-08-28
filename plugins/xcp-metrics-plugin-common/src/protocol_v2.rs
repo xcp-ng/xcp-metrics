@@ -4,13 +4,14 @@ use tokio::{
     fs::{create_dir_all, OpenOptions},
     io::AsyncWriteExt,
 };
-use xcp_metrics_common::{
+use xapi::{
+    hyper::body::HttpBody,
     rpc::methods::{PluginLocalDeregister, PluginLocalRegister},
-    rrdd::{
-        protocol_common::DataSourceValue,
-        protocol_v2::{values_to_raw, RrddMessageHeader, RrddMetadata},
-    },
-    xapi::{self, hyper::body::HttpBody, METRICS_SHM_PATH},
+    METRICS_SHM_PATH,
+};
+use xcp_metrics_common::rrdd::{
+    protocol_common::DataSourceValue,
+    protocol_v2::{values_to_raw, RrddMessageHeader, RrddMetadata},
 };
 
 pub struct RrddPlugin {

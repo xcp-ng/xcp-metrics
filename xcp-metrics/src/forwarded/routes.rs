@@ -5,7 +5,7 @@ use std::{
 
 use tokio::sync::mpsc;
 
-use xcp_metrics_common::xapi::hyper::{Body, Response};
+use xapi::hyper::{Body, Response};
 
 use crate::{
     publishers::rrdd::{server::RrddServerMessage, RrdXportFilter, RrdXportInfo},

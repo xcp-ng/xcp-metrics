@@ -4,9 +4,9 @@ pub mod routes;
 
 use std::sync::Arc;
 
-use xcp_metrics_common::{
+use xapi::{
+    hyper::{Body, Request, Response},
     rpc::message::{RpcError, RpcRequest},
-    xapi::hyper::{Body, Request, Response},
 };
 
 use crate::XcpMetricsShared;

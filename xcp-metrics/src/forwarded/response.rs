@@ -1,6 +1,6 @@
 use std::{fmt::Debug, io::Write};
 
-use xcp_metrics_common::xapi::hyper::{body, http::Response, Body};
+use xapi::hyper::{body, http::Response, Body};
 
 /// Write the HTTP response into some writer.
 pub async fn write_response<W>(

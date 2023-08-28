@@ -6,13 +6,13 @@ mod register;
 use futures::future::BoxFuture;
 use std::{collections::HashMap, sync::Arc};
 
-use xcp_metrics_common::{
+use xapi::{
+    hyper::{Body, Response},
     rpc::{
         message::RpcRequest,
         methods::{PluginLocalDeregister, PluginLocalNextReading, PluginLocalRegister},
         XcpRpcMethodNamed,
     },
-    xapi::hyper::{Body, Response},
 };
 
 use self::{

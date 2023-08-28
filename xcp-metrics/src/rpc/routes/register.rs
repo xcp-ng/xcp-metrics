@@ -2,13 +2,13 @@
 use std::sync::Arc;
 
 use futures::future::BoxFuture;
-use xcp_metrics_common::{
+use xapi::{
+    hyper::{Body, Response},
     rpc::{
         message::{RpcRequest, RpcResponse},
         methods::PluginLocalRegister,
         XcpRpcMethodNamed,
     },
-    xapi::hyper::{Body, Response},
 };
 
 use super::XcpRpcRoute;

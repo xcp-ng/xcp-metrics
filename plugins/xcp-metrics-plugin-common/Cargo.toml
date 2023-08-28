@@ -9,6 +9,7 @@ edition = "2021"
 
 [dependencies]
 xcp-metrics-common = { path = "../../xcp-metrics-common" }
+xapi = { path = "../../xapi-rs" }
 
 anyhow = "1.0"
 tokio = "1"

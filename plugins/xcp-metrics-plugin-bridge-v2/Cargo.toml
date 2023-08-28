@@ -10,6 +10,7 @@ categories.workspace = true
 [dependencies]
 xcp-metrics-common = { path = "../../xcp-metrics-common" }
 xcp-metrics-plugin-common = { path = "../xcp-metrics-plugin-common" }
+xapi = { path = "../../xapi-rs" }
 
 uuid = "1.4"
 anyhow = "1.0"

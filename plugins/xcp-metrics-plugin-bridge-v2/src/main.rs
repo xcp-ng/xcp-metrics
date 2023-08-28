@@ -2,11 +2,11 @@ use std::{collections::HashMap, time::Duration};
 
 use clap::{command, Parser};
 use tokio::time;
+use xapi::METRICS_SHM_PATH;
 use xcp_metrics_common::{
     metrics::MetricSet,
     protocol_v3::{self, ProtocolV3Header},
     utils::mapping::CustomMapping,
-    xapi::METRICS_SHM_PATH,
 };
 
 use xcp_metrics_plugin_common::{bridge::v3_to_v2::BridgeToV2, protocol_v2::RrddPlugin};

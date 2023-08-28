@@ -3,11 +3,13 @@ use std::sync::Arc;
 
 use futures::future::BoxFuture;
 use tokio::sync::mpsc;
+use xapi::{
+    hyper::{Body, Response},
+    rpc::{message::RpcRequest, methods::OpenMetricsMethod, XcpRpcMethodNamed},
+};
 use xcp_metrics_common::{
     metrics::MetricSet,
     openmetrics::{self, prost::Message, text},
-    rpc::{message::RpcRequest, methods::OpenMetricsMethod, XcpRpcMethodNamed},
-    xapi::hyper::{Body, Response},
 };
 
 use crate::{

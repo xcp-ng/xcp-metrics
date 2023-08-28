@@ -5,8 +5,7 @@ use tokio::{
     net::UnixStream,
     task::{self, JoinHandle},
 };
-use xcp_metrics_common::xapi::{
-    self,
+use xapi::{
     hyper::{
         self,
         service::{make_service_fn, service_fn},

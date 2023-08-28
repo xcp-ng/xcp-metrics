@@ -161,20 +161,15 @@ mod protocol_v3 {
         ));
     }
 
-    #[test]
-    fn invalid_header_async() {
-        tokio::runtime::Builder::new_current_thread()
-            .build()
-            .unwrap()
-            .block_on(async {
-                // Empty header is invalid.
-                let invalid_header = [0u8; 28];
+    #[tokio::test]
+    async fn invalid_header_async() {
+        // Empty header is invalid.
+        let invalid_header = [0u8; 28];
 
-                assert!(matches!(
-                    parse_v3_async(&mut invalid_header.as_slice()).await,
-                    Err(ProtocolV3Error::InvalidHeader)
-                ));
-            });
+        assert!(matches!(
+            parse_v3_async(&mut invalid_header.as_slice()).await,
+            Err(ProtocolV3Error::InvalidHeader)
+        ));
     }
 
     #[test]
@@ -200,33 +195,28 @@ mod protocol_v3 {
         ));
     }
 
-    #[test]
-    fn invalid_checksum_async() {
-        tokio::runtime::Builder::new_current_thread()
-            .build()
+    #[tokio::test]
+    async fn invalid_checksum_async() {
+        // Empty header is invalid.
+        let mut dest = vec![];
+
+        generate_v3_async(
+            &mut dest,
+            Some(SystemTime::UNIX_EPOCH + Duration::from_secs(123456789)),
+            crate::test::make_test_metrics_set(),
+        )
+        .await
+        .unwrap();
+
+        // mess with dest checksum
+        dest.get_mut(12..16)
             .unwrap()
-            .block_on(async {
-                // Empty header is invalid.
-                let mut dest = vec![];
+            .copy_from_slice(&[0xde, 0xad, 0xbe, 0xef]);
 
-                generate_v3_async(
-                    &mut dest,
-                    Some(SystemTime::UNIX_EPOCH + Duration::from_secs(123456789)),
-                    crate::test::make_test_metrics_set(),
-                )
-                .await
-                .unwrap();
-
-                // mess with dest checksum
-                dest.get_mut(12..16)
-                    .unwrap()
-                    .copy_from_slice(&[0xde, 0xad, 0xbe, 0xef]);
-
-                assert!(matches!(
-                    parse_v3_async(&mut dest.as_slice()).await,
-                    Err(ProtocolV3Error::InvalidChecksum { .. })
-                ));
-            });
+        assert!(matches!(
+            parse_v3_async(&mut dest.as_slice()).await,
+            Err(ProtocolV3Error::InvalidChecksum { .. })
+        ));
     }
 
     #[test]
