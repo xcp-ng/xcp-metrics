@@ -206,7 +206,6 @@ fn test_watch() {
 }
 
 #[test]
-#[cfg(features = "xenstore-write")]
 fn test_subdirectories() {
     let xs = MockXs::default();
 

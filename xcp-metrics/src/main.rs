@@ -73,7 +73,7 @@ async fn check_unix_socket(socket_path: &Path) -> anyhow::Result<bool> {
                     socket = socket_path.to_str(),
                     "Unlinking inactive XAPI socket"
                 );
-                fs::remove_file(&socket_path)?;
+                fs::remove_file(socket_path)?;
                 Ok(false)
             } else {
                 tracing::error!(
@@ -129,12 +129,12 @@ async fn main() {
 
     let forwarded_path = format!("{}.forwarded", daemon_path.to_string_lossy());
 
-    if check_unix_socket(&Path::new(&daemon_path)).await.unwrap() {
+    if check_unix_socket(Path::new(&daemon_path)).await.unwrap() {
         tracing::error!("Unable to start: xcp-metrics socket is active");
         panic!("Unable to start: is xcp-metrics already running ?");
     }
 
-    if check_unix_socket(&Path::new(&forwarded_path))
+    if check_unix_socket(Path::new(&forwarded_path))
         .await
         .unwrap()
     {

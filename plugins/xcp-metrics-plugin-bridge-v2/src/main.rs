@@ -1,9 +1,4 @@
-use std::{
-    collections::HashMap,
-    ops::Deref,
-    path::{Path, PathBuf},
-    time::Duration,
-};
+use std::{collections::HashMap, path::PathBuf, time::Duration};
 
 use clap::{command, Parser};
 use tokio::time;

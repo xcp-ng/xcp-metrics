@@ -36,7 +36,7 @@ pub struct RrdXportParameters {
 }
 
 #[derive(Copy, Clone)]
-pub(self) enum Granuality {
+enum Granuality {
     FiveSeconds,
     Minute,
     Hour,

@@ -30,7 +30,7 @@ impl MetricsPlugin {
             uid: uid.into(),
             metrics_path: Path::new(METRICS_SHM_PATH).join(uid),
             target_daemon_path: target_daemon_path
-                .unwrap_or(&Path::new(&DEFAULT_DAEMON))
+                .unwrap_or(Path::new(&DEFAULT_DAEMON))
                 .to_path_buf(),
         };
 

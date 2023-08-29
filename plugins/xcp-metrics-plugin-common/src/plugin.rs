@@ -48,7 +48,7 @@ pub async fn run_hybrid(
             .starts_with("rrdp-")
     {
         tracing::info!("Program name starts with rrdp-*, use xcp-rrdd and protocol-v2 by default.");
-        target_daemon_path = Some(&Path::new(&XCP_RRDD_PATH));
+        target_daemon_path = Some(Path::new(&XCP_RRDD_PATH));
         version = Some(2);
     }
 

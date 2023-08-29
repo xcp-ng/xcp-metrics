@@ -102,10 +102,12 @@ impl RpcRequest {
 
     /// Write the serialized [RpcRequest] to `writer`.
     pub fn write<W: Write>(&self, writer: &mut W) -> anyhow::Result<()> {
-        Ok(match self {
+        match self {
             RpcRequest::XmlRpc(method) => write_xml(writer, method)?,
             RpcRequest::JsonRpc(request) => serde_json::to_writer(writer, request)?,
-        })
+        }
+
+        Ok(())
     }
 
     /// Parse a [RpcRequest] from a http request (either XML-RPC or JSON-RPC).
