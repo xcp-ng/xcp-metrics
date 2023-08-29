@@ -109,7 +109,8 @@ async fn main() {
 
     tracing::subscriber::set_global_default(text_subscriber).unwrap();
 
-    let daemon_path = args.daemon_path.clone().unwrap_or_else(|| {
+    // Use xcp-rrdd socket path if arg0 is xcp-rrdd and not specified in Args.
+    let socket_path = args.daemon_path.clone().unwrap_or_else(|| {
         let Some(arg0) = std::env::args().next() else {
             return get_module_path("xcp-metrics");
         };
@@ -127,9 +128,9 @@ async fn main() {
         get_module_path("xcp-metrics")
     });
 
-    let forwarded_path = format!("{}.forwarded", daemon_path.to_string_lossy());
+    let forwarded_path = format!("{}.forwarded", socket_path.to_string_lossy());
 
-    if check_unix_socket(Path::new(&daemon_path)).await.unwrap() {
+    if check_unix_socket(Path::new(&socket_path)).await.unwrap() {
         tracing::error!("Unable to start: xcp-metrics socket is active");
         panic!("Unable to start: is xcp-metrics already running ?");
     }
@@ -153,7 +154,7 @@ async fn main() {
         rpc_routes: Default::default(),
     });
 
-    let socket = rpc::daemon::start_daemon(&daemon_path, shared.clone())
+    let socket = rpc::daemon::start_daemon(&socket_path, shared.clone())
         .await
         .unwrap();
 
