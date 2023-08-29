@@ -33,8 +33,8 @@ impl FromStr for RpcKind {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "xml" | "xmlrpc" => Ok(Self::XmlRpc),
-            "json" | "jsonrpc" => Ok(Self::JsonRpc),
+            "xml" | "xmlrpc" | "xml-rpc" => Ok(Self::XmlRpc),
+            "json" | "jsonrpc" | "json-rpc" => Ok(Self::JsonRpc),
             _ => Err("Unknown RPC format".to_string()),
         }
     }
