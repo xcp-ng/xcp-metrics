@@ -1,7 +1,6 @@
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
     path::Path,
-    sync::Arc,
 };
 
 use clap::{command, Parser};
@@ -41,7 +40,7 @@ async fn redirect_openmetrics(
 
 #[tokio::main]
 async fn main() {
-    let args = Arc::new(Args::parse());
+    let args = Args::parse();
     let daemon_path = Path::new(&args.daemon_path).to_path_buf();
 
     let service_fn = make_service_fn(|addr: &AddrStream| {
