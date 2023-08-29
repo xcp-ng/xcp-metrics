@@ -1,6 +1,7 @@
 //! [RrddServer] implementation
 use std::{
     collections::HashMap,
+    convert::identity,
     iter,
     sync::Arc,
     time::{Duration, SystemTime},
@@ -277,9 +278,18 @@ impl RrddServer {
                                 .iter_mut()
                                 .map(|iter| iter.next().unwrap_or(&f64::NAN))
                                 .cloned()
-                                .collect(),
+                                .collect::<Box<[f64]>>(),
                         )
                     })
+                    .map(|(start, iteration)| {
+                        if iteration.iter().all(|f| f.is_nan()) {
+                            None
+                        } else {
+                            Some((start, iteration))
+                        }
+                    })
+                    .fuse()
+                    .filter_map(identity)
                     .collect();
 
                 sender
