@@ -5,8 +5,9 @@ mod routes;
 
 use std::{
     os::fd::{FromRawFd, RawFd},
+    path::Path,
     slice,
-    sync::Arc, path::Path,
+    sync::Arc,
 };
 
 use sendfd::RecvWithFd;

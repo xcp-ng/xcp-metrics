@@ -19,7 +19,6 @@ use tokio::{net::UnixStream, select, sync::mpsc, task::JoinHandle};
 
 use publishers::rrdd::server::{RrddServer, RrddServerMessage};
 
-use xapi::get_module_path;
 use xcp_metrics_common::utils::mapping::CustomMapping;
 
 /// Shared xcp-metrics structure.
@@ -110,9 +109,9 @@ async fn main() {
     tracing::subscriber::set_global_default(text_subscriber).unwrap();
 
     // Use xcp-rrdd socket path if arg0 is xcp-rrdd and not specified in Args.
-    let socket_path = args.daemon_path.clone().unwrap_or_else(|| {
+    let socket_path = args.daemon_path.unwrap_or_else(|| {
         let Some(arg0) = std::env::args().next() else {
-            return get_module_path("xcp-metrics");
+            return xapi::get_module_path("xcp-metrics");
         };
 
         let arg0_pathname = Path::new(&arg0)
@@ -122,10 +121,10 @@ async fn main() {
 
         if arg0_pathname == "xcp-rrdd" {
             tracing::info!("Program name is xcp-rrdd, use xcp-rrdd socket path by default");
-            return get_module_path("xcp-rrdd");
+            return xapi::get_module_path("xcp-rrdd");
         }
 
-        get_module_path("xcp-metrics")
+        xapi::get_module_path("xcp-metrics")
     });
 
     let forwarded_path = format!("{}.forwarded", socket_path.to_string_lossy());
@@ -135,10 +134,7 @@ async fn main() {
         panic!("Unable to start: is xcp-metrics already running ?");
     }
 
-    if check_unix_socket(Path::new(&forwarded_path))
-        .await
-        .unwrap()
-    {
+    if check_unix_socket(Path::new(&forwarded_path)).await.unwrap() {
         tracing::error!("Unable to start: xcp-metrics.forwarded socket is active");
         panic!("Unable to start: is xcp-metrics already running ?");
     }
