@@ -5,7 +5,6 @@ use tokio::{
     io::AsyncWriteExt,
 };
 use xapi::{
-    hyper::body::HttpBody,
     rpc::{
         message::parse_http_response,
         methods::{PluginLocalDeregister, PluginLocalRegister},
@@ -82,9 +81,7 @@ impl RrddPlugin {
             )
         })?;
 
-        let response = parse_http_response(response).await;
-
-        tracing::debug!("RPC Response: {response:?}");
+        tracing::info!("RPC Response: {:?}", parse_http_response(response).await);
 
         Ok(())
     }
@@ -158,10 +155,7 @@ impl RrddPlugin {
         .await
         {
             Ok(response) => {
-                tracing::debug!("RPC Response: {response:?}");
-                if let Some(Ok(body)) = response.into_body().data().await {
-                    tracing::debug!("RPC Body:\n{:}", String::from_utf8_lossy(&body));
-                }
+                tracing::info!("RPC Response: {:?}", parse_http_response(response).await);
             }
             Err(e) => {
                 tracing::error!("Unable to unregister plugin ({e})")

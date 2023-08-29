@@ -5,7 +5,6 @@ use std::path::{Path, PathBuf};
 
 use tokio::fs::{create_dir_all, OpenOptions};
 use xapi::{
-    hyper::body::HttpBody,
     rpc::{
         message::parse_http_response,
         methods::{PluginLocalDeregister, PluginLocalRegister},
@@ -80,10 +79,7 @@ impl MetricsPlugin {
             )
         })?;
 
-        tracing::debug!("RPC Response: {response:?}");
-        if let Some(Ok(body)) = response.into_body().data().await {
-            tracing::debug!("RPC Body:\n{:}", String::from_utf8_lossy(&body));
-        }
+        tracing::debug!("RPC Response: {:?}", parse_http_response(response).await);
 
         Ok(())
     }
@@ -106,9 +102,7 @@ impl MetricsPlugin {
         .await
         {
             Ok(response) => {
-                let response = parse_http_response(response).await;
-
-                tracing::debug!("RPC Response: {response:?}");
+                tracing::debug!("RPC Response: {:?}", parse_http_response(response).await);
             }
             Err(e) => {
                 tracing::error!("Unable to unregister plugin ({e})")
