@@ -5,7 +5,12 @@ pub mod providers;
 pub mod publishers;
 pub mod rpc;
 
-use std::{collections::HashMap, fs, path::Path, sync::Arc};
+use std::{
+    collections::HashMap,
+    fs,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use clap::{command, Parser};
 use dashmap::DashMap;
@@ -14,6 +19,7 @@ use tokio::{net::UnixStream, select, sync::mpsc, task::JoinHandle};
 
 use publishers::rrdd::server::{RrddServer, RrddServerMessage};
 
+use xapi::get_module_path;
 use xcp_metrics_common::utils::mapping::CustomMapping;
 
 /// Shared xcp-metrics structure.
@@ -41,11 +47,12 @@ struct Args {
     log_level: tracing::Level,
 
     /// xcp-metrics socket path
-    #[arg(long, default_value_t = String::from("/var/lib/xcp/xcp-metrics"))]
-    daemon_path: String,
+    #[arg(long)]
+    daemon_path: Option<PathBuf>,
 
     /// Custom RrddServer v3-to-v2 mapping file.
-    mapping_file: Option<String>,
+    #[arg(short, long)]
+    mapping_file: Option<PathBuf>,
 }
 
 /// Check if the XAPI socket is active and unlink it if it isn't.
@@ -81,7 +88,7 @@ async fn check_unix_socket(socket_path: &Path) -> anyhow::Result<bool> {
 
 /// Load the mappings from file or use default ones (for now).
 async fn get_mappings(
-    mapping_path: Option<&String>,
+    mapping_path: Option<&Path>,
 ) -> anyhow::Result<HashMap<Box<str>, CustomMapping>> {
     if let Some(path) = mapping_path {
         Ok(serde_json::from_str(&fs::read_to_string(path)?)?)
@@ -102,12 +109,27 @@ async fn main() {
 
     tracing::subscriber::set_global_default(text_subscriber).unwrap();
 
-    let forwarded_path = format!("{}.forwarded", args.daemon_path);
+    let daemon_path = args.daemon_path.clone().unwrap_or_else(|| {
+        let Some(arg0) = std::env::args().next() else {
+            return get_module_path("xcp-metrics");
+        };
 
-    if check_unix_socket(&Path::new(&args.daemon_path))
-        .await
-        .unwrap()
-    {
+        let arg0_pathname = Path::new(&arg0)
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy();
+
+        if arg0_pathname == "xcp-rrdd" {
+            tracing::info!("Program name is xcp-rrdd, use xcp-rrdd socket path by default");
+            return get_module_path("xcp-rrdd");
+        }
+
+        get_module_path("xcp-metrics")
+    });
+
+    let forwarded_path = format!("{}.forwarded", daemon_path.to_string_lossy());
+
+    if check_unix_socket(&Path::new(&daemon_path)).await.unwrap() {
         tracing::error!("Unable to start: xcp-metrics socket is active");
         panic!("Unable to start: is xcp-metrics already running ?");
     }
@@ -122,7 +144,7 @@ async fn main() {
 
     let (hub, hub_channel) = hub::MetricsHub::default().start().await;
     let (rrdd_server, rrdd_channel) =
-        RrddServer::new(get_mappings(args.mapping_file.as_ref()).await.unwrap());
+        RrddServer::new(get_mappings(args.mapping_file.as_deref()).await.unwrap());
 
     let shared = Arc::new(XcpMetricsShared {
         hub_channel,
@@ -131,13 +153,14 @@ async fn main() {
         rpc_routes: Default::default(),
     });
 
-    let socket = rpc::daemon::start_daemon(&args.daemon_path, shared.clone())
+    let socket = rpc::daemon::start_daemon(&daemon_path, shared.clone())
         .await
         .unwrap();
 
-    let socket_forwarded = forwarded::start_forwarded_socket(&forwarded_path, shared.clone())
-        .await
-        .unwrap();
+    let socket_forwarded =
+        forwarded::start_forwarded_socket(Path::new(&forwarded_path), shared.clone())
+            .await
+            .unwrap();
 
     let rrdd = rrdd_server.start(shared.hub_channel.clone());
 

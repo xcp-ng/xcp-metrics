@@ -6,7 +6,7 @@ mod routes;
 use std::{
     os::fd::{FromRawFd, RawFd},
     slice,
-    sync::Arc,
+    sync::Arc, path::Path,
 };
 
 use sendfd::RecvWithFd;
@@ -71,11 +71,11 @@ async fn forwarded_handler(
 }
 
 pub async fn start_forwarded_socket(
-    daemon_name: &str,
+    daemon_path: &Path,
     shared: Arc<XcpMetricsShared>,
 ) -> anyhow::Result<JoinHandle<()>> {
-    let socket_path = xapi::get_module_path(daemon_name);
-    let listener = UnixListener::bind(socket_path)?;
+    let daemon_path = daemon_path.to_path_buf();
+    let listener = UnixListener::bind(daemon_path)?;
 
     tracing::info!("Starting forwarded");
 
