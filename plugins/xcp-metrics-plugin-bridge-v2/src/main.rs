@@ -1,4 +1,9 @@
-use std::{collections::HashMap, path::Path, time::Duration};
+use std::{
+    collections::HashMap,
+    ops::Deref,
+    path::{Path, PathBuf},
+    time::Duration,
+};
 
 use clap::{command, Parser};
 use tokio::time;
@@ -24,12 +29,12 @@ struct Args {
     log_level: tracing::Level,
 
     /// Target daemon path.
-    #[arg(short, long, default_value_t = String::from("/var/lib/xcp/xcp-metrics"))]
-    target: String,
+    #[arg(short, long)]
+    target: Option<PathBuf>,
 
     /// V3 to V2 mapping file (JSON format)
     #[arg(short, long)]
-    mapping_path: Option<String>,
+    mapping_path: Option<PathBuf>,
 }
 
 fn load_mapping(args: &Args) -> HashMap<Box<str>, CustomMapping> {
@@ -76,7 +81,11 @@ async fn main() {
         &bridged_plugin_name,
         bridge.get_metadata().clone(),
         Some(&bridge.get_data()),
-        Some(&Path::new(&args.target)),
+        Some(
+            &args
+                .target
+                .unwrap_or_else(|| xapi::get_module_path("xcp-rrdd")),
+        ),
     )
     .await
     .unwrap();
