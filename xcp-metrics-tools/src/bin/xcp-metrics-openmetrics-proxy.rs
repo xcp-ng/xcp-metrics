@@ -16,13 +16,13 @@ use xapi::rpc::methods::OpenMetricsMethod;
 #[derive(Clone, Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    /// Port to bind the HTTP server to.
-    #[arg(short, long)]
-    port: u16,
+    /// Adress to bind the HTTP server to.
+    #[arg(short, long, default_value_t = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 8080))]
+    addr: SocketAddr,
 
     /// Path to the xcp-metrics daemon socket to fetch metrics from.
     #[arg(short, long)]
-    daemon_path: Option<PathBuf>
+    daemon_path: Option<PathBuf>,
 }
 
 async fn redirect_openmetrics(
@@ -41,7 +41,9 @@ async fn redirect_openmetrics(
 #[tokio::main]
 async fn main() {
     let args = Args::parse();
-    let daemon_path = args.daemon_path.unwrap_or_else(|| xapi::get_module_path("xcp-metrics"));
+    let daemon_path = args
+        .daemon_path
+        .unwrap_or_else(|| xapi::get_module_path("xcp-metrics"));
 
     let service_fn = make_service_fn(|addr: &AddrStream| {
         println!("Handling request {:?}", addr);
@@ -55,11 +57,7 @@ async fn main() {
         }
     });
 
-    let server = Server::bind(&SocketAddr::new(
-        IpAddr::V4(Ipv4Addr::UNSPECIFIED),
-        args.port,
-    ))
-    .serve(service_fn);
+    let server = Server::bind(&args.addr).serve(service_fn);
 
     server.await.expect("Proxy server failure");
 }

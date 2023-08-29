@@ -14,7 +14,7 @@ use xapi::{
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    /// Name of the daemon to fetch metrics from.
+    /// Path to the xcp-metrics daemon socket to fetch metrics from.
     #[arg(short, long)]
     daemon_path: Option<PathBuf>,
 
