@@ -28,6 +28,19 @@ pub trait XcpPlugin {
     fn get_mappings(&self) -> Option<HashMap<Box<str>, CustomMapping>>;
 }
 
+fn arg0_starts_with_rrdp() -> bool {
+    let Some(arg0) = std::env::args().next() else {
+        return false;
+    };
+
+    Path::new(&arg0)
+        .file_name()
+        .unwrap_or_default()
+        .to_os_string()
+        .to_string_lossy()
+        .starts_with("rrdp-")
+}
+
 /// Run the provided for either protocol v2 (converting from v3) or protocol v3 depending on `version`.
 ///
 /// Versions :
@@ -40,13 +53,7 @@ pub async fn run_hybrid(
     mut target_daemon_path: Option<&Path>,
     mut version: Option<u32>,
 ) {
-    if target_daemon_path.is_none()
-        && version.is_none()
-        && std::env::args()
-            .next()
-            .unwrap_or_default()
-            .starts_with("rrdp-")
-    {
+    if target_daemon_path.is_none() && version.is_none() && arg0_starts_with_rrdp() {
         tracing::info!("Program name starts with rrdp-*, use xcp-rrdd and protocol-v2 by default.");
         target_daemon_path = Some(Path::new(&XCP_RRDD_PATH));
         version = Some(2);
