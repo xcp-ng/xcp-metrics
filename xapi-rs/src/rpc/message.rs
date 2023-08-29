@@ -371,15 +371,7 @@ pub async fn parse_http_response(response: Response<Body>) -> Result<RpcResponse
         | Some(Ok("application/json-rpc"))
         | Some(Ok("application/jsonrequest")) => RpcKind::JsonRpc,
         // XML
-        Some(Ok("text/xml")) => RpcKind::XmlRpc,
-
-        _ => {
-            return Err(make_rpc_error(
-                jsonrpc_base::Error::INVALID_REQUEST,
-                "Invalid or undefined content-type".to_string(),
-                RpcKind::XmlRpc,
-            ));
-        }
+        Some(Ok("text/xml")) | _ => RpcKind::XmlRpc,
     };
 
     let data = match body.data().await {
