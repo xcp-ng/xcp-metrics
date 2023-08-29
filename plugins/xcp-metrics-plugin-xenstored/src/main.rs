@@ -1,7 +1,7 @@
 mod plugin;
 
 use clap::{command, Parser};
-use std::path::Path;
+use std::path::PathBuf;
 
 use xcp_metrics_plugin_common::{
     plugin::run_hybrid,
@@ -19,12 +19,12 @@ struct Args {
     log_level: tracing::Level,
 
     /// Target daemon.
-    #[arg(short, long, default_value_t = String::from("xcp-rrdd"))]
-    target: String,
+    #[arg(short, long)]
+    target: Option<PathBuf>,
 
     /// Used protocol
-    #[arg(short, long, default_value_t = 2)]
-    protocol: u32,
+    #[arg(short, long)]
+    protocol: Option<u32>,
 }
 
 #[tokio::main]
@@ -49,7 +49,7 @@ async fn main() {
 
     run_hybrid(
         XenStorePlugin::new(&xs),
-        Some(&Path::new(&args.target)),
+        args.target.as_deref(),
         args.protocol,
     )
     .await;

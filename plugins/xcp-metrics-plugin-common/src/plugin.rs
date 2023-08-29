@@ -11,6 +11,8 @@ use crate::{
 };
 use xcp_metrics_common::utils::mapping::CustomMapping;
 
+pub const XCP_RRDD_PATH: &str = "/var/lib/xcp/xcp-rrdd";
+
 /// Abstraction of a protocol v3 plugin.
 pub trait XcpPlugin {
     /// Update the state of the plugin.
@@ -33,8 +35,24 @@ pub trait XcpPlugin {
 ///   3: Directly expose protocol v3 metrics to target daemon.
 ///
 /// If no target_daemon is provided, use default one.
-pub async fn run_hybrid(shared: impl XcpPlugin, target_daemon_path: Option<&Path>, version: u32) {
-    match version {
+pub async fn run_hybrid(
+    shared: impl XcpPlugin,
+    mut target_daemon_path: Option<&Path>,
+    mut version: Option<u32>,
+) {
+    if target_daemon_path.is_none()
+        && version.is_none()
+        && std::env::args()
+            .next()
+            .unwrap_or_default()
+            .starts_with("rrdp-")
+    {
+        tracing::info!("Program name starts with rrdp-*, use xcp-rrdd and protocol-v2 by default.");
+        target_daemon_path = Some(&Path::new(&XCP_RRDD_PATH));
+        version = Some(2);
+    }
+
+    match version.unwrap_or(3) {
         2 => run_plugin_v2(shared, target_daemon_path).await,
         3 => run_plugin_v3(shared, target_daemon_path).await,
         p => tracing::error!("Unknown protocol {p}"),

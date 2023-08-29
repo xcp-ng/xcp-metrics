@@ -3,7 +3,7 @@ mod metrics;
 use clap::Parser;
 use maplit::hashmap;
 use metrics::{discover_xen_metrics, XenMetric, XenMetricsShared};
-use std::{collections::HashMap, path::Path, rc::Rc};
+use std::{collections::HashMap, path::PathBuf, rc::Rc};
 
 use xcp_metrics_common::utils::mapping::CustomMapping;
 use xcp_metrics_plugin_common::{
@@ -20,12 +20,12 @@ struct Args {
     log_level: tracing::Level,
 
     /// Target daemon path.
-    #[arg(short, long, default_value_t = String::from("/var/lib/xcp/xcp-rrdd"))]
-    target: String,
+    #[arg(short, long)]
+    target: Option<PathBuf>,
 
     /// Used protocol
-    #[arg(short, long, default_value_t = 2)]
-    protocol: u32,
+    #[arg(short, long)]
+    protocol: Option<u32>,
 }
 
 struct XenPlugin {
@@ -102,5 +102,5 @@ async fn main() {
         shared: XenMetricsShared::new(xc),
     };
 
-    run_hybrid(plugin, Some(&Path::new(&args.target)), args.protocol).await;
+    run_hybrid(plugin, args.target.as_deref(), args.protocol).await;
 }

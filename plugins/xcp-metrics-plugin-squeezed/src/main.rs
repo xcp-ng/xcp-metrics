@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test;
 
-use std::{collections::HashMap, path::Path};
+use std::{collections::HashMap, path::PathBuf};
 
 use clap::Parser;
 use maplit::hashmap;
@@ -25,12 +25,12 @@ struct Args {
     log_level: tracing::Level,
 
     /// Target daemon.
-    #[arg(short, long, default_value_t = String::from("/var/lib/xcp/xcp-rrdd"))]
-    target: String,
+    #[arg(short, long)]
+    target: Option<PathBuf>,
 
     /// Used protocol
-    #[arg(short, long, default_value_t = 2)]
-    protocol: u32,
+    #[arg(short, long)]
+    protocol: Option<u32>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -178,5 +178,5 @@ async fn main() {
 
     let plugin = SqueezedPlugin { xs };
 
-    run_hybrid(plugin, Some(&Path::new(&args.target)), args.protocol).await;
+    run_hybrid(plugin, args.target.as_deref(), args.protocol).await;
 }
