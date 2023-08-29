@@ -6,7 +6,10 @@ use tokio::{
 };
 use xapi::{
     hyper::body::HttpBody,
-    rpc::methods::{PluginLocalDeregister, PluginLocalRegister},
+    rpc::{
+        message::parse_http_response,
+        methods::{PluginLocalDeregister, PluginLocalRegister},
+    },
     METRICS_SHM_PATH,
 };
 use xcp_metrics_common::rrdd::{
@@ -79,10 +82,9 @@ impl RrddPlugin {
             )
         })?;
 
+        let response = parse_http_response(response).await;
+
         tracing::debug!("RPC Response: {response:?}");
-        if let Some(Ok(body)) = response.into_body().data().await {
-            tracing::debug!("RPC Body:\n{:}", String::from_utf8_lossy(&body));
-        }
 
         Ok(())
     }

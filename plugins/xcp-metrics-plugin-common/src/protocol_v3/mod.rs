@@ -6,7 +6,10 @@ use std::path::{Path, PathBuf};
 use tokio::fs::{create_dir_all, OpenOptions};
 use xapi::{
     hyper::body::HttpBody,
-    rpc::methods::{PluginLocalDeregister, PluginLocalRegister},
+    rpc::{
+        message::parse_http_response,
+        methods::{PluginLocalDeregister, PluginLocalRegister},
+    },
     METRICS_SHM_PATH,
 };
 use xcp_metrics_common::{metrics::MetricSet, protocol_v3};
@@ -103,10 +106,9 @@ impl MetricsPlugin {
         .await
         {
             Ok(response) => {
+                let response = parse_http_response(response).await;
+
                 tracing::debug!("RPC Response: {response:?}");
-                if let Some(Ok(body)) = response.into_body().data().await {
-                    tracing::debug!("RPC Body:\n{:}", String::from_utf8_lossy(&body));
-                }
             }
             Err(e) => {
                 tracing::error!("Unable to unregister plugin ({e})")
