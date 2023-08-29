@@ -1,7 +1,8 @@
+use std::path::PathBuf;
+
 use clap::Parser;
 use tokio::io::{stdout, AsyncWriteExt};
 use xapi::{
-    get_module_path,
     hyper::{self, body, Body},
     hyperlocal,
     rpc::{
@@ -14,8 +15,8 @@ use xapi::{
 #[command(author, version, about, long_about = None)]
 struct Args {
     /// Name of the daemon to fetch metrics from.
-    #[arg(short, long, default_value_t = String::from("/var/lib/xcp/xcp-metrics"))]
-    daemon_name: String,
+    #[arg(short, long)]
+    daemon_path: Option<PathBuf>,
 
     /// RPC format to use
     #[arg(long, default_value_t = RpcKind::JsonRpc)]
@@ -29,8 +30,11 @@ struct Args {
 #[tokio::main]
 async fn main() {
     let args = Args::parse();
+    let daemon_path = args
+        .daemon_path
+        .unwrap_or_else(|| xapi::get_module_path("xcp-metrics"));
 
-    let module_uri = hyperlocal::Uri::new(get_module_path(&args.daemon_name), "/");
+    let module_uri = hyperlocal::Uri::new(daemon_path, "/");
 
     let mut rpc_buffer = vec![];
     let method = OpenMetricsMethod {

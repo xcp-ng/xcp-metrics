@@ -1,6 +1,6 @@
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
-    path::Path,
+    path::{Path, PathBuf},
 };
 
 use clap::{command, Parser};
@@ -21,8 +21,8 @@ struct Args {
     port: u16,
 
     /// Path to the xcp-metrics daemon socket to fetch metrics from.
-    #[arg(short, long, default_value_t = String::from("/var/lib/xcp/xcp-metrics"))]
-    daemon_path: String,
+    #[arg(short, long)]
+    daemon_path: Option<PathBuf>
 }
 
 async fn redirect_openmetrics(
@@ -41,7 +41,7 @@ async fn redirect_openmetrics(
 #[tokio::main]
 async fn main() {
     let args = Args::parse();
-    let daemon_path = Path::new(&args.daemon_path).to_path_buf();
+    let daemon_path = args.daemon_path.unwrap_or_else(|| xapi::get_module_path("xcp-metrics"));
 
     let service_fn = make_service_fn(|addr: &AddrStream| {
         println!("Handling request {:?}", addr);
