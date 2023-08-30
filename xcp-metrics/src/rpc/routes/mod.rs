@@ -14,7 +14,7 @@ use xapi::{
         message::RpcRequest,
         methods::{
             PluginLocalDeregister, PluginLocalNextReading, PluginLocalRegister,
-            PluginMetricsGetVersions, PluginMetricsRegister,
+            PluginMetricsDeregister, PluginMetricsGetVersions, PluginMetricsRegister,
         },
         XcpRpcMethodNamed,
     },
@@ -81,7 +81,7 @@ impl Default for RpcRoutes {
                     PluginMetricsRegisterRoute::make_route(),
                 ),
                 (
-                    "Plugin.Metrics.deregister",
+                    PluginMetricsDeregister::get_method_name(),
                     PluginLocalDeregisterRoute::make_route(),
                 ),
             ]

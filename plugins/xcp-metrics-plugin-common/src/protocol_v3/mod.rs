@@ -7,7 +7,7 @@ use tokio::fs::{create_dir_all, OpenOptions};
 use xapi::{
     rpc::{
         message::parse_http_response,
-        methods::{PluginLocalDeregister, PluginMetricsRegister},
+        methods::{PluginMetricsDeregister, PluginMetricsRegister},
     },
     METRICS_SHM_PATH,
 };
@@ -88,7 +88,7 @@ impl MetricsPlugin {
         tracing::info!("Deregistering {}...", &self.uid);
 
         // Unregister plugin
-        let request = PluginLocalDeregister {
+        let request = PluginMetricsDeregister {
             uid: self.uid.to_string(),
         };
 

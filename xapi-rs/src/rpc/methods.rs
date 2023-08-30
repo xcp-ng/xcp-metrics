@@ -52,3 +52,11 @@ pub struct PluginMetricsRegister {
 }
 
 rpc_method!(PluginMetricsRegister, "Plugin.Metrics.register");
+
+/// Deregisters a plugin by uid.
+#[derive(Debug, Clone, TryToValue, TryFromValue, Serialize, Deserialize, PartialEq)]
+pub struct PluginMetricsDeregister {
+    pub uid: String,
+}
+
+rpc_method!(PluginMetricsDeregister, "Plugin.Metrics.deregister");
