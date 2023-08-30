@@ -1,5 +1,3 @@
-use core::slice;
-
 use xcp_metrics_common::rrdd::protocol_v2::{self, values_to_raw, RrddMessageHeader, RrddMetadata};
 use xcp_metrics_plugin_common::{
     bridge::v3_to_v2::BridgeToV2,
@@ -143,7 +141,7 @@ fn test_export() {
         .datasources
         .iter()
         .zip(reference_header.values.iter())
-        .for_each(|((reference_name, _), &reference_raw_value)| {
+        .for_each(|((reference_name, _), reference_raw_value)| {
             // Get matching raw value in generated data.
             let value = metadata
                 .datasources
@@ -152,7 +150,7 @@ fn test_export() {
                 // Get matching value
                 .find(|((name, _), _)| reference_name.as_ref() == name.as_ref())
                 // Convert DataSourceValue into raw bytes.
-                .map(|(_, value)| values_to_raw(slice::from_ref(value))[0])
+                .map(|(_, value)| value)
                 .expect(&format!("Missing name {reference_name}"));
 
             assert_eq!(value, reference_raw_value);
