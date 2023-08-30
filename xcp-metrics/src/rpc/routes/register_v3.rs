@@ -32,12 +32,12 @@ impl XcpRpcRoute for PluginMetricsRegisterRoute {
                 .try_into_method()
                 .ok_or_else(|| anyhow::anyhow!("No value provided"))?;
 
-            if register_rpc.protocol != "OpenMetrics 1.0.0" {
+            if register_rpc.version != "OpenMetrics 1.0.0" {
                 return RpcError::respond_to(
                     Some(&request),
                     -32000,
                     "Unsupported OpenMetrics version",
-                    Some(register_rpc.protocol),
+                    Some(register_rpc.version),
                 );
             }
 

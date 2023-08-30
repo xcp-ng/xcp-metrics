@@ -60,7 +60,7 @@ impl MetricsPlugin {
     /// Advertise the existence of the plugin to the main daemon.
     pub async fn advertise_plugin(&self) -> anyhow::Result<()> {
         let request = PluginMetricsRegister {
-            protocol: "OpenMetrics 1.0.0".into(),
+            version: "OpenMetrics 1.0.0".into(),
             uid: self.uid.to_string(),
         };
 

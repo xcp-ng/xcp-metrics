@@ -44,11 +44,11 @@ pub struct PluginMetricsGetVersions {}
 rpc_method!(PluginMetricsGetVersions, "Plugin.Metrics.get_versions");
 
 /// `Plugin.Metrics.register` registers a plugin as a source of metrics using protocol V3. `uid` is a unique identifier
-/// for the plugin, often the name of the plugin. `protocol` specifies the OpenMetrics version to use.
+/// for the plugin, often the name of the plugin. `version` specifies the OpenMetrics version to use.
 #[derive(Default, Debug, Clone, TryToValue, TryFromValue, Serialize, Deserialize, PartialEq)]
 pub struct PluginMetricsRegister {
     pub uid: String,
-    pub protocol: String,
+    pub version: String,
 }
 
 rpc_method!(PluginMetricsRegister, "Plugin.Metrics.register");
