@@ -1,3 +1,5 @@
+use std::io::Read;
+
 use xcp_metrics_common::rrdd::protocol_v2::{self, values_to_raw, RrddMessageHeader, RrddMetadata};
 use xcp_metrics_plugin_common::{
     bridge::v3_to_v2::BridgeToV2,
@@ -128,7 +130,8 @@ fn test_export() {
     let reference_header = protocol_v2::RrddMessageHeader::parse_from(reference_payload).unwrap();
 
     // Load payload
-    let reference_metadata: RrddMetadata = serde_json::from_reader(reference_payload).unwrap();
+    let payload_part = Read::take(reference_payload, header.metadata_length as u64);
+    let reference_metadata: RrddMetadata = serde_json::from_reader(payload_part).unwrap();
 
     // Check if metadata matches
     assert_eq!(metadata, &reference_metadata);
