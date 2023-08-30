@@ -117,6 +117,11 @@ fn test_export() {
     // /local/domain is needed for squeezed plugin to work properly
     // Having this entry missing will create warnings and no families at the end.
     xs.write(XBTransaction::Null, "/local/domain", "").unwrap();
+    
+    xs.write(XBTransaction::Null, "/local/domain/0", "").unwrap();
+    xs.write(XBTransaction::Null, "/local/domain/2/dynamic-max", "1048576").unwrap();
+    xs.write(XBTransaction::Null, "/local/domain/2/dynamic-min", "524288").unwrap();
+    xs.write(XBTransaction::Null, "/local/domain/2/target", "1048576").unwrap();
 
     let mut plugin = SqueezedPlugin { xs };
 
