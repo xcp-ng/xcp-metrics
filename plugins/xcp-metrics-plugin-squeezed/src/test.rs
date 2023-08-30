@@ -1,4 +1,4 @@
-use std::io::Read;
+use std::{io::Read, iter};
 
 use xcp_metrics_common::rrdd::protocol_v2::{self, values_to_raw, RrddMessageHeader, RrddMetadata};
 use xcp_metrics_plugin_common::{
@@ -113,6 +113,9 @@ fn multiple_vm() {
 #[test]
 fn test_export() {
     let xs = MockXs::default();
+
+    // /local/domain is needed for squeezed plugin to work properly
+    // Having this entry missing will create warnings and no families at the end.
     xs.write(XBTransaction::Null, "/local/domain", "").unwrap();
 
     let mut plugin = SqueezedPlugin { xs };
@@ -126,36 +129,32 @@ fn test_export() {
     // Generate a rrdd header
     let (header, _) = RrddMessageHeader::generate(&values_to_raw(&data), metadata.clone());
 
+    // Read a reference one generated with rrdp-squeezed
     let reference_payload = &mut include_bytes!("../tests/xcp-rrdd-squeezed").as_slice();
     let reference_header = protocol_v2::RrddMessageHeader::parse_from(reference_payload).unwrap();
 
-    // Load payload
-    let payload_part = Read::take(reference_payload, header.metadata_length as u64);
-    let reference_metadata: RrddMetadata = serde_json::from_reader(payload_part).unwrap();
+    let metadata_part = Read::take(reference_payload, header.metadata_length as u64);
+    let reference_metadata: RrddMetadata = serde_json::from_reader(metadata_part).unwrap();
 
     // Check if metadata matches
     assert_eq!(metadata, &reference_metadata);
 
-    // Check values
-
+    // Check if values matches.
     // Order may not be the same between xcp-rrdd-squeezed and this plugin (due to some hashmap randomness).
-    // Compare value per value.
-    reference_metadata
-        .datasources
-        .iter()
-        .zip(reference_header.values.iter())
-        .for_each(|((reference_name, _), reference_raw_value)| {
-            // Get matching raw value in generated data.
-            let value = metadata
-                .datasources
-                .iter()
-                .zip(header.values.iter())
-                // Get matching value
-                .find(|((name, _), _)| reference_name.as_ref() == name.as_ref())
-                // Convert DataSourceValue into raw bytes.
-                .map(|(_, value)| value)
-                .expect(&format!("Missing name {reference_name}"));
+    // We need to compare each values, regardless of the order.
+    iter::zip(
+        reference_metadata.datasources.iter(),
+        reference_header.values.iter(),
+    )
+    .for_each(|((reference_name, _), reference_raw_value)| {
+        // Get matching raw value in generated data.
+        let value = iter::zip(metadata.datasources.iter(), header.values.iter())
+            // Get matching value
+            .find(|((name, _), _)| reference_name.as_ref() == name.as_ref())
+            // Convert DataSourceValue into raw bytes.
+            .map(|(_, value)| value)
+            .expect(&format!("Missing name {reference_name}"));
 
-            assert_eq!(value, reference_raw_value);
-        });
+        assert_eq!(value, reference_raw_value);
+    });
 }
