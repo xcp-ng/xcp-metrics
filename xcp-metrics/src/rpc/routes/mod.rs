@@ -1,7 +1,9 @@
 //! RPC routes
 mod deregister;
+mod get_formats;
 mod next_reading;
 mod register;
+mod register_v3;
 
 use futures::future::BoxFuture;
 use std::{collections::HashMap, sync::Arc};
@@ -10,14 +12,18 @@ use xapi::{
     hyper::{Body, Response},
     rpc::{
         message::RpcRequest,
-        methods::{PluginLocalDeregister, PluginLocalNextReading, PluginLocalRegister},
+        methods::{
+            PluginLocalDeregister, PluginLocalNextReading, PluginLocalRegister,
+            PluginMetricsGetVersions, PluginMetricsRegister,
+        },
         XcpRpcMethodNamed,
     },
 };
 
 use self::{
-    deregister::PluginLocalDeregisterRoute, next_reading::PluginLocalNextReadingRoute,
-    register::PluginLocalRegisterRoute,
+    deregister::PluginLocalDeregisterRoute, get_formats::PluginMetricsGetVersionsRoute,
+    next_reading::PluginLocalNextReadingRoute, register::PluginLocalRegisterRoute,
+    register_v3::PluginMetricsRegisterRoute,
 };
 use crate::{publishers::openmetrics::OpenMetricsRoute, XcpMetricsShared};
 
@@ -65,6 +71,18 @@ impl Default for RpcRoutes {
                 (
                     PluginLocalNextReading::get_method_name(),
                     PluginLocalNextReadingRoute::make_route(),
+                ),
+                (
+                    PluginMetricsGetVersions::get_method_name(),
+                    PluginMetricsGetVersionsRoute::make_route(),
+                ),
+                (
+                    PluginMetricsRegister::get_method_name(),
+                    PluginMetricsRegisterRoute::make_route(),
+                ),
+                (
+                    "Plugin.Metrics.deregister",
+                    PluginLocalDeregisterRoute::make_route(),
                 ),
             ]
             .into_iter()

@@ -7,7 +7,7 @@ use tokio::fs::{create_dir_all, OpenOptions};
 use xapi::{
     rpc::{
         message::parse_http_response,
-        methods::{PluginLocalDeregister, PluginLocalRegister},
+        methods::{PluginLocalDeregister, PluginMetricsRegister},
     },
     METRICS_SHM_PATH,
 };
@@ -32,7 +32,7 @@ impl MetricsPlugin {
             uid: uid.into(),
             metrics_path: Path::new(METRICS_SHM_PATH).join(uid),
             target_daemon_path: target_daemon_path
-                .unwrap_or(Path::new(&DEFAULT_DAEMON))
+                .unwrap_or(Path::new(DEFAULT_DAEMON))
                 .to_path_buf(),
         };
 
@@ -59,9 +59,8 @@ impl MetricsPlugin {
 
     /// Advertise the existence of the plugin to the main daemon.
     pub async fn advertise_plugin(&self) -> anyhow::Result<()> {
-        let request = PluginLocalRegister {
-            info: "Five_Seconds".into(),
-            protocol: "V3".into(),
+        let request = PluginMetricsRegister {
+            protocol: "OpenMetrics 1.0.0".into(),
             uid: self.uid.to_string(),
         };
 
@@ -105,7 +104,7 @@ impl MetricsPlugin {
                 tracing::debug!("RPC Response: {:?}", parse_http_response(response).await);
             }
             Err(e) => {
-                tracing::error!("Unable to unregister plugin ({e})")
+                tracing::error!("Unable to unregister plugin ({e})");
             }
         }
 

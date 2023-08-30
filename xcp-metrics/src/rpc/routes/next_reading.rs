@@ -1,5 +1,4 @@
 //! RPC route for `Plugin.Local.next_reading`.
-
 use std::sync::Arc;
 
 use futures::future::BoxFuture;
