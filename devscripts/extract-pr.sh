@@ -20,7 +20,6 @@ CONTENTS="
   .gitignore
   .github
   LICENSE
-  devscripts/gen-tarball.sh
   devscripts/gen-vendor-tarball.sh
   metrics_sample/xcp-rrdd-squeezed
 "
@@ -64,6 +63,11 @@ Reviewed-by: Yann Dirson <yann.dirson@vates.fr>
 EOF
 git commit -F - --author=Teddy
 
+# generate source tarball
+PACKAGE="xcp-metrics"
+VERSION=0.0.0
+git archive HEAD --prefix="$PACKAGE-$VERSION/" -o "../$PACKAGE-$VERSION.tar.gz"
+
 ## xcp-metrics
 
 CRATES="
@@ -106,3 +110,7 @@ Signed-off-by: Teddy Astie <teddy.astie@outlook.fr>
 Reviewed-by: Yann Dirson <yann.dirson@vates.fr>
 EOF
 git commit -F - --author=Teddy
+
+# generate source tarball
+VERSION=0.0.1
+git archive HEAD --prefix="$PACKAGE-$VERSION/" -o "../$PACKAGE-$VERSION.tar.gz"

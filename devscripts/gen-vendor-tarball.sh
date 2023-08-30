@@ -3,7 +3,7 @@ set -e
 
 PACKAGE="xcp-metrics"
 #VERSION=$(git describe --always "HEAD")
-VERSION=0.0.0
+VERSION="$1"
 
 # For this plugin, comment out patched xenstore-rs
 CARGOTOML=plugins/xcp-metrics-plugin-common/Cargo.toml
