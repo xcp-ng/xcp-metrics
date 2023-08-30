@@ -1,6 +1,9 @@
 use std::{io::Read, iter};
 
-use xcp_metrics_common::rrdd::protocol_v2::{self, values_to_raw, RrddMessageHeader, RrddMetadata};
+use xcp_metrics_common::rrdd::{
+    protocol_common::DataSourceValue,
+    protocol_v2::{self, values_to_raw, RrddMessageHeader, RrddMetadata},
+};
 use xcp_metrics_plugin_common::{
     bridge::v3_to_v2::BridgeToV2,
     plugin::XcpPlugin,
@@ -117,11 +120,19 @@ fn test_export() {
     // /local/domain is needed for squeezed plugin to work properly
     // Having this entry missing will create warnings and no families at the end.
     xs.write(XBTransaction::Null, "/local/domain", "").unwrap();
-    
-    xs.write(XBTransaction::Null, "/local/domain/0", "").unwrap();
-    xs.write(XBTransaction::Null, "/local/domain/2/dynamic-max", "1048576").unwrap();
-    xs.write(XBTransaction::Null, "/local/domain/2/dynamic-min", "524288").unwrap();
-    xs.write(XBTransaction::Null, "/local/domain/2/target", "1048576").unwrap();
+
+    xs.write(XBTransaction::Null, "/local/domain/0", "")
+        .unwrap();
+    xs.write(
+        XBTransaction::Null,
+        "/local/domain/2/dynamic-max",
+        "1048576",
+    )
+    .unwrap();
+    xs.write(XBTransaction::Null, "/local/domain/2/dynamic-min", "524288")
+        .unwrap();
+    xs.write(XBTransaction::Null, "/local/domain/2/target", "1048576")
+        .unwrap();
 
     let mut plugin = SqueezedPlugin { xs };
 
@@ -139,7 +150,13 @@ fn test_export() {
     let reference_header = protocol_v2::RrddMessageHeader::parse_from(reference_payload).unwrap();
 
     let metadata_part = Read::take(reference_payload, reference_header.metadata_length as u64);
-    let reference_metadata: RrddMetadata = serde_json::from_reader(metadata_part).unwrap();
+    let mut reference_metadata: RrddMetadata = serde_json::from_reader(metadata_part).unwrap();
+
+    // Normalize reference datasource values (they are not used in protocol v2).
+    reference_metadata
+        .datasources
+        .iter_mut()
+        .for_each(|(_, ds)| ds.value = DataSourceValue::Int64(0));
 
     // Check if metadata matches
     assert_eq!(metadata, &reference_metadata);
