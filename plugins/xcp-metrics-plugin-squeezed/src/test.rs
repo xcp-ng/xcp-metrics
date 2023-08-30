@@ -177,6 +177,9 @@ fn test_export() {
             .map(|(_, value)| value)
             .expect(&format!("Missing name {reference_name}"));
 
-        assert_eq!(value, reference_raw_value);
+        assert_eq!(
+            value, reference_raw_value,
+            "{reference_name} differs: {value:?} != {reference_raw_value:?}"
+        );
     });
 }
