@@ -125,7 +125,7 @@ impl DataSourceValue {
     // TODO: Is v1 compatibility needed ?
     fn parse(
         value_type_str: &str,
-        // v1 compatibility, Option<String> to prevent dangling &str compilation error.
+        // v1 compatibility.
         value_str: Option<&str>,
     ) -> Result<Self, DataSourceParseError> {
         Ok(match value_type_str {
