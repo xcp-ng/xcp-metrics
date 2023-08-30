@@ -138,7 +138,7 @@ fn test_export() {
     let reference_payload = &mut include_bytes!("../tests/xcp-rrdd-squeezed").as_slice();
     let reference_header = protocol_v2::RrddMessageHeader::parse_from(reference_payload).unwrap();
 
-    let metadata_part = Read::take(reference_payload, header.metadata_length as u64);
+    let metadata_part = Read::take(reference_payload, reference_header.metadata_length as u64);
     let reference_metadata: RrddMetadata = serde_json::from_reader(metadata_part).unwrap();
 
     // Check if metadata matches
