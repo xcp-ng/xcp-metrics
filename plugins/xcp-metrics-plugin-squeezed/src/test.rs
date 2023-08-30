@@ -125,14 +125,22 @@ fn test_export() {
         .unwrap();
     xs.write(
         XBTransaction::Null,
-        "/local/domain/2/dynamic-max",
+        "/local/domain/2/memory/dynamic-max",
         "1048576",
     )
     .unwrap();
-    xs.write(XBTransaction::Null, "/local/domain/2/dynamic-min", "524288")
-        .unwrap();
-    xs.write(XBTransaction::Null, "/local/domain/2/target", "1048576")
-        .unwrap();
+    xs.write(
+        XBTransaction::Null,
+        "/local/domain/2/memory/dynamic-min",
+        "524288",
+    )
+    .unwrap();
+    xs.write(
+        XBTransaction::Null,
+        "/local/domain/2/memory/target",
+        "1048576",
+    )
+    .unwrap();
 
     let mut plugin = SqueezedPlugin { xs };
 
@@ -177,9 +185,6 @@ fn test_export() {
             .map(|(_, value)| value)
             .expect(&format!("Missing name {reference_name}"));
 
-        assert_eq!(
-            value, reference_raw_value,
-            "{reference_name} differs: {value:?} != {reference_raw_value:?}"
-        );
+        assert_eq!(value, reference_raw_value, "{reference_name} differs");
     });
 }
