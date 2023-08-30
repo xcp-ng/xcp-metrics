@@ -3,6 +3,8 @@ set -e
 
 TARGETBRANCH="$1"
 
+## basics and squeezed plugin
+
 CRATES="
   plugins/xcp-metrics-plugin-squeezed
   plugins/xcp-metrics-plugin-common
@@ -20,6 +22,7 @@ CONTENTS="
   LICENSE
   devscripts/gen-tarball.sh
   devscripts/gen-vendor-tarball.sh
+  metrics_sample/xcp-rrdd-squeezed
 "
 
 # new branch for initial commit
@@ -55,6 +58,49 @@ features there and the PRs are still pending, this initial work
 explicitly does ot require any of those, and we went into some
 gymnastics to support this, which reflects in the scripts extracting
 this PR source code, as well as in parts of the code itself.
+
+Signed-off-by: Teddy Astie <teddy.astie@outlook.fr>
+Reviewed-by: Yann Dirson <yann.dirson@vates.fr>
+EOF
+git commit -F - --author=Teddy
+
+## xcp-metrics
+
+CRATES="
+  $CRATES
+  xcp-metrics
+  xcp-metrics-tools
+"
+
+CRATES_RE=$(echo $CRATES | tr ' ' '|')
+
+CONTENTS="
+  $CRATES
+  Cargo.toml
+"
+
+git restore -WS --source="main" $CONTENTS
+
+# only specified crates in workspace
+sed -E -i Cargo.toml -e '/^[^ ]/ p
+\,"('$CRATES_RE')", p
+d'
+git add Cargo.toml
+
+# unpatched xenstore-rs is still enough
+sed -Ei '/^(git|branch) = / d' \
+      plugins/xcp-metrics-plugin-common/Cargo.toml
+git add plugins/xcp-metrics-plugin-common/Cargo.toml
+
+# commit
+<<EOF cat |
+WIP Introduce xcp-metrics daemon
+
+xcp-metrics exposes the same kind of metrics that xcp-rrdd does, but
+using the OpenMetrics standard.
+
+It uses an reworked version of the v2 protocol currently in use by xcp-rrdd,
+proposed as v3 protocol in xapi-project/xapi-project.github.io#278
 
 Signed-off-by: Teddy Astie <teddy.astie@outlook.fr>
 Reviewed-by: Yann Dirson <yann.dirson@vates.fr>
