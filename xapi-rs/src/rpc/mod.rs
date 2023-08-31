@@ -25,10 +25,12 @@ macro_rules! rpc_method {
     };
 }
 
+/// A RPC method that has a name.
 pub trait XcpRpcMethodNamed {
     fn get_method_name() -> &'static str;
 }
 
+/// Trait of a RPC method that can be converted back and forth to XML-RPC method call or JSON-RPC request.
 pub trait XcpRpcMethod: Sized {
     fn to_xmlrpc(&self) -> anyhow::Result<dxr::MethodCall>;
     fn to_jsonrpc(&self) -> anyhow::Result<jsonrpc_base::Request>;
@@ -76,6 +78,7 @@ where
     }
 }
 
+/// Write a [XcpRpcMethod] into a `writer` using JSON-RPC.
 pub fn write_method_jsonrpc<W: Write, M: XcpRpcMethod>(
     writer: &mut W,
     method: &M,
@@ -83,6 +86,7 @@ pub fn write_method_jsonrpc<W: Write, M: XcpRpcMethod>(
     RpcRequest::new(method, RpcKind::JsonRpc)?.write(writer)
 }
 
+/// Write a [XcpRpcMethod] into a `writer` using XML-RPC.
 pub fn write_method_xmlrpc<W: Write, M: XcpRpcMethod>(
     writer: &mut W,
     method: &M,
@@ -90,12 +94,14 @@ pub fn write_method_xmlrpc<W: Write, M: XcpRpcMethod>(
     RpcRequest::new(method, RpcKind::XmlRpc)?.write(writer)
 }
 
+/// Parse a [XcpRpcMethod] from raw JSON-RPC.
 pub fn parse_method_jsonrpc<M: XcpRpcMethod>(data: &[u8]) -> anyhow::Result<M> {
     RpcRequest::parse(data, RpcKind::JsonRpc)?
         .try_into_method()
         .ok_or(anyhow::anyhow!("Readed method doesn't match"))
 }
 
+/// Parse [XcpRpcMethod] from raw XML-RPC.
 pub fn parse_method_xmlrpc<M: XcpRpcMethod>(data: &[u8]) -> anyhow::Result<M> {
     RpcRequest::parse(data, RpcKind::XmlRpc)?
         .try_into_method()
