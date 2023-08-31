@@ -74,6 +74,7 @@ CRATES="
   $CRATES
   xcp-metrics
   xcp-metrics-tools
+  plugins/xcp-metrics-plugin-bridge-v2
 "
 
 CRATES_RE=$(echo $CRATES | tr ' ' '|')

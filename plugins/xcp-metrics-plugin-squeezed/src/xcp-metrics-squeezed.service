@@ -1,0 +1,15 @@
+[Unit]
+Description=XCP-metrics daemon squeezed plugin
+After=xcp-metrics.service
+Requires=xcp-metrics.service
+
+[Service]
+ExecStart=/usr/sbin/xcp-metrics-plugin-squeezed
+StandardError=null
+# restart but fail if more than 5 failures in 30s
+Restart=on-failure
+StartLimitBurst=5
+StartLimitInterval=30s
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,16 @@
+[Unit]
+Description=XCP-metrics squeezed plugin bridge to RRD daemon
+After=xcp-rrdd.service xcp-metrics-squeezed.service
+Requires=xcp-rrdd.service xcp-metrics-squeezed.service
+Conflicts=xcp-rrdd-squeezed.service rrdp-squeezed.service
+
+[Service]
+ExecStart=/usr/sbin/xcp-metrics-plugin-bridge-v2 --plugin-name xcp-metrics-plugin-squeezed
+StandardError=null
+# restart but fail if more than 5 failures in 30s
+Restart=on-failure
+StartLimitBurst=5
+StartLimitInterval=30s
+
+[Install]
+WantedBy=multi-user.target
