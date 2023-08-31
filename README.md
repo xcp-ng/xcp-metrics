@@ -5,14 +5,31 @@ It aims to support [OpenMetrics standard](https://github.com/OpenObservability/O
 
 ## Project structure
 
-```
-.
-├── metrics_sample : Protocol v2 snapshots for test using xcp-metrics-dump
-├── plugins        : Various plugins and plugin framework
-├── xcp-metrics    : Main daemon
-├── xcp-metrics-common : xcp-metrics common library
-├── xcp-metrics-test   : Scratch crate for tests
-└── xcp-metrics-tools  : Various xcp-metrics utilities
+```mermaid
+flowchart LR
+    common[xcp-metrics-common]
+    metrics[xcp-metrics]
+    plugin_common[xcp-metrics-plugins-common]
+    
+    xapi[xapi-rs]
+
+    squeezedp[xcp-metrics-plugin-squeezed]
+    xenp[xcp-metrics-plugin-xen]
+    xenstorep[xcp-metrics-plugin-xenstored]
+
+    tools[xcp-metrics-tools]
+    rrdd(xcp-rrdd)
+
+    squeezedp & xenp & xenstorep --- plugin_common
+
+    legacy_rrdd_plugin -.-> v2
+    common -.-> v2 & v3
+    xapi -.-> metrics & rrdd
+    plugin_common --- common & xapi
+    tools ---- common & xapi
+
+    v2((plugin\nprotocol v2)) -.- rrdd & metrics
+    v3((plugin\nprotocol v3)) -.- metrics
 ```
 
 ## LICENSE
