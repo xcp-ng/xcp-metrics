@@ -7,17 +7,17 @@ It aims to support [OpenMetrics standard](https://github.com/OpenObservability/O
 
 ```mermaid
 flowchart LR
-    common[<a href='./xcp-metrics-common'>xcp-metrics-common</a>]
-    metrics[<a href='./xcp-metrics'>xcp-metrics</a>]
-    plugin_common[<a href=./plugins/xcp-metrics-plugins-common'>xcp-metrics-plugins-common</a>]
+    common[<a href='https://github.com/xcp-ng/xcp-metrics/blob/main/xcp-metrics-common'>xcp-metrics-common</a>]
+    metrics[<a href='https://github.com/xcp-ng/xcp-metrics/blob/main/xcp-metrics'>xcp-metrics</a>]
+    plugin_common[<a href=https://github.com/xcp-ng/xcp-metrics/blob/main/plugins/xcp-metrics-plugins-common'>xcp-metrics-plugins-common</a>]
     
-    xapi[<a href='./xapi-rs'>xapi-rs</a>]
+    xapi[<a href='https://github.com/xcp-ng/xcp-metrics/blob/main/xapi-rs'>xapi-rs</a>]
 
-    squeezedp[<a href=./plugins/xcp-metrics-plugin-squeezed>xcp-metrics-plugin-squeezed</a>]
-    xenp[<a href='./plugins/xcp-metrics-plugin-xen'>xcp-metrics-plugin-xen</a>]
-    xenstorep[<a href='./plugins/xcp-metrics-plugin-xenstored'>xcp-metrics-plugin-xenstored</a>]
+    squeezedp[<a href=https://github.com/xcp-ng/xcp-metrics/blob/main/plugins/xcp-metrics-plugin-squeezed>xcp-metrics-plugin-squeezed</a>]
+    xenp[<a href='https://github.com/xcp-ng/xcp-metrics/blob/main/plugins/xcp-metrics-plugin-xen'>xcp-metrics-plugin-xen</a>]
+    xenstorep[<a href='https://github.com/xcp-ng/xcp-metrics/blob/main/plugins/xcp-metrics-plugin-xenstored'>xcp-metrics-plugin-xenstored</a>]
 
-    tools[<a href='./xcp-metrics-tools'>xcp-metrics-tools</a>]
+    tools[<a href='https://github.com/xcp-ng/xcp-metrics/blob/main/xcp-metrics-tools'>xcp-metrics-tools</a>]
     rrdd(xcp-rrdd)
 
     squeezedp & xenp & xenstorep --- plugin_common
