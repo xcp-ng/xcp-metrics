@@ -7,25 +7,17 @@ It aims to support [OpenMetrics standard](https://github.com/OpenObservability/O
 
 ```mermaid
 flowchart LR
-    common[xcp-metrics-common]
-    click common "https://github.com/xcp-ng/xcp-metrics/tree/main/xcp-metrics-common"
-    metrics[xcp-metrics]
-    click metrics "https://github.com/xcp-ng/xcp-metrics/tree/main/xcp-metrics"
-    plugin_common[xcp-metrics-plugins-common]
-    click plugin_common "https://github.com/xcp-ng/xcp-metrics/tree/main/plugins/xcp-metrics-plugin-common"
+    common[<a href='./xcp-metrics-common'>xcp-metrics-common</a>]
+    metrics[<a href='./xcp-metrics'>xcp-metrics</a>]
+    plugin_common[<a href=./plugins/xcp-metrics-plugins-common'>xcp-metrics-plugins-common</a>]
     
-    xapi[xapi-rs]
-    click xapi "https://github.com/xcp-ng/xcp-metrics/tree/main/xapi-rs"
+    xapi[<a href='./xapi-rs'>xapi-rs</a>]
 
-    squeezedp[xcp-metrics-plugin-squeezed]
-    click squeezedp "https://github.com/xcp-ng/xcp-metrics/tree/main/plugins/xcp-metrics-plugin-squeezed"
-    xenp[xcp-metrics-plugin-xen]
-    click xenp "https://github.com/xcp-ng/xcp-metrics/tree/main/plugins/xcp-metrics-plugin-xen"
-    xenstorep[xcp-metrics-plugin-xenstored]
-    click xenstorep "https://github.com/xcp-ng/xcp-metrics/tree/main/plugins/xcp-metrics-plugin-xenstored"
+    squeezedp[<a href=./plugins/xcp-metrics-plugin-squeezed>xcp-metrics-plugin-squeezed</a>]
+    xenp[<a href='./plugins/xcp-metrics-plugin-xen'>xcp-metrics-plugin-xen</a>]
+    xenstorep[<a href='./plugins/xcp-metrics-plugin-xenstored'>xcp-metrics-plugin-xenstored</a>]
 
-    tools[xcp-metrics-tools]
-    click tools "https://github.com/xcp-ng/xcp-metrics/tree/main/xcp-metrics-tools"
+    tools[<a href='./xcp-metrics-tools'>xcp-metrics-tools</a>]
     rrdd(xcp-rrdd)
 
     squeezedp & xenp & xenstorep --- plugin_common
