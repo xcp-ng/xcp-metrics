@@ -1,3 +1,4 @@
+//! OpenMetrics conversion and text export.
 pub mod convert;
 pub mod text;
 

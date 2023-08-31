@@ -9,6 +9,7 @@ use crate::{
 };
 
 pub trait MetadataMapping {
+    /// Convert a Metric into a DataSourceMetadata entry.
     fn convert(
         &self,
         family_name: &str,
@@ -21,7 +22,6 @@ pub trait MetadataMapping {
 pub struct DefaultMapping;
 
 impl MetadataMapping for DefaultMapping {
-    /// Convert a Metric into a DataSourceMetadata entry.
     fn convert(
         &self,
         family_name: &str,
@@ -85,14 +85,16 @@ impl MetadataMapping for DefaultMapping {
     }
 }
 
-/// Simple yet effective mapping that has specified min/max/default values, and use a pattern inspired of Rust formatting for metric name.
-///
-/// # Pattern syntax
-///
-/// A pattern is a string where all occurences of `{label}` (where `label` is the
-/// name of a label that exists in the metric) is replaced by the label value.
-///
-/// If the label doesn't exist in the metric, the occurence is not substituted and kept as is.
+/**
+Simple yet effective mapping that has specified min/max/default values, and use a pattern inspired of Rust formatting for metric name.
+
+# Pattern syntax
+
+A pattern is a string where all occurences of `{label}` (where `label` is the
+name of a label that exists in the metric) is replaced by the label value.
+
+If the label doesn't exist in the metric, the occurence is not substituted and kept as is.
+*/
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct CustomMapping {
     pub pattern: Box<str>,
@@ -115,7 +117,6 @@ impl CustomMapping {
 }
 
 impl MetadataMapping for CustomMapping {
-    /// Convert a Metric into a DataSourceMetadata entry.
     fn convert(
         &self,
         _: &str,

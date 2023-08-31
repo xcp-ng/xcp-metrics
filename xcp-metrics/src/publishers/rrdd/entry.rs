@@ -1,3 +1,4 @@
+//! [RrdEntry] definition
 use serde::{Deserialize, Serialize};
 use xcp_metrics_common::rrdd::protocol_common::DataSourceMetadata;
 

@@ -1,3 +1,4 @@
+//! RPC methods structures.
 use dxr::{TryFromValue, TryToValue};
 use serde::{Deserialize, Serialize};
 

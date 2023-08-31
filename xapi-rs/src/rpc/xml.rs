@@ -1,3 +1,4 @@
+//! XML serialization utilities.
 use std::io::Write;
 
 use quick_xml::se::Serializer;

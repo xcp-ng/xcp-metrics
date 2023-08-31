@@ -1,3 +1,4 @@
+//! RRD Xport format and serialization.
 use std::{
     fmt::Write,
     time::{SystemTime, SystemTimeError},

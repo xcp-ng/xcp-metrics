@@ -1,5 +1,4 @@
-//! XML-RPC response types.
-
+//! RPC response types.
 use dxr::{TryFromValue, TryToValue};
 use serde::{Deserialize, Serialize};
 

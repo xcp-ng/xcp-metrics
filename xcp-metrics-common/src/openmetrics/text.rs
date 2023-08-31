@@ -1,3 +1,4 @@
+//! OpenMetrics text format exporter.
 use std::{
     borrow::Cow,
     fmt::Write,
