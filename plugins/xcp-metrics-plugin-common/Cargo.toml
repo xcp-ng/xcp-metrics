@@ -25,7 +25,7 @@ version = "0.3"
 optional = true
 
 [dependencies.xenstore-rs-wip]
-git = "https://github.com/tsnake41/xenstore-rs"
+git = "https://github.com/xcp-ng/xenstore-rs"
 package = "xenstore-rs"
 branch = "xs_watch"
 optional = true
