@@ -7,7 +7,7 @@ TARGETBRANCH="$1"
 ## basics and squeezed plugin
 
 CRATES="
-  plugins/xcp-metrics-plugin-squeezed
+  plugins/xcp-metrics-plugin-xen
   plugins/xcp-metrics-plugin-common
   xcp-metrics-common
   xapi-rs
