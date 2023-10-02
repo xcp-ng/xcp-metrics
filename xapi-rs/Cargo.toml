@@ -47,13 +47,3 @@ features = ["full"]
 [dependencies.tokio]
 version = "1"
 features = ["io-util"]
-
-# dependency pins to ensure 1.66 compatibility
-# (all are indirect dependencies, blame fast-moving ecosystem)
-
-[dependencies.anstream]
-version = "<0.5"
-[dependencies.clap_builder]
-version = "<4.4"
-[dependencies.clap_lex]
-version = "<0.5.1"
