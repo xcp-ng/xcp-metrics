@@ -8,15 +8,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-crc32fast = "1.3"
 serde_json = "1.0"
 anyhow = "1.0"
 hyperlocal = "0.8"
 jsonrpc-base = "0.2.0"
-prost = "0.11"
-prost-types = "0.11"
-maplit = "1.0"
-json5 = "0.4.1"
 
 [dependencies.serde]
 version = "1.0"
@@ -25,10 +20,6 @@ features = ["std", "derive"]
 [dependencies.uuid]
 version = "1.4"
 features = ["std", "serde"]
-
-[dependencies.indexmap]
-version = "2.0"
-features = ["serde"]
 
 # XML-RPC stuff
 [dependencies.dxr]
@@ -43,7 +34,3 @@ features = ["serialize"]
 [dependencies.hyper]
 version = "0.14"
 features = ["full"]
-
-[dependencies.tokio]
-version = "1"
-features = ["io-util"]

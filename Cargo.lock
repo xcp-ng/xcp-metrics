@@ -1966,20 +1966,13 @@ name = "xapi"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "crc32fast",
  "dxr",
  "hyper",
  "hyperlocal",
- "indexmap 2.0.2",
- "json5",
  "jsonrpc-base",
- "maplit",
- "prost",
- "prost-types",
  "quick-xml",
  "serde",
  "serde_json",
- "tokio",
  "uuid",
 ]
 
