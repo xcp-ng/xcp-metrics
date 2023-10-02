@@ -18,7 +18,7 @@ git diff-index --quiet HEAD -- || die "dirty workspace"
 cargo build --offline
 git diff-index --quiet HEAD -- || die "moving Cargo.lock"
 
-## basics and squeezed plugin
+## basics and xenctrl plugin
 
 CRATES="
   plugins/xcp-metrics-plugin-xen
@@ -37,7 +37,8 @@ CONTENTS="
   .github
   LICENSE
   devscripts/gen-vendor-tarball.sh
-  metrics_sample/xcp-rrdd-squeezed
+  metrics_sample/xcp-rrdd-mem_host
+  metrics_sample/xcp-rrdd-xenpm
 "
 
 # new branch for initial commit
@@ -62,21 +63,19 @@ git add Cargo.lock
 
 # commit
 <<EOF cat |
-WIP Introduce xcp-metrics-plugin-squeezed plugin for xcp-rrdd
+WIP Introduce xcp-metrics-plugin-xen plugin for xcp-rrdd
 
-xcp-metrics-plugin-squeezed is meant as a drop-in replacement for
-rrdp-squeezed, as a first Rust-written brick for XAPI.
+xcp-metrics-plugin-xen is meant as a replacement for
+- the metrics collection built into xcp-rrdd, which requires the
+  latter to depend on libxenctrl
+- the rrdp-pm plugin, which also fetches data through libxenctrl
 
-Metrics are read in Xenstore using the xenstore-rs bindings of
-libxenstore, structured in a suitable way for upcoming OpenMetrics
-support, and communicated to xcp-rrdd using its v2 protocol.
+Metrics are collected using the `xenctrl` Rust crate, structured in a
+suitable way for upcoming OpenMetrics support, and communicated to
+xcp-rrdd using its v2 protocol.
 
-NOTE: while the full xcp-metrics work currently references external
-git repository for xenstore-rs and xenctrl-rs as we had to add some
-features there and the PRs are still pending, this initial work
-explicitly does ot require any of those, and we went into some
-gymnastics to support this, which reflects in the scripts extracting
-this PR source code, as well as in parts of the code itself.
+NOTE: at the time of this writing, we still rely on extra features we
+had to add to the `xenctrl` crate, PR pending.
 
 Signed-off-by: Teddy Astie <teddy.astie@outlook.fr>
 Reviewed-by: Yann Dirson <yann.dirson@vates.fr>
