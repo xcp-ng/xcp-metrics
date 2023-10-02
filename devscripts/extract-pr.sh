@@ -1,6 +1,7 @@
 #!/bin/sh
 set -e
 
+SOURCEBRANCH="main"
 TARGETBRANCH="$1"
 
 ## basics and squeezed plugin
@@ -28,7 +29,7 @@ CONTENTS="
 # new branch for initial commit
 git switch --orphan "$TARGETBRANCH"
 # with specified contents
-git restore -WS --source="main" $CONTENTS
+git restore -WS --source="$SOURCEBRANCH" $CONTENTS
 
 # and only specified crates in workspace
 sed -E -i Cargo.toml -e '/^[^ ]/ p
@@ -84,7 +85,7 @@ CONTENTS="
   Cargo.toml
 "
 
-git restore -WS --source="main" $CONTENTS
+git restore -WS --source="$SOURCEBRANCH" $CONTENTS
 
 # only specified crates in workspace
 sed -E -i Cargo.toml -e '/^[^ ]/ p
