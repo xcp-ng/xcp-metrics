@@ -4,6 +4,16 @@ set -e
 SOURCEBRANCH="main"
 TARGETBRANCH="$1"
 
+die () {
+    echo >&2 "ERROR: $0: $*"
+    exit 1
+}
+
+## prologue
+
+# check for dirty workspace
+git diff-index --quiet HEAD -- || die "dirty workspace"
+
 ## basics and squeezed plugin
 
 CRATES="
@@ -68,6 +78,7 @@ git commit -F - --author=Teddy
 # generate source tarball
 PACKAGE="xcp-metrics"
 VERSION=0.0.0
+git diff-index --quiet HEAD -- || die "dirty workspace after committing $VERSION"
 git archive HEAD --prefix="$PACKAGE-$VERSION/" -o "../$PACKAGE-$VERSION.tar.gz"
 
 ## xcp-metrics
@@ -115,4 +126,5 @@ git commit -F - --author=Teddy
 
 # generate source tarball
 VERSION=0.0.1
+git diff-index --quiet HEAD -- || die "dirty workspace after committing $VERSION"
 git archive HEAD --prefix="$PACKAGE-$VERSION/" -o "../$PACKAGE-$VERSION.tar.gz"
