@@ -14,6 +14,10 @@ die () {
 # check for dirty workspace
 git diff-index --quiet HEAD -- || die "dirty workspace"
 
+# check Cargo.lock is uptodate enough
+cargo build --offline
+git diff-index --quiet HEAD -- || die "moving Cargo.lock"
+
 ## basics and squeezed plugin
 
 CRATES="
@@ -51,6 +55,10 @@ git add Cargo.toml
 sed -Ei '/^(git|branch) = / d' \
       plugins/xcp-metrics-plugin-common/Cargo.toml
 git add plugins/xcp-metrics-plugin-common/Cargo.toml
+
+# filter Cargo.lock to match source files
+cargo build --offline
+git add Cargo.lock
 
 # commit
 <<EOF cat |
@@ -94,6 +102,7 @@ CRATES_RE=$(echo $CRATES | tr ' ' '|')
 CONTENTS="
   $CRATES
   Cargo.toml
+  Cargo.lock
 "
 
 git restore -WS --source="$SOURCEBRANCH" $CONTENTS
@@ -108,6 +117,10 @@ git add Cargo.toml
 sed -Ei '/^(git|branch) = / d' \
       plugins/xcp-metrics-plugin-common/Cargo.toml
 git add plugins/xcp-metrics-plugin-common/Cargo.toml
+
+# filter Cargo.lock to match source files
+cargo build --offline
+git add Cargo.lock
 
 # commit
 <<EOF cat |
