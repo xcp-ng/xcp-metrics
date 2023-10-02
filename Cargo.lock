@@ -1355,6 +1355,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
+name = "sendfd"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "604b71b8fc267e13bb3023a2c901126c8f349393666a6d98ac1ae5729b701798"
+dependencies = [
+ "libc",
+ "tokio",
+]
+
+[[package]]
 name = "serde"
 version = "1.0.188"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1935,6 +1945,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "xcp-metrics"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap 4.4.6",
+ "dashmap",
+ "futures",
+ "maplit",
+ "sendfd",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+ "xapi",
+ "xcp-metrics-common",
+]
+
+[[package]]
 name = "xcp-metrics-common"
 version = "0.1.0"
 dependencies = [
@@ -1984,6 +2014,19 @@ dependencies = [
  "xcp-metrics-plugin-common",
  "xenctrl",
  "xenctrl-sys",
+]
+
+[[package]]
+name = "xcp-metrics-tools"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap 4.4.6",
+ "hyper",
+ "serde_json",
+ "tokio",
+ "xapi",
+ "xcp-metrics-common",
 ]
 
 [[package]]

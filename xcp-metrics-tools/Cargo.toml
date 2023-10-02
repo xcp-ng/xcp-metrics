@@ -1,0 +1,25 @@
+[package]
+name = "xcp-metrics-tools"
+description = "Various xcp-metrics utilities"
+version.workspace = true
+license = "AGPL-3.0-only"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+xcp-metrics-common = { path = "../xcp-metrics-common" }
+xapi = { path = "../xapi-rs" }
+
+anyhow = "1.0"
+serde_json = "1.0"
+
+tokio = { version = "1", features = ["full"] }
+
+[dependencies.clap]
+version = "4.3"
+features = ["derive"]
+
+[dependencies.hyper]
+version = "0.14"
+features = ["full"]
