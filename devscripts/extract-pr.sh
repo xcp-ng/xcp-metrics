@@ -17,6 +17,7 @@ CRATES_RE=$(echo $CRATES | tr ' ' '|')
 CONTENTS="
   $CRATES
   Cargo.toml
+  Cargo.lock
   .gitignore
   .github
   LICENSE
