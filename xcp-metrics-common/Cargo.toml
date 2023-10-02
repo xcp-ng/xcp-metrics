@@ -4,7 +4,7 @@ description = "Library related to xcp-metrics and rrdd"
 version.workspace = true
 license = "AGPL-3.0-only"
 edition = "2021"
-rust-version = "1.66"
+rust-version = "1.70" # we need only 1.66 but our deps want 1.70
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -43,13 +43,3 @@ test = ["tokio/full"]
 [dev-dependencies]
 # https://github.com/rust-lang/cargo/issues/2911
 xcp-metrics-common = { path = ".", features = ["test"] }
-
-# dependency pins to ensure 1.66 compatibility
-# (all are indirect dependencies, blame fast-moving ecosystem)
-
-[dependencies.anstream]
-version = "<0.5"
-[dependencies.clap_builder]
-version = "<4.4"
-[dependencies.clap_lex]
-version = "<0.5.1"
