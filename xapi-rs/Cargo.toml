@@ -1,0 +1,36 @@
+[package]
+name = "xapi"
+description = "XAPI utilities crate"
+version = "0.1.0"
+license = "AGPL-3.0-only"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+serde_json = "1.0"
+anyhow = "1.0"
+hyperlocal = "0.8"
+jsonrpc-base = "0.2.0"
+
+[dependencies.serde]
+version = "1.0"
+features = ["std", "derive"]
+
+[dependencies.uuid]
+version = "1.4"
+features = ["std", "serde"]
+
+# XML-RPC stuff
+[dependencies.dxr]
+version = "0.6"
+features = ["derive"]
+default-features = false # no client/server stuff
+
+[dependencies.quick-xml]
+version = "0.30"
+features = ["serialize"]
+
+[dependencies.hyper]
+version = "0.14"
+features = ["full"]

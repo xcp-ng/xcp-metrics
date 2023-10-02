@@ -1,0 +1,26 @@
+[package]
+name = "xcp-metrics-plugin-xen"
+description = "Xen monitoring plugin"
+version.workspace = true
+license = "AGPL-3.0-only"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+xcp-metrics-common = { path = "../../xcp-metrics-common" }
+xcp-metrics-plugin-common = { path = "../xcp-metrics-plugin-common" }
+xenctrl = { git = "https://github.com/TSnake41/xenctrl", branch = "more_functions" }
+xenctrl-sys = "*"
+
+maplit = "1.0"
+tokio = { version = "1", features = ["full"] }
+uuid = "1.4"
+anyhow = "1.0"
+
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+[dependencies.clap]
+version = "4.3"
+features = ["derive"]
