@@ -3,10 +3,7 @@ mod methods {
     use serde::{Deserialize, Serialize};
 
     use crate::{
-        rpc::{
-            message::{RpcKind, RpcRequest},
-            write_method_jsonrpc, write_method_xmlrpc,
-        },
+        rpc::message::{parse_method_jsonrpc, parse_method_xmlrpc, request::RpcRequest, RpcKind},
         rpc_method,
     };
 
@@ -34,13 +31,15 @@ mod methods {
             another_struct: AnotherStruct { value: 123 },
         };
 
-        let mut xml = vec![];
-        write_method_xmlrpc(&mut xml, &test_method).unwrap();
+        let xml = RpcRequest::new(&test_method, RpcKind::XmlRpc)
+            .unwrap()
+            .to_body()
+            .unwrap();
 
-        let request = RpcRequest::parse(&xml, RpcKind::XmlRpc).unwrap();
+        println!("{xml}");
 
         assert_eq!(
-            request.try_into_method::<TestRpcMethod>().unwrap(),
+            parse_method_xmlrpc::<TestRpcMethod>(xml.as_bytes()).unwrap(),
             test_method
         );
     }
@@ -54,13 +53,13 @@ mod methods {
             another_struct: AnotherStruct { value: 123 },
         };
 
-        let mut json = vec![];
-        write_method_jsonrpc(&mut json, &test_method).unwrap();
-
-        let request = RpcRequest::parse(&json, RpcKind::JsonRpc).unwrap();
+        let json = RpcRequest::new(&test_method, RpcKind::JsonRpc)
+            .unwrap()
+            .to_body()
+            .unwrap();
 
         assert_eq!(
-            request.try_into_method::<TestRpcMethod>().unwrap(),
+            parse_method_jsonrpc::<TestRpcMethod>(json.as_bytes()).unwrap(),
             test_method
         );
     }

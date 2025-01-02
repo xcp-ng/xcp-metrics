@@ -2,17 +2,9 @@
 pub mod message;
 pub mod methods;
 pub mod response;
-pub(super) mod xml;
-
-#[cfg(test)]
-mod test;
-
-use std::io::Write;
 
 use dxr::{TryFromValue, TryToValue};
 use serde::{de::DeserializeOwned, Serialize};
-
-use self::message::{RpcKind, RpcRequest};
 
 #[macro_export]
 macro_rules! rpc_method {
@@ -76,34 +68,4 @@ where
             None
         }
     }
-}
-
-/// Write a [XcpRpcMethod] into a `writer` using JSON-RPC.
-pub fn write_method_jsonrpc<W: Write, M: XcpRpcMethod>(
-    writer: &mut W,
-    method: &M,
-) -> anyhow::Result<()> {
-    RpcRequest::new(method, RpcKind::JsonRpc)?.write(writer)
-}
-
-/// Write a [XcpRpcMethod] into a `writer` using XML-RPC.
-pub fn write_method_xmlrpc<W: Write, M: XcpRpcMethod>(
-    writer: &mut W,
-    method: &M,
-) -> anyhow::Result<()> {
-    RpcRequest::new(method, RpcKind::XmlRpc)?.write(writer)
-}
-
-/// Parse a [XcpRpcMethod] from raw JSON-RPC.
-pub fn parse_method_jsonrpc<M: XcpRpcMethod>(data: &[u8]) -> anyhow::Result<M> {
-    RpcRequest::parse(data, RpcKind::JsonRpc)?
-        .try_into_method()
-        .ok_or(anyhow::anyhow!("Readed method doesn't match"))
-}
-
-/// Parse [XcpRpcMethod] from raw XML-RPC.
-pub fn parse_method_xmlrpc<M: XcpRpcMethod>(data: &[u8]) -> anyhow::Result<M> {
-    RpcRequest::parse(data, RpcKind::XmlRpc)?
-        .try_into_method()
-        .ok_or(anyhow::anyhow!("Readed method doesn't match"))
 }
