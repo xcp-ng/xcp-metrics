@@ -35,13 +35,13 @@ version = "0.30"
 features = ["serialize"]
 
 [dependencies.hyper]
-version = "1.4"
-features = ["full"]
+version = "1.5"
+features = ["client"]
 optional = true
 
 [dependencies.hyper-util]
 version = "0.1"
-features = ["full"]
+features = ["client", "tokio"]
 optional = true
 
 [dependencies.tokio]
