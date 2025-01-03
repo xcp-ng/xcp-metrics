@@ -1,16 +1,16 @@
 use std::{
+    convert::Infallible,
     net::{IpAddr, Ipv4Addr, SocketAddr},
     path::{Path, PathBuf},
 };
 
 use clap::{command, Parser};
-use hyper::{
-    server::{conn::AddrStream, Server},
-    service::{make_service_fn, service_fn},
-    Body, Request, Response,
-};
 
-use xapi::rpc::methods::OpenMetricsMethod;
+use http::Request;
+use hyper::{body::Incoming, server::conn::http1, service::service_fn, Response};
+use hyper_util::rt::TokioIo;
+use tokio::net::TcpListener;
+use xapi::rpc::{message::RpcKind, methods::rrdd::OpenMetricsMethod};
 
 /// OpenMetrics http proxy, used to provide metrics for collectors such as Prometheus.
 #[derive(Clone, Parser, Debug)]
@@ -26,16 +26,19 @@ struct Args {
 }
 
 async fn redirect_openmetrics(
-    request: Request<Body>,
+    request: Request<Incoming>,
     daemon_path: &Path,
-) -> anyhow::Result<Response<Body>> {
-    xapi::send_jsonrpc_to(
+) -> Result<Response<Incoming>, Infallible> {
+    // TODO: Consider request supported OpenMetrics versions.
+    Ok(xapi::unix::send_rpc_to(
         daemon_path,
         "POST",
-        &OpenMetricsMethod::default(),
+        &OpenMetricsMethod { protobuf: false },
         "xcp-metrics-openmetrics-proxy",
+        RpcKind::JsonRpc,
     )
     .await
+    .expect("RPC failure"))
 }
 
 #[tokio::main]
@@ -43,21 +46,31 @@ async fn main() {
     let args = Args::parse();
     let daemon_path = args
         .daemon_path
-        .unwrap_or_else(|| xapi::get_module_path("xcp-metrics"));
+        .unwrap_or_else(|| xapi::unix::get_module_path("xcp-metrics"));
 
-    let service_fn = make_service_fn(|addr: &AddrStream| {
-        println!("Handling request {:?}", addr);
+    let listener = TcpListener::bind(args.addr)
+        .await
+        .expect("Unable to bind socket");
+
+    // We start a loop to continuously accept incoming connections
+    loop {
         let daemon_path = daemon_path.clone();
+        let (stream, addr) = listener.accept().await.expect("Unable to accept socket");
 
-        async {
-            anyhow::Ok(service_fn(move |request| {
-                let daemon_path = daemon_path.clone();
-                async move { redirect_openmetrics(request, &daemon_path).await }
-            }))
-        }
-    });
+        println!("Handling request {addr:?}");
 
-    let server = Server::bind(&args.addr).serve(service_fn);
+        let io = TokioIo::new(stream);
 
-    server.await.expect("Proxy server failure");
+        tokio::task::spawn(async move {
+            if let Err(err) = http1::Builder::new()
+                .serve_connection(
+                    io,
+                    service_fn(|request| redirect_openmetrics(request, &daemon_path)),
+                )
+                .await
+            {
+                eprintln!("Error serving connection: {:?}", err);
+            }
+        });
+    }
 }

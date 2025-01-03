@@ -4,9 +4,10 @@ use std::{
     time::{Duration, SystemTime},
 };
 
+use http_body_util::Full;
 use tokio::sync::mpsc;
 
-use xapi::hyper::{Body, Response};
+use hyper::{body::Bytes, Response};
 
 use crate::{
     publishers::rrdd::{server::RrddServerMessage, RrdXportFilter, RrdXportParameters},
@@ -18,10 +19,10 @@ use super::request::ForwardedRequest;
 pub(super) async fn route_forwarded(
     shared: Arc<XcpMetricsShared>,
     request: ForwardedRequest,
-) -> anyhow::Result<Response<Body>> {
+) -> anyhow::Result<Response<Full<Bytes>>> {
     match request.uri.as_ref() {
         "/rrd_updates" => rrd_update_handler(shared, request).await,
-        "/" => rpc::entrypoint(shared, request.try_into()?).await,
+        "/" => Ok(rpc::entrypoint(shared, request.try_into()?).await.unwrap()),
         _ => Response::builder()
             .status(404)
             .body("Invalid request".into())
@@ -32,7 +33,7 @@ pub(super) async fn route_forwarded(
 async fn rrd_update_handler(
     shared: Arc<XcpMetricsShared>,
     request: ForwardedRequest,
-) -> anyhow::Result<Response<Body>> {
+) -> anyhow::Result<Response<Full<Bytes>>> {
     let (tx, mut rx) = mpsc::channel(1);
 
     let with_host = request
@@ -83,16 +84,14 @@ async fn rrd_update_handler(
         .await
         .ok_or(anyhow::anyhow!("No value received from channel"))??;
 
-    let mut bytes = Vec::with_capacity(1024);
-
-    if use_json {
-        response.write_json5(&mut bytes)?;
+    let body = if use_json {
+        response.to_json5()?
     } else {
-        response.write_xml(&mut bytes)?;
+        response.to_json()?
     };
 
     Response::builder()
         .status(200)
-        .body(Body::from(bytes))
+        .body(body.into())
         .map_err(|err| anyhow::anyhow!(err))
 }

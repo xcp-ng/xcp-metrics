@@ -445,7 +445,7 @@ impl From<openmetrics::MetricSet> for MetricSet {
                         MetricFamily {
                             help: family.help.into(),
                             unit: family.unit.into(),
-                            metric_type: openmetrics::MetricType::from_i32(family.r#type)
+                            metric_type: openmetrics::MetricType::try_from(family.r#type)
                                 .unwrap_or(openmetrics::MetricType::Unknown)
                                 .into(),
                             metrics: family

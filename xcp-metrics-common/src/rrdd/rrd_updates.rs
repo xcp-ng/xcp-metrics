@@ -147,16 +147,11 @@ impl<'a> TryFrom<&'a RrdXport> for RrdXportJson<'a> {
 }
 
 impl RrdXport {
-    pub fn write_json<W: std::io::Write>(&self, writer: &mut W) -> anyhow::Result<()> {
-        serde_json::to_writer(writer, &RrdXportJson::try_from(self)?)?;
-
-        Ok(())
+    pub fn to_json(&self) -> anyhow::Result<String> {
+        Ok(serde_json::to_string(&RrdXportJson::try_from(self)?)?)
     }
 
-    pub fn write_json5<W: std::io::Write>(&self, writer: &mut W) -> anyhow::Result<()> {
-        let content = json5::to_string(&RrdXportJson::try_from(self)?)?;
-
-        write!(writer, "{content}")?;
-        Ok(())
+    pub fn to_json5(&self) -> anyhow::Result<String> {
+        Ok(json5::to_string(&RrdXportJson::try_from(self)?)?)
     }
 }

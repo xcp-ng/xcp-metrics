@@ -1,12 +1,12 @@
 //! [ForwardedRequest] implementation.
 use std::{collections::HashMap, str::FromStr};
 
-use serde::Deserialize;
-use xapi::hyper::{
+use hyper::{
     header::{ACCEPT, CONTENT_LENGTH, CONTENT_TYPE, HOST, TRANSFER_ENCODING, USER_AGENT},
     http::uri::PathAndQuery,
-    Body, Request, Version,
+    Request, Version,
 };
+use serde::Deserialize;
 
 /// xapi-project/xen-api/blob/master/ocaml/libs/http-lib/http.ml for reference
 #[derive(Clone, Debug, Deserialize)]
@@ -32,7 +32,7 @@ pub struct ForwardedRequest {
     pub traceparent: Option<Box<str>>,
 }
 
-impl TryFrom<ForwardedRequest> for Request<Body> {
+impl TryFrom<ForwardedRequest> for Request<String> {
     type Error = anyhow::Error;
 
     fn try_from(request: ForwardedRequest) -> Result<Self, Self::Error> {
@@ -82,8 +82,8 @@ impl TryFrom<ForwardedRequest> for Request<Body> {
         }
 
         Ok(builder.body(match request.body {
-            Some(content) => Body::from(content.as_bytes().to_vec()),
-            None => Body::empty(),
+            Some(content) => content.into_string(),
+            None => String::new(),
         })?)
     }
 }

@@ -5,94 +5,46 @@ mod next_reading;
 mod register;
 mod register_v3;
 
-use futures::future::BoxFuture;
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
-use xapi::{
-    hyper::{Body, Response},
-    rpc::{
-        message::RpcRequest,
-        methods::{
-            PluginLocalDeregister, PluginLocalNextReading, PluginLocalRegister,
-            PluginMetricsDeregister, PluginMetricsGetVersions, PluginMetricsRegister,
-        },
-        XcpRpcMethodNamed,
-    },
-};
+use http::Response;
+use hyper::body::Bytes;
+use xapi::rpc::message::{error::RpcError, request::RpcRequest};
 
-use self::{
-    deregister::PluginLocalDeregisterRoute, get_formats::PluginMetricsGetVersionsRoute,
-    next_reading::PluginLocalNextReadingRoute, register::PluginLocalRegisterRoute,
-    register_v3::PluginMetricsRegisterRoute,
-};
-use crate::{publishers::openmetrics::OpenMetricsRoute, XcpMetricsShared};
+use crate::{publishers::openmetrics, XcpMetricsShared};
 
-pub trait XcpRpcRoute: 'static + Sync + Send {
-    fn run(
-        &self,
-        shared: Arc<XcpMetricsShared>,
-        request: RpcRequest,
-    ) -> BoxFuture<'static, anyhow::Result<Response<Body>>>;
-
-    fn make_route() -> Box<dyn XcpRpcRoute>
-    where
-        Self: Default,
-    {
-        Box::<Self>::default()
-    }
-
-    fn get_name(&self) -> &'static str {
-        "(Unammed)"
-    }
+fn make_binary(response: Response<String>) -> Response<Bytes> {
+    // Convert inner String to Bytes.
+    response.map(Into::into)
 }
 
-impl std::fmt::Debug for dyn XcpRpcRoute {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.get_name())
-    }
-}
+pub async fn dispatch(shared: Arc<XcpMetricsShared>, request: RpcRequest) -> Response<Bytes> {
+    tracing::info!("RPC Message: {request}");
 
-#[derive(Debug)]
-pub struct RpcRoutes(HashMap<&'static str, Box<dyn XcpRpcRoute>>);
+    let res = match request.get_name() {
+        "OpenMetrics" => openmetrics::run(shared, request).await,
+        "Plugin.Local.register" => register::run(shared, request).await.map(make_binary),
+        "Plugin.Local.deregister" => deregister::run(shared, request).await.map(make_binary),
+        "Plugin.Local.next_reading" => next_reading::run(shared, request).await.map(make_binary),
+        "Plugin.Metrics.get_versions" => get_formats::run(shared, request).await.map(make_binary),
+        "Plugin.Metrics.register" => register_v3::run(shared, request).await.map(make_binary),
+        "Plugin.Metrics.deregister" => deregister::run(shared, request).await.map(make_binary),
+        _ => {
+            tracing::error!("RPC Method not found: {request}");
+            RpcError::respond_to::<()>(Some(&request), -32601, "Method not found", None)
+                .map(make_binary)
+        }
+    };
 
-impl Default for RpcRoutes {
-    fn default() -> Self {
-        Self(
-            [
-                ("OpenMetrics", OpenMetricsRoute::make_route()),
-                (
-                    PluginLocalRegister::get_method_name(),
-                    PluginLocalRegisterRoute::make_route(),
-                ),
-                (
-                    PluginLocalDeregister::get_method_name(),
-                    PluginLocalDeregisterRoute::make_route(),
-                ),
-                (
-                    PluginLocalNextReading::get_method_name(),
-                    PluginLocalNextReadingRoute::make_route(),
-                ),
-                (
-                    PluginMetricsGetVersions::get_method_name(),
-                    PluginMetricsGetVersionsRoute::make_route(),
-                ),
-                (
-                    PluginMetricsRegister::get_method_name(),
-                    PluginMetricsRegisterRoute::make_route(),
-                ),
-                (
-                    PluginMetricsDeregister::get_method_name(),
-                    PluginLocalDeregisterRoute::make_route(),
-                ),
-            ]
-            .into_iter()
-            .collect(),
-        )
-    }
-}
+    match res {
+        Ok(res) => res,
+        Err(e) => {
+            tracing::error!("Internal error: {e}");
 
-impl RpcRoutes {
-    pub fn get(&self, name: &str) -> Option<&dyn XcpRpcRoute> {
-        self.0.get(name).map(|r| r.as_ref())
+            Response::builder()
+                .status(http::StatusCode::INTERNAL_SERVER_ERROR)
+                .body("Internal Server Error".into())
+                .expect("Unable to make error 500")
+        }
     }
 }

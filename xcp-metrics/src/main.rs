@@ -14,7 +14,6 @@ use std::{
 
 use clap::{command, Parser};
 use dashmap::DashMap;
-use rpc::routes::RpcRoutes;
 use tokio::{net::UnixStream, select, sync::mpsc, task::JoinHandle};
 
 use publishers::rrdd::server::{RrddServer, RrddServerMessage};
@@ -32,9 +31,6 @@ pub struct XcpMetricsShared {
 
     /// Channel to communicate with the rrdd compatibility server.
     pub rrdd_channel: mpsc::UnboundedSender<RrddServerMessage>,
-
-    /// List of RPC routes
-    pub rpc_routes: RpcRoutes,
 }
 
 /// xcp-metrics main daemon
@@ -111,7 +107,7 @@ async fn main() {
     // Use xcp-rrdd socket path if arg0 is xcp-rrdd and not specified in Args.
     let socket_path = args.daemon_path.unwrap_or_else(|| {
         let Some(arg0) = std::env::args().next() else {
-            return xapi::get_module_path("xcp-metrics");
+            return xapi::unix::get_module_path("xcp-metrics");
         };
 
         let arg0_pathname = Path::new(&arg0)
@@ -121,10 +117,10 @@ async fn main() {
 
         if arg0_pathname == "xcp-rrdd" {
             tracing::info!("Program name is xcp-rrdd, use xcp-rrdd socket path by default");
-            return xapi::get_module_path("xcp-rrdd");
+            return xapi::unix::get_module_path("xcp-rrdd");
         }
 
-        xapi::get_module_path("xcp-metrics")
+        xapi::unix::get_module_path("xcp-metrics")
     });
 
     let forwarded_path = format!("{}.forwarded", socket_path.to_string_lossy());
@@ -140,24 +136,26 @@ async fn main() {
     }
 
     let (hub, hub_channel) = hub::MetricsHub::default().start().await;
-    let (rrdd_server, rrdd_channel) =
-        RrddServer::new(get_mappings(args.mapping_file.as_deref()).await.unwrap());
+    let (rrdd_server, rrdd_channel) = RrddServer::new(
+        get_mappings(args.mapping_file.as_deref())
+            .await
+            .expect("Unable to load mappings"),
+    );
 
     let shared = Arc::new(XcpMetricsShared {
         hub_channel,
         plugins: Default::default(),
         rrdd_channel,
-        rpc_routes: Default::default(),
     });
 
-    let socket = rpc::daemon::start_daemon(&socket_path, shared.clone())
+    let socket = rpc::start_daemon(&socket_path, shared.clone())
         .await
-        .unwrap();
+        .expect(&format!("Unable to start RPC daemon ({socket_path:?})"));
 
     let socket_forwarded =
         forwarded::start_forwarded_socket(Path::new(&forwarded_path), shared.clone())
             .await
-            .unwrap();
+            .expect("Unable to start RPC Forwarded Socket");
 
     let rrdd = rrdd_server.start(shared.hub_channel.clone());
 

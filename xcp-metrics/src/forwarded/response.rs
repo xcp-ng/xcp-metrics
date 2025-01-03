@@ -1,12 +1,13 @@
 //! [write_response] implementation
 use std::{fmt::Debug, io::Write};
 
-use xapi::hyper::{body, http::Response, Body};
+use http_body_util::{BodyExt, Full};
+use hyper::{body::Bytes, http::Response};
 
 /// Write the HTTP response into some writer.
 pub async fn write_response<W>(
     writer: &mut W,
-    mut response: Response<Body>,
+    response: Response<Full<Bytes>>,
 ) -> Result<(), anyhow::Error>
 where
     W: Write + Debug,
@@ -20,23 +21,24 @@ where
         response.status().canonical_reason().unwrap_or_default()
     )?;
 
-    let body = body::to_bytes(response.body_mut()).await?;
+    let (mut parts, body) = response.into_parts();
+    let body = body.collect().await?.to_bytes();
 
     // Add content-length if not defined
-    if !response.headers().contains_key("content-length") {
+    if !parts.headers.contains_key("content-length") {
         let body_length = body.len();
-        response
-            .headers_mut()
-            .insert("content-length", body_length.into());
+        parts.headers.insert("content-length", body_length.into());
     }
 
-    for (name, value) in response.headers() {
-        write!(
-            writer,
-            "{}: {}\r\n",
-            name.as_str(),
-            String::from_utf8_lossy(value.as_bytes())
-        )?;
+    for (name, value) in parts.headers {
+        if let Some(name) = name {
+            write!(
+                writer,
+                "{}: {}\r\n",
+                name.as_str(),
+                String::from_utf8_lossy(value.as_bytes())
+            )?;
+        }
     }
 
     write!(writer, "\r\n")?;
