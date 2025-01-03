@@ -7,7 +7,7 @@ use crate::rpc::{
 
 use hyper::{body::Incoming, client::conn::http1, Request, Response};
 use hyper_util::rt::TokioIo;
-use tokio::net::UnixStream;
+use tokio::{net::UnixStream, task};
 
 pub const XAPI_SOCKET_PATH: &str = "/var/lib/xcp";
 pub const METRICS_SHM_PATH: &str = "/dev/shm/metrics/";
@@ -36,8 +36,16 @@ pub async fn send_rpc_to<M: XcpRpcMethod>(
         .body(rpc_body)?;
 
     let stream = UnixStream::connect(xapi_daemon_path).await?;
+
     let io = TokioIo::new(stream);
 
-    let (mut sender, _) = http1::handshake(io).await?;
+    let (mut sender, connection) = http1::handshake(io).await?;
+
+    task::spawn(async move {
+        if let Err(e) = connection.await {
+            eprintln!("send_rpc_to: {e}")
+        }
+    });
+
     Ok(sender.send_request(request).await?)
 }
