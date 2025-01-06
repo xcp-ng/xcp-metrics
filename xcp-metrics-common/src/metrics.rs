@@ -1,23 +1,28 @@
 //! Common metrics data structures, mostly modelled after OpenMetrics.
 use std::{collections::HashMap, time::SystemTime};
 
+use serde::{Deserialize, Serialize};
+use smol_str::SmolStr;
+
 /// Top level metric data structure.
 #[derive(Clone, Default, PartialEq, Debug)]
 pub struct MetricSet {
-    pub families: HashMap<Box<str>, MetricFamily>,
+    pub families: HashMap<SmolStr, MetricFamily>,
 }
 
 /// A family of [Metric] sharing a [MetricType] and `unit`.
 #[derive(Clone, Default, PartialEq, Debug)]
 pub struct MetricFamily {
+    // Number of references to this family.
+    pub reference_count: usize,
     pub metric_type: MetricType,
-    pub unit: Box<str>,
-    pub help: Box<str>,
+    pub unit: SmolStr,
+    pub help: SmolStr,
 
     pub metrics: HashMap<uuid::Uuid, Metric>,
 }
 
-#[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Debug, Serialize, Deserialize)]
 pub enum MetricType {
     #[default]
     Unknown,
@@ -45,28 +50,19 @@ impl std::fmt::Display for MetricType {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Eq, Hash)]
-pub struct Label(
-    /// Label name
-    pub Box<str>,
-    /// Label value
-    pub Box<str>,
-);
+#[derive(Clone, PartialEq, Debug, Eq, Hash, Serialize, Deserialize)]
+pub struct Label {
+    pub name: SmolStr,
+    pub value: SmolStr,
+}
 
-#[derive(Clone, Default, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct Metric {
     pub labels: Box<[Label]>,
-    pub metrics_point: Box<[MetricPoint]>,
-}
-
-#[derive(Clone, PartialEq, Debug)]
-pub struct MetricPoint {
-    /// *Its type should match with MetricFamily's MetricType for text export.*
     pub value: MetricValue,
-    pub timestamp: SystemTime,
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub enum MetricValue {
     Unknown(NumberValue),
     Gauge(NumberValue),
@@ -105,33 +101,33 @@ impl MetricValue {
     }
 }
 
-#[derive(Clone, Default, PartialEq, Debug)]
+#[derive(Clone, Default, PartialEq, Debug, Serialize, Deserialize)]
 pub struct Bucket {
     pub count: u64,
     pub upper_bound: f64,
     pub exemplar: Option<Box<Exemplar>>,
 }
 
-#[derive(Clone, Default, PartialEq, Debug)]
+#[derive(Clone, Default, PartialEq, Debug, Serialize, Deserialize)]
 pub struct Exemplar {
     pub value: f64,
     pub timestamp: Option<SystemTime>,
     pub labels: Box<[Label]>,
 }
 
-#[derive(Clone, Default, PartialEq, Debug)]
+#[derive(Clone, Default, PartialEq, Debug, Serialize, Deserialize)]
 pub struct State {
     pub enabled: bool,
-    pub name: Box<str>,
+    pub name: SmolStr,
 }
 
-#[derive(Clone, Copy, Default, PartialEq, Debug)]
+#[derive(Clone, Copy, Default, PartialEq, Debug, Serialize, Deserialize)]
 pub struct Quantile {
     pub quantile: f64,
     pub value: f64,
 }
 
-#[derive(Clone, Copy, Default, PartialEq, Debug)]
+#[derive(Clone, Copy, Default, PartialEq, Debug, Serialize, Deserialize)]
 pub enum NumberValue {
     Double(f64),
     Int64(i64),

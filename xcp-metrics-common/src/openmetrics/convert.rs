@@ -3,8 +3,8 @@
 use std::time::SystemTime;
 
 use crate::metrics::{
-    Bucket, Exemplar, Label, Metric, MetricFamily, MetricPoint, MetricSet, MetricType, MetricValue,
-    NumberValue, Quantile, State,
+    Bucket, Exemplar, Label, Metric, MetricFamily, MetricSet, MetricType, MetricValue, NumberValue,
+    Quantile, State,
 };
 
 use super::{
@@ -59,17 +59,20 @@ impl From<openmetrics::MetricType> for MetricType {
 
 /// Convert a [Label] into a [openmetrics::Label].
 impl From<Label> for openmetrics::Label {
-    fn from(Label(name, value): Label) -> Self {
+    fn from(Label { name, value }: Label) -> Self {
         Self {
-            name: name.into_string(),
-            value: value.into_string(),
+            name: name.to_string(),
+            value: value.to_string(),
         }
     }
 }
 
 impl From<openmetrics::Label> for Label {
     fn from(value: openmetrics::Label) -> Self {
-        Self(value.name.into_boxed_str(), value.value.into_boxed_str())
+        Self {
+            name: value.name.into(),
+            value: value.value.into(),
+        }
     }
 }
 
@@ -230,7 +233,7 @@ impl From<State> for openmetrics::state_set_value::State {
     fn from(State { enabled, name }: State) -> Self {
         Self {
             enabled,
-            name: name.into_string(),
+            name: name.to_string(),
         }
     }
 }
@@ -241,7 +244,7 @@ impl From<openmetrics::state_set_value::State> for State {
     ) -> Self {
         Self {
             enabled,
-            name: name.into_boxed_str(),
+            name: name.into(),
         }
     }
 }
@@ -360,39 +363,27 @@ impl From<openmetrics::metric_point::Value> for MetricValue {
     }
 }
 
-impl From<MetricPoint> for openmetrics::MetricPoint {
-    fn from(MetricPoint { value, timestamp }: MetricPoint) -> Self {
+impl From<MetricValue> for openmetrics::MetricPoint {
+    fn from(value: MetricValue) -> Self {
         Self {
             value: Some(value.into()),
-            timestamp: Some(timestamp.into()),
+            timestamp: None,
         }
     }
 }
 
-impl From<openmetrics::MetricPoint> for MetricPoint {
-    fn from(openmetrics::MetricPoint { value, timestamp }: openmetrics::MetricPoint) -> Self {
-        Self {
-            value: value.map_or(MetricValue::Unknown(NumberValue::Undefined), Into::into),
-            timestamp: timestamp.map_or_else(SystemTime::now, protobuf_ts_to_std),
-        }
+impl From<openmetrics::MetricPoint> for MetricValue {
+    fn from(openmetrics::MetricPoint { value, .. }: openmetrics::MetricPoint) -> Self {
+        value.map_or(MetricValue::Unknown(NumberValue::Undefined), Into::into)
     }
 }
 
 /// Convert a [Metric] to a [openmetrics::Metric].
 impl From<Metric> for openmetrics::Metric {
-    fn from(
-        Metric {
-            labels,
-            metrics_point,
-        }: Metric,
-    ) -> Self {
+    fn from(Metric { labels, value }: Metric) -> Self {
         Self {
             labels: labels.into_vec().into_iter().map(Into::into).collect(),
-            metric_points: metrics_point
-                .into_vec()
-                .into_iter()
-                .map(Into::into)
-                .collect(),
+            metric_points: vec![value.into()],
         }
     }
 }
@@ -406,7 +397,7 @@ impl From<openmetrics::Metric> for Metric {
     ) -> Self {
         Self {
             labels: labels.into_iter().map(Into::into).collect(),
-            metrics_point: metric_points.into_iter().map(Into::into).collect(),
+            value: metric_points.first().cloned().unwrap_or_default().into(),
         }
     }
 }
@@ -418,9 +409,9 @@ impl From<MetricSet> for openmetrics::MetricSet {
             metric_families: families
                 .into_iter()
                 .map(|(name, family)| openmetrics::MetricFamily {
-                    name: name.into_string(),
-                    help: family.help.into_string(),
-                    unit: family.unit.into_string(),
+                    name: name.into(),
+                    help: family.help.into(),
+                    unit: family.unit.into(),
                     r#type: openmetrics::MetricType::from(family.metric_type).into(),
                     metrics: family
                         .metrics
@@ -441,8 +432,9 @@ impl From<openmetrics::MetricSet> for MetricSet {
                 .into_iter()
                 .map(|family| {
                     (
-                        family.name.into_boxed_str(),
+                        family.name.into(),
                         MetricFamily {
+                            reference_count: 1,
                             help: family.help.into(),
                             unit: family.unit.into(),
                             metric_type: openmetrics::MetricType::try_from(family.r#type)

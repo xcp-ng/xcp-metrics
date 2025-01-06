@@ -2,9 +2,10 @@
 use std::{borrow::Cow, time::SystemTime};
 
 use serde::{de::Error, Deserialize, Serialize};
+use smol_str::{SmolStr, ToSmolStr};
 use uuid::Uuid;
 
-use crate::metrics::{Label, MetricPoint, MetricValue, NumberValue};
+use crate::metrics::{Label, MetricValue, NumberValue};
 
 /// Errors that can happen while parsing a data source.
 #[derive(Copy, Clone, Debug)]
@@ -181,8 +182,8 @@ pub struct DataSourceMetadataRaw {
 /// A metadata source.
 #[derive(Clone, PartialEq, Debug)]
 pub struct DataSourceMetadata {
-    pub description: Box<str>,
-    pub units: Box<str>,
+    pub description: SmolStr,
+    pub units: SmolStr,
     pub ds_type: DataSourceType,
     pub value: DataSourceValue,
     pub min: f32,
@@ -272,10 +273,10 @@ impl From<&DataSourceMetadata> for DataSourceMetadataRaw {
         let description = if val.description.is_empty() {
             None
         } else {
-            Some(val.description.as_ref().into())
+            Some(val.description.to_string())
         };
 
-        let units = Some(val.units.as_ref().into());
+        let units = Some(val.units.to_string());
 
         let ds_type = Some(<&str>::from(val.ds_type).to_string());
 
@@ -291,7 +292,7 @@ impl From<&DataSourceMetadata> for DataSourceMetadataRaw {
         let min = Some(val.min.to_string());
         let max = Some(val.max.to_string());
 
-        let owner = Some(<Box<str>>::from(val.owner).into_string());
+        let owner = Some(<Box<str>>::from(val.owner).into());
 
         Self {
             description,
@@ -326,37 +327,35 @@ impl crate::metrics::Metric {
     pub fn from_protocol_v2(
         metadata: &DataSourceMetadata,
         value: DataSourceValue,
-        timestamp: SystemTime,
         // Used for derive creation timestamp.
         created: Option<SystemTime>,
     ) -> Self {
-        let metric_point = MetricPoint::from_protocol_v2(metadata, value, timestamp, created);
-
         Self {
-            labels: vec![Label("owner".into(), metadata.owner.into())].into_boxed_slice(),
-            metrics_point: vec![metric_point].into_boxed_slice(),
+            labels: vec![Label {
+                name: "owner".into(),
+                value: <Box<str>>::from(metadata.owner).to_smolstr(),
+            }]
+            .into_boxed_slice(),
+            value: MetricValue::from_protocol_v2(metadata, value, created),
         }
     }
 }
 
-impl crate::metrics::MetricPoint {
+impl crate::metrics::MetricValue {
     pub fn from_protocol_v2(
         metadata: &DataSourceMetadata,
         value: DataSourceValue,
-        timestamp: SystemTime,
         // Used for derive creation timestamp.
         created: Option<SystemTime>,
     ) -> Self {
-        let value = match metadata.ds_type {
+        match metadata.ds_type {
             DataSourceType::Gauge => MetricValue::Gauge(value.into()),
             DataSourceType::Derive | DataSourceType::Absolute => MetricValue::Counter {
                 total: value.into(),
                 created,
                 exemplar: None,
             },
-        };
-
-        Self { timestamp, value }
+        }
     }
 }
 

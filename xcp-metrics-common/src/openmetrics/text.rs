@@ -114,7 +114,7 @@ fn format_label(name: &str, value: &str) -> String {
 fn format_labels(labels: &[Label]) -> String {
     labels
         .iter()
-        .map(|label| format_label(&label.0, &label.1))
+        .map(|label| format_label(&label.name, &label.value))
         .collect::<Vec<String>>() // TODO: Consider https://github.com/rust-lang/rust/issues/79524
         .join(",")
 }
@@ -136,124 +136,120 @@ fn format_exemplar(exemplar: Option<&Exemplar>) -> String {
 }
 
 fn write_metric<W: Write>(writer: &mut W, name: &str, metric: &Metric) -> Result<()> {
-    for metric_point in metric.metrics_point.iter() {
-        match &metric_point.value {
-            MetricValue::Unknown(value) | MetricValue::Gauge(value) => {
+    match &metric.value {
+        MetricValue::Unknown(value) | MetricValue::Gauge(value) => {
+            writeln!(
+                writer,
+                "{name}{{{}}} {}",
+                format_labels(&metric.labels),
+                format_number_value(value),
+            )?;
+        }
+        MetricValue::Counter {
+            total,
+            created,
+            exemplar,
+        } => {
+            writeln!(
+                writer,
+                "{name}_total{{{}}} {}{}",
+                format_labels(&metric.labels),
+                format_number_value(total),
+                format_exemplar(exemplar.as_deref())
+            )?;
+
+            if let Some(ts) = created {
                 writeln!(
                     writer,
-                    "{name}{{{}}} {}",
+                    "{name}_created{{{}}} {}",
                     format_labels(&metric.labels),
-                    format_number_value(value),
-                    // FIXME: timestamp breaks prometheus for some reason
-                    // format_timestamp(&metric_point.timestamp)
+                    format_timestamp(ts),
                 )?;
             }
-            MetricValue::Counter {
-                total,
-                created,
-                exemplar,
-            } => {
+        }
+        MetricValue::Histogram {
+            sum,
+            count,
+            created,
+            buckets,
+        } => {
+            let formatted_label = format_labels(&metric.labels);
+
+            for bucket in buckets.iter() {
                 writeln!(
                     writer,
-                    "{name}_total{{{}}} {}{}",
-                    format_labels(&metric.labels),
-                    format_number_value(total),
-                    format_exemplar(exemplar.as_deref())
-                )?;
-
-                if let Some(ts) = created {
-                    writeln!(
-                        writer,
-                        "{name}_created{{{}}} {}",
-                        format_labels(&metric.labels),
-                        format_timestamp(ts),
-                    )?;
-                }
-            }
-            MetricValue::Histogram {
-                sum,
-                count,
-                created,
-                buckets,
-            } => {
-                let formatted_label = format_labels(&metric.labels);
-
-                for bucket in buckets.iter() {
-                    writeln!(
-                        writer,
-                        "{name}_bucket{{le=\"{}\"}} {}{}",
-                        bucket.upper_bound,
-                        bucket.count,
-                        format_exemplar(bucket.exemplar.as_deref())
-                    )?;
-                }
-
-                writeln!(writer, "{name}_count{{{formatted_label}}} {count}")?;
-
-                writeln!(
-                    writer,
-                    "{name}_sum{{{formatted_label}}} {}",
-                    format_number_value(sum)
-                )?;
-
-                writeln!(
-                    writer,
-                    "{name}_created{{{formatted_label}}} {}",
-                    format_timestamp(created)
+                    "{name}_bucket{{le=\"{}\"}} {}{}",
+                    bucket.upper_bound,
+                    bucket.count,
+                    format_exemplar(bucket.exemplar.as_deref())
                 )?;
             }
-            MetricValue::StateSet(states) => {
-                let formatted_labels = format_labels(&metric.labels);
 
-                for state in states.iter() {
-                    writeln!(
-                        writer,
-                        "{name}{{{formatted_labels}{}{}}} {}",
-                        if metric.labels.is_empty() { "" } else { "," },
-                        format_label(name, &state.name),
-                        u32::from(state.enabled)
-                    )?;
-                }
-            }
-            MetricValue::Info(labels) => {
+            writeln!(writer, "{name}_count{{{formatted_label}}} {count}")?;
+
+            writeln!(
+                writer,
+                "{name}_sum{{{formatted_label}}} {}",
+                format_number_value(sum)
+            )?;
+
+            writeln!(
+                writer,
+                "{name}_created{{{formatted_label}}} {}",
+                format_timestamp(created)
+            )?;
+        }
+        MetricValue::StateSet(states) => {
+            let formatted_labels = format_labels(&metric.labels);
+
+            for state in states.iter() {
                 writeln!(
                     writer,
-                    "{name}_info{{{}{}{}}} 1",
-                    format_labels(&metric.labels),
+                    "{name}{{{formatted_labels}{}{}}} {}",
                     if metric.labels.is_empty() { "" } else { "," },
-                    format_labels(labels)
+                    format_label(name, &state.name),
+                    u32::from(state.enabled)
                 )?;
             }
-            MetricValue::Summary {
-                sum,
-                count,
-                created,
-                quantile,
-            } => {
-                let formatted_label = format_labels(&metric.labels);
+        }
+        MetricValue::Info(labels) => {
+            writeln!(
+                writer,
+                "{name}_info{{{}{}{}}} 1",
+                format_labels(&metric.labels),
+                if metric.labels.is_empty() { "" } else { "," },
+                format_labels(labels)
+            )?;
+        }
+        MetricValue::Summary {
+            sum,
+            count,
+            created,
+            quantile,
+        } => {
+            let formatted_label = format_labels(&metric.labels);
 
-                for quantile in quantile.iter() {
-                    writeln!(
-                        writer,
-                        "{name}_bucket{{quantile=\"{}\"}} {}",
-                        quantile.quantile, quantile.value
-                    )?;
-                }
-
-                writeln!(writer, "{name}_count{{{formatted_label}}} {count}")?;
-
+            for quantile in quantile.iter() {
                 writeln!(
                     writer,
-                    "{name}_sum{{{formatted_label}}} {}",
-                    format_number_value(sum)
-                )?;
-
-                writeln!(
-                    writer,
-                    "{name}_created{{{formatted_label}}} {}",
-                    format_timestamp(created)
+                    "{name}_bucket{{quantile=\"{}\"}} {}",
+                    quantile.quantile, quantile.value
                 )?;
             }
+
+            writeln!(writer, "{name}_count{{{formatted_label}}} {count}")?;
+
+            writeln!(
+                writer,
+                "{name}_sum{{{formatted_label}}} {}",
+                format_number_value(sum)
+            )?;
+
+            writeln!(
+                writer,
+                "{name}_created{{{formatted_label}}} {}",
+                format_timestamp(created)
+            )?;
         }
     }
 

@@ -2,6 +2,7 @@
 use std::fmt::Write;
 
 use serde::{Deserialize, Serialize};
+use smol_str::SmolStr;
 
 use crate::{
     metrics::{Label, Metric, MetricFamily, MetricType, MetricValue, NumberValue},
@@ -15,7 +16,7 @@ pub trait MetadataMapping {
         family_name: &str,
         family: &MetricFamily,
         metric: &Metric,
-    ) -> Option<(Box<str>, DataSourceMetadata)>;
+    ) -> Option<(SmolStr, DataSourceMetadata)>;
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -27,12 +28,12 @@ impl MetadataMapping for DefaultMapping {
         family_name: &str,
         family: &MetricFamily,
         metric: &Metric,
-    ) -> Option<(Box<str>, DataSourceMetadata)> {
+    ) -> Option<(SmolStr, DataSourceMetadata)> {
         let owner = metric
             .labels
             .iter()
-            .filter(|l| l.0.as_ref() == "owner")
-            .map(|l| l.1.as_ref())
+            .filter(|l| l.name == "owner")
+            .map(|l| l.value.as_ref())
             .next()
             .unwrap_or("host");
 
@@ -43,9 +44,9 @@ impl MetadataMapping for DefaultMapping {
             .labels
             .iter()
             // Ignore owner label
-            .filter(|l| l.0.as_ref() != "owner")
+            .filter(|l| l.name != "owner")
             .fold(family_name.to_string(), |mut buffer, label| {
-                write!(buffer, "_{}", label.1).ok();
+                write!(buffer, "_{}", label.value).ok();
                 buffer
             });
 
@@ -55,22 +56,17 @@ impl MetadataMapping for DefaultMapping {
             _ => return None, /* Non-supported */
         };
 
-        let first_metric = metric
-            .metrics_point
-            .first()
-            .map(|metric_point| &metric_point.value);
-
-        let value = first_metric.map_or(DataSourceValue::Undefined, |metric| match metric {
+        let value = match metric.value {
             MetricValue::Gauge(value) | MetricValue::Counter { total: value, .. } => match value {
                 NumberValue::Double(_) => DataSourceValue::Float(0.0),
                 NumberValue::Int64(_) => DataSourceValue::Int64(0),
                 NumberValue::Undefined => DataSourceValue::Undefined,
             },
             _ => DataSourceValue::Undefined,
-        });
+        };
 
         Some((
-            name.into_boxed_str(),
+            name.into(),
             DataSourceMetadata {
                 description: family.help.clone(),
                 units: family.unit.clone(),
@@ -108,7 +104,7 @@ impl CustomMapping {
         let mut current = self.pattern.to_string();
 
         // Replace all occurences of `{label}` with its value.
-        metric.labels.iter().for_each(|Label(name, value)| {
+        metric.labels.iter().for_each(|Label { name, value }| {
             current = current.replace(format!("{{{name}}}").as_str(), value);
         });
 
@@ -122,19 +118,19 @@ impl MetadataMapping for CustomMapping {
         _: &str,
         family: &MetricFamily,
         metric: &Metric,
-    ) -> Option<(Box<str>, DataSourceMetadata)> {
+    ) -> Option<(SmolStr, DataSourceMetadata)> {
         let owner = metric
             .labels
             .iter()
-            .filter(|l| l.0.as_ref() == "owner")
-            .map(|l| l.1.as_ref())
+            .filter(|l| l.name == "owner")
+            .map(|l| l.value.as_ref())
             .next()
             .unwrap_or("host");
 
         // Parse owner
         let owner = DataSourceOwner::try_from(owner).unwrap_or(DataSourceOwner::Host);
 
-        let name = self.apply_pattern(metric);
+        let name = self.apply_pattern(metric).into();
 
         let ds_type = match family.metric_type {
             MetricType::Gauge => DataSourceType::Gauge,
@@ -142,19 +138,14 @@ impl MetadataMapping for CustomMapping {
             _ => return None, /* Non-supported */
         };
 
-        let first_metric = metric
-            .metrics_point
-            .first()
-            .map(|metric_point| &metric_point.value);
-
-        let value = first_metric.map_or(DataSourceValue::Undefined, |metric| match metric {
+        let value = match metric.value {
             MetricValue::Gauge(value) | MetricValue::Counter { total: value, .. } => match value {
                 NumberValue::Double(_) => DataSourceValue::Float(0.0),
                 NumberValue::Int64(_) => DataSourceValue::Int64(0),
                 NumberValue::Undefined => DataSourceValue::Undefined,
             },
             _ => DataSourceValue::Undefined,
-        });
+        };
 
         Some((
             name,

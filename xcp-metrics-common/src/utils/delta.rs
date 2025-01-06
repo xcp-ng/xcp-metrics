@@ -100,6 +100,8 @@ use std::{
     iter,
 };
 
+use smol_str::SmolStr;
+
 use crate::metrics::{Label, Metric, MetricFamily, MetricSet};
 
 /// Summary of changes between a MetricSetModel and a MetricSet (ignoring MetricSet UUIDs)
@@ -114,7 +116,7 @@ pub struct MetricSetDelta<'a> {
 
     /// Metrics that no longer contain a family.
     /// In case they reappears, they will need to be registered again.
-    pub orphaned_families: Vec<Box<str>>,
+    pub orphaned_families: Vec<SmolStr>,
 
     // Added metrics
     pub added_metrics: Vec<(&'a str, &'a Metric, uuid::Uuid)>,
@@ -134,8 +136,8 @@ pub struct MetricSetDelta<'a> {
 #[derive(Clone, Default, Debug, PartialEq)]
 pub struct MetricSetModel {
     /// Track metrics per family and labels set.
-    pub metrics_map: HashMap<(Box<str>, Box<[Label]>), uuid::Uuid>,
-    pub families: HashSet<Box<str>>,
+    pub metrics_map: HashMap<(SmolStr, Box<[Label]>), uuid::Uuid>,
+    pub families: HashSet<SmolStr>,
 }
 
 impl MetricSetModel {
