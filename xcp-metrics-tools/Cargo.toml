@@ -8,8 +8,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-xcp-metrics-common = { path = "../xcp-metrics-common" }
-xapi = { path = "../xapi-rs" }
+xcp-metrics-common = { path = "../xcp-metrics-common", features = ["rrdd_compat"] }
 
 anyhow = "1.0"
 serde_json = "1.0"

@@ -16,7 +16,7 @@ pub const XCP_RRDD_PATH: &str = "/var/lib/xcp/xcp-rrdd";
 /// Abstraction of a protocol v3 plugin.
 pub trait XcpPlugin {
     /// Update the state of the plugin.
-    fn update(&mut self);
+    fn update(&mut self) -> impl std::future::Future<Output = ()> + Send;
 
     // Generate a new metric set representing the current state of data.
     fn generate_metrics(&mut self) -> SimpleMetricSet;
@@ -93,7 +93,7 @@ pub async fn run_plugin_v2(mut shared: impl XcpPlugin, target_daemon_path: Optio
         tracing::debug!("Updating plugin state");
 
         // Update sources
-        shared.update();
+        shared.update().await;
 
         // Fetch and push new metrics.
         metrics = shared.generate_metrics();
@@ -130,7 +130,7 @@ pub async fn run_plugin_v3(mut shared: impl XcpPlugin, target_daemon_path: Optio
     loop {
         tracing::debug!("Updating plugin state");
         // Update sources
-        shared.update();
+        shared.update().await;
 
         // Fetch and push new metrics.
         plugin

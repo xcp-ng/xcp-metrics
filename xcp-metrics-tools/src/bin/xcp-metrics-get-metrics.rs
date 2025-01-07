@@ -1,9 +1,11 @@
-use std::path::PathBuf;
+use std::{
+    io::{stdout, Write},
+    os::unix::net::UnixStream,
+    path::PathBuf,
+};
 
 use clap::Parser;
-use http_body_util::BodyExt;
-use tokio::io::{stdout, AsyncWriteExt};
-use xapi::rpc::{message::RpcKind, methods::rrdd::OpenMetricsMethod};
+use xcp_metrics_common::protocol::{self, FetchMetrics, XcpMetricsStream};
 
 /// Tool to get metrics from xcp-metrics in OpenMetrics format.
 #[derive(Parser, Debug)]
@@ -13,44 +15,30 @@ struct Args {
     #[arg(short, long)]
     daemon_path: Option<PathBuf>,
 
-    /// RPC format to use
-    #[arg(long, default_value_t = RpcKind::JsonRpc)]
-    rpc_format: RpcKind,
-
     /// Whether to use protocol buffers binary format.
     #[arg(short, long, default_value_t = false)]
     binary: bool,
 }
 
-#[tokio::main]
-async fn main() {
+fn main() {
     let args = Args::parse();
     let daemon_path = args
         .daemon_path
-        .unwrap_or_else(|| xapi::unix::get_module_path("xcp-metrics"));
+        .unwrap_or_else(|| protocol::METRICS_SOCKET_PATH.into());
 
-    let method = OpenMetricsMethod {
-        protobuf: args.binary,
-    };
+    let mut client = UnixStream::connect(daemon_path).expect("Unable to connect to daemon");
 
-    let response = xapi::unix::send_rpc_to(
-        &daemon_path,
-        "POST",
-        &method,
-        "xcp-metrics-get-metrics",
-        RpcKind::JsonRpc,
-    )
-    .await;
+    client
+        .send_message(protocol::ProtocolMessage::FetchMetrics(if args.binary {
+            FetchMetrics::OpenMetrics1Binary
+        } else {
+            FetchMetrics::OpenMetrics1
+        }))
+        .unwrap();
 
-    eprintln!("{response:#?}");
+    let data = client
+        .recv_message_raw()
+        .expect("Unable to receive daemon response");
 
-    let data = response
-        .unwrap()
-        .into_body()
-        .collect()
-        .await
-        .unwrap()
-        .to_bytes();
-
-    stdout().write_all(&data).await.unwrap();
+    stdout().write_all(&data).expect("Can't write output");
 }

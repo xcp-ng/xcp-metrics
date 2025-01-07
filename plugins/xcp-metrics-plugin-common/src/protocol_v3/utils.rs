@@ -3,7 +3,7 @@
 use std::{collections::HashMap, time::SystemTime};
 
 use xcp_metrics_common::metrics::{
-    Label, Metric, MetricFamily, MetricPoint, MetricSet, MetricType, MetricValue,
+    Label, Metric, MetricFamily, MetricSet, MetricType, MetricValue, MetricValue,
 };
 
 #[derive(Clone, Debug)]
@@ -41,6 +41,7 @@ impl From<SimpleMetricFamily> for MetricFamily {
         }: SimpleMetricFamily,
     ) -> Self {
         Self {
+            reference_count: 1,
             metric_type,
             unit,
             help,
@@ -62,11 +63,7 @@ impl From<SimpleMetric> for Metric {
     fn from(SimpleMetric { labels, value }: SimpleMetric) -> Self {
         Self {
             labels: labels.into_boxed_slice(),
-            metrics_point: vec![MetricPoint {
-                value,
-                timestamp: SystemTime::now(),
-            }]
-            .into_boxed_slice(),
+            value,
         }
     }
 }

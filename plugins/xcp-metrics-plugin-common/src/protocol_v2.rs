@@ -4,12 +4,13 @@ use tokio::{
     fs::{create_dir_all, OpenOptions},
     io::AsyncWriteExt,
 };
+
 use xapi::{
     rpc::{
-        message::parse_http_response,
-        methods::{PluginLocalDeregister, PluginLocalRegister},
+        message::{parse_http_response, RpcKind},
+        methods::rrdd::{PluginLocalDeregister, PluginLocalRegister},
     },
-    METRICS_SHM_PATH,
+    unix::METRICS_SHM_PATH,
 };
 use xcp_metrics_common::rrdd::{
     protocol_common::DataSourceValue,
@@ -67,11 +68,12 @@ impl RrddPlugin {
             uid: self.uid.to_string(),
         };
 
-        let response = xapi::send_xmlrpc_to(
+        let response = xapi::unix::send_rpc_to(
             &self.target_daemon_path,
             "POST",
             &request,
             &self.uid, /* use uid as user-agent */
+            RpcKind::XmlRpc,
         )
         .await
         .map_err(|e| {
@@ -146,16 +148,17 @@ impl RrddPlugin {
             uid: self.uid.to_string(),
         };
 
-        match xapi::send_xmlrpc_to(
+        match xapi::unix::send_rpc_to(
             &self.target_daemon_path,
             "POST",
             &request,
             &self.uid, /* use uid as user-agent */
+            RpcKind::XmlRpc,
         )
         .await
         {
             Ok(response) => {
-                tracing::info!("RPC Response: {:?}", parse_http_response(response).await);
+                tracing::info!("RPC Response: {:?}", parse_http_response(response).await)
             }
             Err(e) => {
                 tracing::error!("Unable to unregister plugin ({e})")
@@ -164,7 +167,7 @@ impl RrddPlugin {
 
         // Delete plugin file.
         if let Err(e) = tokio::fs::remove_file(self.metrics_path).await {
-            tracing::warn!("Unable to remove plugin file: {e}");
+            tracing::warn!("Unable to remove plugin file: {e}")
         }
     }
 }

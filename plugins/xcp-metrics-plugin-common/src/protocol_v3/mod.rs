@@ -4,12 +4,13 @@ pub mod utils;
 use std::path::{Path, PathBuf};
 
 use tokio::fs::{create_dir_all, OpenOptions};
+
 use xapi::{
     rpc::{
-        message::parse_http_response,
-        methods::{PluginMetricsDeregister, PluginMetricsRegister},
+        message::{parse_http_response, RpcKind},
+        methods::rrdd::{PluginMetricsDeregister, PluginMetricsRegister},
     },
-    METRICS_SHM_PATH,
+    unix::METRICS_SHM_PATH,
 };
 use xcp_metrics_common::{metrics::MetricSet, protocol_v3};
 
@@ -64,11 +65,12 @@ impl MetricsPlugin {
             uid: self.uid.to_string(),
         };
 
-        let response = xapi::send_xmlrpc_to(
+        let response = xapi::unix::send_rpc_to(
             &self.target_daemon_path,
             "POST",
             &request,
             &self.uid, /* use uid as user-agent */
+            RpcKind::JsonRpc,
         )
         .await
         .map_err(|e| {
@@ -92,19 +94,20 @@ impl MetricsPlugin {
             uid: self.uid.to_string(),
         };
 
-        match xapi::send_xmlrpc_to(
+        match xapi::unix::send_rpc_to(
             &self.target_daemon_path,
             "POST",
             &request,
             &self.uid, /* use uid as user-agent */
+            RpcKind::JsonRpc,
         )
         .await
         {
             Ok(response) => {
-                tracing::debug!("RPC Response: {:?}", parse_http_response(response).await);
+                tracing::debug!("RPC Response: {:?}", parse_http_response(response).await)
             }
             Err(e) => {
-                tracing::error!("Unable to unregister plugin ({e})");
+                tracing::error!("Unable to unregister plugin ({e})")
             }
         }
 

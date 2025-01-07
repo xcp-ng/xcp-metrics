@@ -1,265 +1,190 @@
-use std::collections::{HashMap, HashSet};
+mod metrics;
 
-use xcp_metrics_common::metrics::{Label, MetricType, MetricValue, NumberValue};
-use xcp_metrics_plugin_common::{
-    plugin::XcpPlugin,
-    protocol_v3::utils::{SimpleMetric, SimpleMetricFamily, SimpleMetricSet},
-    xenstore::{
-        watch::XsWatch,
-        watch_cache::WatchCache,
-        xs::{XBTransaction, Xs, XsOpenFlags},
-    },
+use std::collections::HashMap;
+
+use async_stream::stream;
+use futures::{Stream, StreamExt};
+use radix_trie::Trie;
+use smol_str::{SmolStr, ToSmolStr};
+use tokio::net::UnixStream;
+use uuid::Uuid;
+use xcp_metrics_common::{
+    metrics::{Label, MetricType},
+    protocol::{CreateFamily, ProtocolMessage, RemoveMetric, UpdateMetric, XcpMetricsAsyncStream},
 };
+use xenstore_rs::{tokio::XsTokio, AsyncWatch, AsyncXs};
 
-pub struct XenStorePlugin<'a, XS: XsWatch> {
-    watch_cache: WatchCache,
-    xs: &'a XS,
+use metrics::{MemInfoFree, MemInfoTotal, MetricHandler, MetricHandlerEnum};
 
-    /// Domain ID -> Paths
-    pub domains: HashSet<String>,
-
-    /// VM ID -> Paths
-    pub vms: HashSet<String>,
+#[derive(Default)]
+struct PluginState {
+    // Map each domid-subpath with a UUID.
+    metric_uuid_map: HashMap<(u32, SmolStr), Uuid>,
 }
 
-impl<'a, XS: XsWatch> XenStorePlugin<'a, XS> {
-    pub fn new(xs: &'a XS) -> Self {
-        Self {
-            xs,
-            watch_cache: WatchCache::new(
-                Xs::new(XsOpenFlags::ReadOnly).expect("Unable to create second Xs"),
-            ),
-            domains: HashSet::default(),
-            vms: HashSet::default(),
-        }
-    }
+/// Split the path into: (Domain ID, subpath)
+fn parse_path(path: &str) -> Option<(u32, &str)> {
+    let path = path.strip_prefix("/local/domain/")?;
+
+    {}
+
+    // path now looks like <domid>[/<subpath>]
+    let (domid_str, subpath) = if path.contains('/') {
+        path.split_once("/")?
+    } else {
+        (path, "")
+    };
+
+    let domid: u32 = domid_str
+        .parse()
+        .inspect_err(|e| tracing::warn!("Invalid domid as subpath of /local/domain: {path} ({e})"))
+        .ok()?;
+
+    Some((domid, subpath))
 }
 
-static TRACKED_DOMAIN_ATTRIBUTES: &[&str] = &["memory/target", "vm"];
-static TRACKED_VM_ATTRIBUTES: &[&str] = &["name", "uuid"];
+async fn initialize_families(stream: &mut UnixStream) -> anyhow::Result<()> {
+    stream
+        .send_message_async(ProtocolMessage::CreateFamily(CreateFamily {
+            help: "Memory usage in the guest".into(),
+            name: "memory_usage".into(),
+            metric_type: MetricType::Gauge,
+            unit: "bytes".into(),
+        }))
+        .await?;
 
-impl<XS: XsWatch> XenStorePlugin<'_, XS> {
-    pub fn get_vm_infos(&self, vm_uuid: &str, attributes: &[&str]) -> MetricValue {
-        MetricValue::Info(
-            attributes
-                .iter()
-                .filter_map(|&attr| {
-                    self.read(format!("/vm/{vm_uuid}/{attr}").as_str())
-                        .map(|value| Label(attr.into(), value.into()))
-                })
-                .collect(),
-        )
-    }
+    Ok(())
+}
 
-    fn make_memory_target_metric(&self, domid: &str, memory_target: i64) -> SimpleMetric {
-        let vm_uuid = self.get_domain_uuid(domid);
+fn recursive_traversal(xs: XsTokio, path: String) -> impl Stream<Item = Box<str>> {
+    stream! {
+        yield path.clone().into_boxed_str();
 
-        let mut labels = vec![Label("domain".into(), domid.into())];
-
-        if let Some(vm_uuid) = vm_uuid {
-            labels.push(Label("owner".into(), format!("vm {vm_uuid}").into()));
+        if let Ok(subpaths) = xs.directory(&path).await {
+            for subpath in &subpaths {
+                let entries = Box::pin(recursive_traversal(xs.clone(), format!("{path}/{subpath}")));
+                for await entry in entries {
+                    yield entry;
+                }
+            }
         }
-
-        SimpleMetric {
-            labels,
-            value: MetricValue::Gauge(NumberValue::Int64(memory_target)),
-        }
-    }
-
-    fn get_domain_uuid(&self, domid: &str) -> Option<String> {
-        self.read(format!("/local/domain/{domid}/vm").as_str())
-            .and_then(|vm_path| self.read(format!("{vm_path}/uuid").as_str()))
-    }
-
-    fn get_memory_target_value(&self, domid: &str) -> Option<i64> {
-        self.read(format!("/local/domain/{domid}/memory/target").as_str())
-            .and_then(|value| {
-                value
-                    .parse()
-                    .map_err(|err| {
-                        tracing::error!("Memory target parse error {err:?}");
-                        err
-                    })
-                    .ok()
-            })
-    }
-
-    fn track_domain(&mut self, domain: &str) {
-        TRACKED_DOMAIN_ATTRIBUTES.iter().for_each(|attribute| {
-            if let Err(e) = self
-                .watch_cache
-                .watch(format!("/local/domain/{domain}/{attribute}").as_str())
-            {
-                tracing::warn!("Unable to watch domain attribute ({e})");
-            }
-        });
-
-        self.domains.insert(domain.to_string());
-    }
-
-    fn untrack_domain(&mut self, domain: &str) {
-        TRACKED_DOMAIN_ATTRIBUTES.iter().for_each(|attribute| {
-            if let Err(e) = self
-                .watch_cache
-                .unwatch(format!("/local/domain/{domain}/{attribute}").as_str())
-            {
-                tracing::warn!("Unable to unwatch domain attribute ({e})");
-            }
-        });
-
-        self.domains.remove(domain);
-    }
-
-    fn track_vm(&mut self, vm: &str) {
-        TRACKED_VM_ATTRIBUTES.iter().for_each(|attribute| {
-            if let Err(e) = self
-                .watch_cache
-                .watch(format!("/vm/{vm}/{attribute}").as_str())
-            {
-                tracing::warn!("Unable to watch vm attribute ({e})");
-            }
-        });
-
-        self.vms.insert(vm.to_string());
-    }
-
-    fn untrack_vm(&mut self, vm: &str) {
-        TRACKED_VM_ATTRIBUTES.iter().for_each(|attribute| {
-            if let Err(e) = self
-                .watch_cache
-                .unwatch(format!("/vm/{vm}/{attribute}").as_str())
-            {
-                tracing::warn!("Unable to unwatch vm attribute ({e})");
-            }
-        });
-
-        self.vms.remove(vm);
-    }
-
-    /// Check for removed and new domains, and update watcher.
-    pub fn update_domains(&mut self) -> anyhow::Result<()> {
-        let real_domains: HashSet<String> = self
-            .xs
-            .directory(XBTransaction::Null, "/local/domain")?
-            .into_iter()
-            .collect();
-
-        real_domains.iter().for_each(|domain| {
-            if !self.domains.contains(domain) {
-                tracing::debug!("Now tracking domain {domain}");
-                self.track_domain(domain);
-            }
-        });
-
-        // Check for removed domains.
-        self.domains
-            .difference(&real_domains)
-            .cloned()
-            .collect::<Vec<String>>()
-            .into_iter()
-            .for_each(|domain| {
-                tracing::debug!("Untracking domain {domain}");
-                self.untrack_domain(&domain);
-            });
-
-        Ok(())
-    }
-
-    /// Check for removed and new vms, and update watcher.
-    pub fn update_vms(&mut self) -> anyhow::Result<()> {
-        let real_vms: HashSet<String> = self
-            .xs
-            .directory(XBTransaction::Null, "/vm")?
-            .into_iter()
-            .collect();
-
-        real_vms.iter().for_each(|vm| {
-            if !self.vms.contains(vm) {
-                tracing::debug!("Now tracking vm {vm}");
-                self.track_vm(vm);
-            }
-        });
-
-        // Check removed domains.
-        self.vms
-            .difference(&real_vms)
-            .cloned()
-            .collect::<Vec<String>>()
-            .into_iter()
-            .for_each(|vm| {
-                tracing::debug!("Untracking vm {vm}");
-                self.untrack_vm(&vm);
-            });
-
-        Ok(())
-    }
-
-    pub fn read(&self, path: &str) -> Option<String> {
-        self.watch_cache.read(path)
     }
 }
 
-impl<XS: XsWatch> XcpPlugin for XenStorePlugin<'_, XS> {
-    fn update(&mut self) {
-        if let Err(e) = self.update_domains() {
-            tracing::warn!("Unable to get domains: {e}");
+pub async fn run_plugin(mut stream: UnixStream, xs: XsTokio) -> anyhow::Result<()> {
+    initialize_families(&mut stream).await?;
+
+    // First get all existing xenstore entries, and then use the watch.
+    let mut domain_watcher = Box::pin(recursive_traversal(xs.clone(), "/local/domain".into()))
+        .chain(xs.watch("/local/domain").await?);
+
+    let mut handlers: Trie<&str, MetricHandlerEnum> = Trie::new();
+
+    let meminfo_total = MemInfoTotal;
+    handlers.insert(meminfo_total.subpath(), meminfo_total.into());
+
+    let meminfo_free = MemInfoFree;
+    handlers.insert(meminfo_free.subpath(), meminfo_free.into());
+
+    let mut state = PluginState::default();
+
+    while let Some(path) = domain_watcher.next().await {
+        if path.as_ref() == "/local/domain" {
+            continue;
         }
 
-        if let Err(e) = self.update_vms() {
-            tracing::warn!("Unable to get vms: {e}");
+        // Parse the domid of the new domain.
+        if let Some((domid, subpath)) = parse_path(&path) {
+            // Don't try to read these entries as it can bug PV interfaces.
+            if subpath.starts_with("device")
+                || subpath.starts_with("backend")
+                || subpath.starts_with("console")
+            {
+                continue;
+            }
+
+            let entry = xs.read(&path).await;
+
+            // Check for /local/domain/<domid> paths.
+            // When a domain dies, we only get the /local/domain/<domid> event,
+            // and in such case, we need to remove all <domid> metrics.
+            if subpath.is_empty() && entry.is_err() {
+                // Get all related registered metrics.
+                let entries = state
+                    .metric_uuid_map
+                    .keys()
+                    .filter(|(iter_domid, _)| *iter_domid == domid)
+                    .cloned()
+                    .collect::<Vec<_>>();
+
+                for (domid, family_name) in entries {
+                    if let Some(uuid) = state.metric_uuid_map.remove(&(domid, family_name.clone()))
+                    {
+                        stream
+                            .send_message_async(ProtocolMessage::RemoveMetric(RemoveMetric {
+                                family_name,
+                                uuid,
+                            }))
+                            .await?;
+                    }
+                }
+                continue;
+            }
+
+            // Update a metric.
+            if let Ok(entry) = entry {
+                let Some(handler) = handlers.get(subpath) else {
+                    tracing::debug!("Ignoring {path}");
+                    continue;
+                };
+
+                let Some(mut metric) = handler.read_metric(&xs, &path, subpath).await else {
+                    tracing::warn!("No fetched metric from {path}={entry}");
+                    continue;
+                };
+
+                // Insert domid label.
+                let mut labels = metric.labels.into_vec();
+                labels.push(Label {
+                    name: "domid".into(),
+                    value: domid.to_smolstr(),
+                });
+                metric.labels = labels.into_boxed_slice();
+
+                let &mut uuid = state
+                    .metric_uuid_map
+                    .entry((domid, subpath.to_smolstr()))
+                    .or_insert_with(|| Uuid::new_v4());
+
+                stream
+                    .send_message_async(ProtocolMessage::UpdateMetric(UpdateMetric {
+                        family_name: handler.family_name().to_smolstr(),
+                        metric,
+                        uuid,
+                    }))
+                    .await?;
+            } else {
+                // Remove the related metric (if there is)
+                if let Some(((_, subpath), uuid)) = state
+                    .metric_uuid_map
+                    .remove_entry(&(domid, subpath.to_smolstr()))
+                {
+                    let Some(handler) = handlers.get(subpath.as_str()) else {
+                        continue;
+                    };
+
+                    stream
+                        .send_message_async(ProtocolMessage::RemoveMetric(RemoveMetric {
+                            family_name: handler.family_name().to_smolstr(),
+                            uuid,
+                        }))
+                        .await?;
+                }
+            }
+        } else {
+            tracing::warn!("Unexpected watch event {path}")
         }
     }
 
-    fn generate_metrics(&mut self) -> SimpleMetricSet {
-        let mut families: HashMap<String, SimpleMetricFamily> = HashMap::new();
-
-        families.insert(
-            "vm_info".into(),
-            SimpleMetricFamily {
-                metric_type: MetricType::Info,
-                unit: "".into(),
-                help: "Virtual machine informations".into(),
-                metrics: self
-                    .vms
-                    .iter()
-                    // Get vm metrics.
-                    .map(|uuid| SimpleMetric {
-                        labels: vec![Label("owner".into(), format!("vm {uuid}").into())],
-                        value: self.get_vm_infos(uuid, &["name"]),
-                    })
-                    .collect(),
-            },
-        );
-
-        families.insert(
-            "memory_target".into(),
-            SimpleMetricFamily {
-                metric_type: MetricType::Gauge,
-                unit: "bytes".into(),
-                help: "Target of VM balloon driver".into(),
-                metrics: self
-                    .domains
-                    .iter()
-                    // Get target memory metric (if exists).
-                    .filter_map(|domid| self.get_memory_target_value(domid).map(|m| (domid, m)))
-                    // Make it a metric.
-                    .map(|(domid, memory_target)| {
-                        self.make_memory_target_metric(domid, memory_target)
-                    })
-                    .collect(),
-            },
-        );
-
-        SimpleMetricSet { families }
-    }
-
-    fn get_name(&self) -> &str {
-        "xcp-metrics-plugin-xenstored"
-    }
-
-    fn get_mappings(
-        &self,
-    ) -> Option<HashMap<Box<str>, xcp_metrics_common::utils::mapping::CustomMapping>> {
-        None
-    }
+    Ok(())
 }

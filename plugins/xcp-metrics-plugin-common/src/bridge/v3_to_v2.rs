@@ -2,7 +2,7 @@
 use std::{collections::HashMap, iter};
 
 use xcp_metrics_common::{
-    metrics::{Label, Metric, MetricFamily, MetricPoint, MetricSet, MetricValue},
+    metrics::{Label, Metric, MetricFamily, MetricValue, MetricSet, MetricValue},
     rrdd::{
         protocol_common::{DataSourceMetadata, DataSourceValue},
         protocol_v2::{indexmap::IndexMap, RrddMetadata},
@@ -14,6 +14,7 @@ use xcp_metrics_common::{
 };
 
 /// Adapter to convert protocol v3 metrics set into protocol v2 metadata and data.
+#[derive(Clone)]
 pub struct BridgeToV2 {
     model: MetricSetModel,
     latest_set: MetricSet,
@@ -24,7 +25,7 @@ pub struct BridgeToV2 {
 }
 
 /// Convert a MetricPoint into a protocol-v2 value.
-fn metric_point_to_v2(metric_point: &MetricPoint) -> DataSourceValue {
+fn metric_point_to_v2(metric_point: &MetricValue) -> DataSourceValue {
     match metric_point.value {
         MetricValue::Gauge(value) => DataSourceValue::from(value),
         MetricValue::Counter { total, .. } => DataSourceValue::from(total),
@@ -99,7 +100,7 @@ impl BridgeToV2 {
         &'a self,
         family_name: &str,
         labels: &[Label],
-    ) -> Option<&'a MetricPoint> {
+    ) -> Option<&'a MetricValue> {
         self.latest_set
             .families
             .get(family_name)

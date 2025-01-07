@@ -2,13 +2,9 @@ mod plugin;
 
 use clap::{command, Parser};
 use std::path::PathBuf;
-
-use xcp_metrics_plugin_common::{
-    plugin::run_hybrid,
-    xenstore::xs::{Xs, XsOpenFlags},
-};
-
-use plugin::XenStorePlugin;
+use tokio::net::UnixStream;
+use xcp_metrics_common::protocol::METRICS_SOCKET_PATH;
+use xenstore_rs::tokio::XsTokio;
 
 /// xcp-metrics XenStore plugin.
 #[derive(Clone, Parser, Debug)]
@@ -21,10 +17,6 @@ struct Args {
     /// Target daemon.
     #[arg(short, long)]
     target: Option<PathBuf>,
-
-    /// Used protocol
-    #[arg(short, long)]
-    protocol: Option<u32>,
 }
 
 #[tokio::main]
@@ -39,18 +31,23 @@ async fn main() {
 
     tracing::subscriber::set_global_default(text_subscriber).unwrap();
 
-    let xs = match Xs::new(XsOpenFlags::ReadOnly) {
-        Ok(xs) => xs,
+    let rpc_stream = match UnixStream::connect(METRICS_SOCKET_PATH).await {
+        Ok(stream) => stream,
         Err(e) => {
-            tracing::error!("Unable to initialize XenStore {e}");
+            tracing::error!("Unable to connect to xcp-metrics: {e}");
             return;
         }
     };
 
-    run_hybrid(
-        XenStorePlugin::new(&xs),
-        args.target.as_deref(),
-        args.protocol,
-    )
-    .await;
+    let xs = match XsTokio::new().await {
+        Ok(xs) => xs,
+        Err(e) => {
+            tracing::error!("Unable to initialize XenStore: {e}");
+            return;
+        }
+    };
+
+    if let Err(e) = plugin::run_plugin(rpc_stream, xs).await {
+        tracing::error!("Plugin failure {e}");
+    }
 }
