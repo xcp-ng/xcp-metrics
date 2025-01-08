@@ -26,8 +26,6 @@ struct PluginState {
 fn parse_path(path: &str) -> Option<(u32, &str)> {
     let path = path.strip_prefix("/local/domain/")?;
 
-    {}
-
     // path now looks like <domid>[/<subpath>]
     let (domid_str, subpath) = if path.contains('/') {
         path.split_once("/")?
