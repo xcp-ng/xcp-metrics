@@ -1325,14 +1325,18 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "enum_dispatch",
+ "smallvec",
+ "smol_str",
  "tracing",
  "tracing-subscriber",
+ "uuid",
  "xcp-metrics-common",
  "xen",
 ]
 
 [[package]]
-name = "xcp-metrics-plugin-xenstored"
+name = "xcp-metrics-plugin-xenstore"
 version = "0.1.0"
 dependencies = [
  "anyhow",
