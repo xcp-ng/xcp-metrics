@@ -1,5 +1,5 @@
 use enum_dispatch::enum_dispatch;
-use xcp_metrics_common::metrics::{Label, Metric, MetricValue, NumberValue};
+use xcp_metrics_common::metrics::{Metric, MetricValue, NumberValue};
 use xenstore_rs::AsyncXs;
 
 #[enum_dispatch]
@@ -19,7 +19,7 @@ impl MetricHandler for MemInfoTotal {
     }
 
     fn family_name(&self) -> &'static str {
-        "memory_usage"
+        "xen_memory_usage_total"
     }
 
     async fn read_metric(&self, xs: &impl AsyncXs, path: &str, subpath: &str) -> Option<Metric> {
@@ -31,11 +31,7 @@ impl MetricHandler for MemInfoTotal {
         mem_total *= 1024; // KiB to bytes
 
         Some(Metric {
-            labels: vec![Label {
-                name: "kind".into(),
-                value: "total".into(),
-            }]
-            .into_boxed_slice(),
+            labels: vec![].into_boxed_slice(),
             value: MetricValue::Gauge(NumberValue::Int64(mem_total)),
         })
     }
@@ -50,7 +46,7 @@ impl MetricHandler for MemInfoFree {
     }
 
     fn family_name(&self) -> &'static str {
-        "memory_usage"
+        "xen_memory_usage_free"
     }
 
     async fn read_metric(&self, xs: &impl AsyncXs, path: &str, subpath: &str) -> Option<Metric> {
@@ -62,11 +58,7 @@ impl MetricHandler for MemInfoFree {
         mem_total *= 1024; // KiB to bytes
 
         Some(Metric {
-            labels: vec![Label {
-                name: "kind".into(),
-                value: "free".into(),
-            }]
-            .into_boxed_slice(),
+            labels: vec![].into_boxed_slice(),
             value: MetricValue::Gauge(NumberValue::Int64(mem_total)),
         })
     }

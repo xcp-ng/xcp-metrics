@@ -19,11 +19,11 @@ use metrics::{MemInfoFree, MemInfoTotal, MetricHandler, MetricHandlerEnum};
 #[derive(Default)]
 struct PluginState {
     // Map each domid-subpath with a UUID.
-    metric_uuid_map: HashMap<(u32, SmolStr), Uuid>,
+    metrics_map: HashMap<u16, HashMap<SmolStr, Uuid>>,
 }
 
 /// Split the path into: (Domain ID, subpath)
-fn parse_path(path: &str) -> Option<(u32, &str)> {
+fn parse_path(path: &str) -> Option<(u16, &str)> {
     let path = path.strip_prefix("/local/domain/")?;
 
     // path now looks like <domid>[/<subpath>]
@@ -33,7 +33,7 @@ fn parse_path(path: &str) -> Option<(u32, &str)> {
         (path, "")
     };
 
-    let domid: u32 = domid_str
+    let domid = domid_str
         .parse()
         .inspect_err(|e| tracing::warn!("Invalid domid as subpath of /local/domain: {path} ({e})"))
         .ok()?;
@@ -44,8 +44,17 @@ fn parse_path(path: &str) -> Option<(u32, &str)> {
 async fn initialize_families(stream: &mut UnixStream) -> anyhow::Result<()> {
     stream
         .send_message_async(ProtocolMessage::CreateFamily(CreateFamily {
-            help: "Memory usage in the guest".into(),
-            name: "memory_usage".into(),
+            help: "Total memory usable by the guest".into(),
+            name: "xen_memory_usage_total".into(),
+            metric_type: MetricType::Gauge,
+            unit: "bytes".into(),
+        }))
+        .await?;
+
+    stream
+        .send_message_async(ProtocolMessage::CreateFamily(CreateFamily {
+            help: "Free memory inside the guest".into(),
+            name: "xen_memory_usage_free".into(),
             metric_type: MetricType::Gauge,
             unit: "bytes".into(),
         }))
@@ -108,24 +117,17 @@ pub async fn run_plugin(mut stream: UnixStream, xs: XsTokio) -> anyhow::Result<(
             // and in such case, we need to remove all <domid> metrics.
             if subpath.is_empty() && entry.is_err() {
                 // Get all related registered metrics.
-                let entries = state
-                    .metric_uuid_map
-                    .keys()
-                    .filter(|(iter_domid, _)| *iter_domid == domid)
-                    .cloned()
-                    .collect::<Vec<_>>();
+                let entries = state.metrics_map.remove(&domid).unwrap_or_default();
 
-                for (domid, family_name) in entries {
-                    if let Some(uuid) = state.metric_uuid_map.remove(&(domid, family_name.clone()))
-                    {
-                        stream
-                            .send_message_async(ProtocolMessage::RemoveMetric(RemoveMetric {
-                                family_name,
-                                uuid,
-                            }))
-                            .await?;
-                    }
+                for (family_name, uuid) in entries {
+                    stream
+                        .send_message_async(ProtocolMessage::RemoveMetric(RemoveMetric {
+                            family_name,
+                            uuid,
+                        }))
+                        .await?;
                 }
+
                 continue;
             }
 
@@ -150,8 +152,10 @@ pub async fn run_plugin(mut stream: UnixStream, xs: XsTokio) -> anyhow::Result<(
                 metric.labels = labels.into_boxed_slice();
 
                 let &mut uuid = state
-                    .metric_uuid_map
-                    .entry((domid, subpath.to_smolstr()))
+                    .metrics_map
+                    .entry(domid)
+                    .or_insert_with(|| HashMap::new())
+                    .entry(handler.family_name().to_smolstr())
                     .or_insert_with(|| Uuid::new_v4());
 
                 stream
@@ -163,11 +167,12 @@ pub async fn run_plugin(mut stream: UnixStream, xs: XsTokio) -> anyhow::Result<(
                     .await?;
             } else {
                 // Remove the related metric (if there is)
-                if let Some(((_, subpath), uuid)) = state
-                    .metric_uuid_map
-                    .remove_entry(&(domid, subpath.to_smolstr()))
+                if let Some(uuid) = state
+                    .metrics_map
+                    .get_mut(&domid)
+                    .and_then(|map| map.remove(subpath))
                 {
-                    let Some(handler) = handlers.get(subpath.as_str()) else {
+                    let Some(handler) = handlers.get(subpath) else {
                         continue;
                     };
 

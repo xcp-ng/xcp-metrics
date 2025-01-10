@@ -1,5 +1,5 @@
 [package]
-name = "xcp-metrics-plugin-xenstored"
+name = "xcp-metrics-plugin-xenstore"
 edition = "2021"
 version.workspace = true
 repository.workspace = true
