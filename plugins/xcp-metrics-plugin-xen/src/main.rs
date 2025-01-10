@@ -1,7 +1,8 @@
 mod plugin;
 
-use clap::{command, Parser};
 use std::{os::unix::net::UnixStream, path::PathBuf};
+
+use clap::{command, Parser};
 use xcp_metrics_common::protocol::METRICS_SOCKET_PATH;
 use xen::hypercall::unix::UnixXenHypercall;
 
@@ -29,7 +30,7 @@ fn main() {
 
     tracing::subscriber::set_global_default(text_subscriber).unwrap();
 
-    let rpc_stream = match UnixStream::connect(METRICS_SOCKET_PATH) {
+    let mut rpc_stream = match UnixStream::connect(METRICS_SOCKET_PATH) {
         Ok(stream) => stream,
         Err(e) => {
             tracing::error!("Unable to connect to xcp-metrics: {e}");
@@ -45,7 +46,7 @@ fn main() {
         }
     };
 
-    if let Err(e) = plugin::run_plugin(rpc_stream, &hyp) {
+    if let Err(e) = plugin::run_plugin(&mut rpc_stream, &hyp) {
         tracing::error!("Plugin failure {e}");
     }
 }

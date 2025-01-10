@@ -81,8 +81,6 @@ pub struct XenArchDomainconfig {
     pub misc_flags: XenX86Misc,
 }
 
-const XEN_DOMCTL_GETDOMAININFO: u32 = 5;
-
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default)]
 pub struct XenDomctlGetDomainInfo {
@@ -110,9 +108,27 @@ pub struct XenDomctlGetDomainInfo {
 }
 
 #[repr(C)]
+#[derive(Clone, Copy, Debug, Default)]
+pub struct XenDomctlGetVCpuInfo {
+    // IN
+    pub vcpu: u32,
+    /// OUT: currently online (not hotplugged)?
+    pub online: u8,
+    /// OUT: blocked waiting for an event?
+    pub blocked: u8,
+    /// OUT: currently scheduled on its CPU?
+    pub running: u8,
+    /// OUT: total cpu time consumed (ns)
+    pub cpu_time: Align64<u64>,
+    /// OUT: current mapping
+    pub cpu: u32,
+}
+
+#[repr(C)]
 #[derive(Clone, Copy)]
 union XenDomctlParam {
     pub getdomaininfo: XenDomctlGetDomainInfo,
+    pub getvcpuinfo: XenDomctlGetVCpuInfo,
     pub pad: [u8; 128],
 }
 
@@ -135,13 +151,15 @@ fn domctl_interface_version() -> u32 {
 
 const HYPERVISOR_DOMCTL: usize = 36;
 
-pub trait DomctlGetDomainInfo {
-    fn get_domain_info(&self, domid: DomId) -> anyhow::Result<XenDomctlGetDomainInfo>;
-}
+const XEN_DOMCTL_GETDOMAININFO: u32 = 5;
+const XEN_DOMCTL_GETVCPUINFO: u32 = 14;
 
-impl<T: XenHypercall> DomctlGetDomainInfo for T {
+pub trait DomctlGetDomainInfo
+where
+    Self: XenHypercall,
+{
     fn get_domain_info(&self, domain: DomId) -> anyhow::Result<XenDomctlGetDomainInfo> {
-        let mut domctl = XenDomctl {
+        let mut domctl: XenDomctl = XenDomctl {
             cmd: XEN_DOMCTL_GETDOMAININFO,
             interface_version: domctl_interface_version(),
             domain,
@@ -164,3 +182,38 @@ impl<T: XenHypercall> DomctlGetDomainInfo for T {
         Ok(unsafe { domctl.param.getdomaininfo })
     }
 }
+
+impl<T: XenHypercall> DomctlGetDomainInfo for T {}
+
+pub trait DomctlGetVCpuInfo
+where
+    Self: XenHypercall,
+{
+    fn get_vcpu_info(&self, domain: DomId, vcpu: u32) -> anyhow::Result<XenDomctlGetVCpuInfo> {
+        let mut domctl: XenDomctl = XenDomctl {
+            cmd: XEN_DOMCTL_GETVCPUINFO,
+            interface_version: domctl_interface_version(),
+            domain,
+            pad: [0; 3],
+            param: XenDomctlParam {
+                getvcpuinfo: XenDomctlGetVCpuInfo::default(),
+            },
+        };
+    
+        domctl.param.getvcpuinfo.vcpu = vcpu;
+
+        unsafe {
+            let mut domctl_buffer = self.make_mut_buffer(&mut domctl)?;
+            let res = self.hypercall1(HYPERVISOR_DOMCTL, domctl_buffer.as_hypercall_ptr() as usize);
+            if res != 0 {
+                anyhow::bail!("domctl_getvcpuinfo failed {}", res as isize)
+            }
+
+            domctl_buffer.update();
+        };
+
+        Ok(unsafe { domctl.param.getvcpuinfo })
+    }
+}
+
+impl<T: XenHypercall> DomctlGetVCpuInfo for T {}
