@@ -4,6 +4,7 @@ use clap::{command, Parser};
 use std::path::PathBuf;
 use tokio::net::UnixStream;
 use xcp_metrics_common::protocol::METRICS_SOCKET_PATH;
+use xen::hypercall::unix::UnixXenHypercall;
 use xenstore_rs::tokio::XsTokio;
 
 /// xcp-metrics XenStore plugin.
@@ -47,7 +48,15 @@ async fn main() {
         }
     };
 
-    if let Err(e) = plugin::run_plugin(rpc_stream, xs).await {
+    let hyp = match UnixXenHypercall::new() {
+        Ok(xs) => xs,
+        Err(e) => {
+            tracing::error!("Unable to initialize privcmd: {e}");
+            return;
+        }
+    };
+
+    if let Err(e) = plugin::run_plugin(rpc_stream, hyp, xs).await {
         tracing::error!("Plugin failure {e}");
     }
 }

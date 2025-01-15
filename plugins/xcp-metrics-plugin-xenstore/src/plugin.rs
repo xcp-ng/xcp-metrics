@@ -8,18 +8,22 @@ use radix_trie::Trie;
 use smol_str::{SmolStr, ToSmolStr};
 use tokio::net::UnixStream;
 use uuid::Uuid;
+
 use xcp_metrics_common::{
     metrics::{Label, MetricType},
     protocol::{CreateFamily, ProtocolMessage, RemoveMetric, UpdateMetric, XcpMetricsAsyncStream},
 };
+use xen::{domctl::DomctlGetDomainInfo, hypercall::XenHypercall};
 use xenstore_rs::{tokio::XsTokio, AsyncWatch, AsyncXs};
 
 use metrics::{MemInfoFree, MemInfoTotal, MetricHandler, MetricHandlerEnum};
 
 #[derive(Default)]
 struct PluginState {
-    // Map each domid-subpath with a UUID.
+    /// Map each domid-subpath with a UUID.
     metrics_map: HashMap<u16, HashMap<SmolStr, Uuid>>,
+    /// Map each domid with the domain's UUID.
+    domid_uuid_map: HashMap<u16, Uuid>,
 }
 
 /// Split the path into: (Domain ID, subpath)
@@ -78,7 +82,11 @@ fn recursive_traversal(xs: XsTokio, path: String) -> impl Stream<Item = Box<str>
     }
 }
 
-pub async fn run_plugin(mut stream: UnixStream, xs: XsTokio) -> anyhow::Result<()> {
+pub async fn run_plugin(
+    mut stream: UnixStream,
+    hyp: impl XenHypercall,
+    xs: XsTokio,
+) -> anyhow::Result<()> {
     initialize_families(&mut stream).await?;
 
     // First get all existing xenstore entries, and then use the watch.
@@ -118,6 +126,7 @@ pub async fn run_plugin(mut stream: UnixStream, xs: XsTokio) -> anyhow::Result<(
             if subpath.is_empty() && entry.is_err() {
                 // Get all related registered metrics.
                 let entries = state.metrics_map.remove(&domid).unwrap_or_default();
+                state.domid_uuid_map.remove(&domid);
 
                 for (family_name, uuid) in entries {
                     stream
@@ -143,11 +152,18 @@ pub async fn run_plugin(mut stream: UnixStream, xs: XsTokio) -> anyhow::Result<(
                     continue;
                 };
 
-                // Insert domid label.
-                let mut labels = metric.labels.into_vec();
+                // Insert domain uuid label.
+                let domain_uuid = state.domid_uuid_map.entry(domid).or_insert_with(|| {
+                    hyp.get_domain_info(xen::DomId(domid))
+                        .inspect_err(|e| tracing::error!("get_domain_info failure: {e}"))
+                        .map(|dominfo| dominfo.handle)
+                        .unwrap_or_default()
+                });
+
+                let mut labels: Vec<Label> = metric.labels.into_vec();
                 labels.push(Label {
-                    name: "domid".into(),
-                    value: domid.to_smolstr(),
+                    name: "domain".into(),
+                    value: domain_uuid.as_hyphenated().to_smolstr(),
                 });
                 metric.labels = labels.into_boxed_slice();
 

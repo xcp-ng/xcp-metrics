@@ -10,6 +10,7 @@ license = "AGPL-3.0-only"
 
 [dependencies]
 xcp-metrics-common = { path = "../../xcp-metrics-common" }
+xen = { path = "../../external/xen" } # for getting reliably guest uuid
 
 uuid = "1.11"
 anyhow = "1.0"
