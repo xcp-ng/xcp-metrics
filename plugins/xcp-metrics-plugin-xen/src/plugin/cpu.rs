@@ -127,7 +127,7 @@ impl XenMetric for PCpuFreq {
                 // Ignore all failing reads.
                 hyp.get_cpufreq_avgfreq(cpuid)
                     .inspect_err(|e| {
-                        tracing::error!("get_cpufreq_avg failure for cpuid:{cpuid}: {e}")
+                        tracing::warn!("get_cpufreq_avg failure for cpuid:{cpuid}: {e}")
                     })
                     .ok()
                     .map(|freq| (cpuid, freq))
