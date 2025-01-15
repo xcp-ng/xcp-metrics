@@ -77,14 +77,11 @@ impl PluginState {
         stream: &mut UnixStream,
         (kind, mut metric): (PluginMetricKind, Metric),
     ) -> anyhow::Result<()> {
-        let domain_metrics = self
-            .domid_metrics
-            .entry(domid.0)
-            .or_insert_with(|| HashMap::new());
+        let domain_metrics = self.domid_metrics.entry(domid.0).or_default();
 
         let family_name = kind.family_name.to_compact_string();
 
-        let &mut uuid = domain_metrics.entry(kind).or_insert_with(|| Uuid::new_v4());
+        let &mut uuid = domain_metrics.entry(kind).or_insert_with(Uuid::new_v4);
 
         // Inject domain UUID label into metric.
         let mut labels = metric.labels.into_vec();
@@ -109,10 +106,7 @@ impl PluginState {
         (kind, metric): (PluginMetricKind, Metric),
     ) -> anyhow::Result<()> {
         let family_name = kind.family_name.to_compact_string();
-        let &mut uuid = self
-            .host_metrics
-            .entry(kind)
-            .or_insert_with(|| Uuid::new_v4());
+        let &mut uuid = self.host_metrics.entry(kind).or_insert_with(Uuid::new_v4);
 
         stream.send_message(ProtocolMessage::UpdateMetric(UpdateMetric {
             family_name,
@@ -133,7 +127,7 @@ pub fn run_plugin(stream: &mut UnixStream, hyp: &UnixXenHypercall) -> anyhow::Re
         PCpuFreq.into(),
     ];
 
-    for xen_metric in metrics.as_ref() {
+    for xen_metric in metrics.iter() {
         xen_metric.make_families(stream)?;
     }
 
@@ -148,8 +142,7 @@ pub fn run_plugin(stream: &mut UnixStream, hyp: &UnixXenHypercall) -> anyhow::Re
         // Get host metrics
         for metric in metrics
             .iter_mut()
-            .map(|xen_metric| xen_metric.read_host_metrics(physinfo, hyp))
-            .flatten()
+            .flat_map(|xen_metric| xen_metric.read_host_metrics(physinfo, hyp))
         {
             tracing::debug!("Pushing {metric:?}");
             state.push_host_metric(stream, metric)?;
@@ -161,8 +154,7 @@ pub fn run_plugin(stream: &mut UnixStream, hyp: &UnixXenHypercall) -> anyhow::Re
 
             for metric in metrics
                 .iter_mut()
-                .map(|xen_metric| xen_metric.read_domain_metrics(domain, hyp))
-                .flatten()
+                .flat_map(|xen_metric| xen_metric.read_domain_metrics(domain, hyp))
             {
                 tracing::debug!("Pushing {metric:?}");
                 state.push_domain_metric((domid, dom_uuid), stream, metric)?;

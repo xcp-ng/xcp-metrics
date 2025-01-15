@@ -49,26 +49,18 @@ pub trait XenHypercall: Sized {
         self.hypercall1(cmd, 0)
     }
 
-    fn make_const_object<T: Copy + ?Sized>(
-        &self,
-        buffer: &T,
-    ) -> Result<impl XenConstBuffer<T>, Self::Error>;
+    fn make_const_object<T: Copy>(&self, buffer: &T)
+        -> Result<impl XenConstBuffer<T>, Self::Error>;
 
-    fn make_mut_buffer<T: Copy + ?Sized>(
-        &self,
-        buffer: &mut T,
-    ) -> Result<impl XenMutBuffer<T>, Self::Error>;
+    fn make_mut_buffer<T: Copy>(&self, buffer: &mut T)
+        -> Result<impl XenMutBuffer<T>, Self::Error>;
 
     // Slices needs some special handling as they are not Copy themselves
     // and a pointer to a slice doesn't point to its first element.
 
-    fn make_const_slice<T: Copy + Sized>(
-        &self,
-        slice: &[T],
-    ) -> Result<impl XenConstBuffer<T>, Self::Error>;
+    fn make_const_slice<T: Copy>(&self, slice: &[T])
+        -> Result<impl XenConstBuffer<T>, Self::Error>;
 
-    fn make_mut_slice<T: Copy + Sized>(
-        &self,
-        slice: &mut [T],
-    ) -> Result<impl XenMutBuffer<T>, Self::Error>;
+    fn make_mut_slice<T: Copy>(&self, slice: &mut [T])
+        -> Result<impl XenMutBuffer<T>, Self::Error>;
 }

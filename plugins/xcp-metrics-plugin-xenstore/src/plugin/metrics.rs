@@ -27,7 +27,7 @@ impl MetricHandler for MemInfoTotal {
             return None;
         }
 
-        let mut mem_total = xs.read(&path).await.ok()?.parse().ok()?;
+        let mut mem_total = xs.read(path).await.ok()?.parse().ok()?;
         mem_total *= 1024; // KiB to bytes
 
         Some(Metric {
@@ -54,7 +54,7 @@ impl MetricHandler for MemInfoFree {
             return None;
         }
 
-        let mut mem_total = xs.read(&path).await.ok()?.parse().ok()?;
+        let mut mem_total = xs.read(path).await.ok()?.parse().ok()?;
         mem_total *= 1024; // KiB to bytes
 
         Some(Metric {

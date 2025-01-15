@@ -170,9 +170,9 @@ pub async fn run_plugin(
                 let &mut uuid = state
                     .metrics_map
                     .entry(domid)
-                    .or_insert_with(|| HashMap::new())
+                    .or_insert_with(HashMap::new)
                     .entry(handler.family_name().into())
-                    .or_insert_with(|| Uuid::new_v4());
+                    .or_insert_with(Uuid::new_v4);
 
                 stream
                     .send_message_async(ProtocolMessage::UpdateMetric(UpdateMetric {

@@ -56,10 +56,7 @@ const PATH_HYPERCALL: &str = "/dev/xen/hypercall";
 impl UnixXenHypercall {
     pub fn new() -> Result<Self, io::Error> {
         Ok(Self {
-            privcmd_device: File::options()
-                .read(true)
-                .write(true)
-                .open(PATH_PRIVCMD)?,
+            privcmd_device: File::options().read(true).write(true).open(PATH_PRIVCMD)?,
             hypercall_device: File::options()
                 .read(true)
                 .write(true)
@@ -91,7 +88,7 @@ impl XenHypercall for UnixXenHypercall {
         }
     }
 
-    fn make_const_object<'a, T: Copy + ?Sized>(
+    fn make_const_object<'a, T: Copy>(
         &self,
         buffer: &'a T,
     ) -> Result<impl XenConstBuffer<T>, Self::Error> {
@@ -104,7 +101,7 @@ impl XenHypercall for UnixXenHypercall {
         })
     }
 
-    fn make_mut_buffer<T: Copy + ?Sized>(
+    fn make_mut_buffer<T: Copy>(
         &'_ self,
         buffer: &mut T,
     ) -> Result<impl XenMutBuffer<T>, Self::Error> {
@@ -117,7 +114,7 @@ impl XenHypercall for UnixXenHypercall {
         })
     }
 
-    fn make_const_slice<'a, T: Copy + Sized>(
+    fn make_const_slice<'a, T: Copy>(
         &self,
         slice: &'a [T],
     ) -> Result<impl XenConstBuffer<T>, Self::Error> {
@@ -130,7 +127,7 @@ impl XenHypercall for UnixXenHypercall {
         })
     }
 
-    fn make_mut_slice<T: Copy + Sized>(
+    fn make_mut_slice<T: Copy>(
         &self,
         slice: &mut [T],
     ) -> Result<impl XenMutBuffer<T>, Self::Error> {

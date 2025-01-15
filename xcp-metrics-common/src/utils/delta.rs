@@ -111,9 +111,8 @@ pub struct MetricSetDelta<'a> {
     /// New added families (name only)
     pub added_families: Vec<(&'a str, &'a MetricFamily)>,
 
-    /// Changed family metadata
+    // /// Changed family metadata
     // changed_families: Vec<&'a str>,
-
     /// Metrics that no longer contain a family.
     /// In case they reappears, they will need to be registered again.
     pub orphaned_families: Vec<CompactString>,
@@ -179,14 +178,14 @@ impl MetricSetModel {
             // Combine family name with each family metric.
             .flat_map(|(name, family)| iter::zip(iter::repeat(name), family.metrics.iter()))
             // Only consider metrics we don't have, and generate a new proper UUID.
-            .filter_map(|(name, (&uuid, metric))| {
+            .filter(|&(name, (_, metric))| {
                 // Due to contains_key expecting a tuple, we need to provide it a proper tuple (by cloning).
                 // TODO: Find a better solution than cloning.
-                (!self
+                !self
                     .metrics_map
-                    .contains_key(&(name.clone(), metric.labels.clone())))
-                .then(|| (name.as_ref(), metric, uuid))
+                    .contains_key(&(name.clone(), metric.labels.clone()))
             })
+            .map(|(name, (&uuid, metric))| (name.as_ref(), metric, uuid))
             .collect();
 
         // Check for families that doesn't exist anymore.

@@ -51,7 +51,7 @@ impl UnixXenHypercall {
             })
         } else {
             // Get the number of page to hold the object layout.
-            let page_count = (size + (PAGE_SIZE - 1)) / PAGE_SIZE;
+            let page_count = size.div_ceil(PAGE_SIZE);
             let length = NonZeroUsize::new(page_count * PAGE_SIZE)
                 .expect("Invalid size to page count convertion");
 
@@ -159,7 +159,7 @@ impl<T> Drop for XenCallBuffer<'_, T> {
     }
 }
 
-pub struct UnixConstXenBuffer<'a, 'hyp, T: Copy + ?Sized> {
+pub struct UnixConstXenBuffer<'a, 'hyp, T: Copy> {
     // As const objects are actually being copied they actually don't
     // need to hold a reference to their original counterpart.
     // Use a PhantomData to make the borrow checker happy.
@@ -167,18 +167,18 @@ pub struct UnixConstXenBuffer<'a, 'hyp, T: Copy + ?Sized> {
     pub(super) buffer: XenCallBuffer<'hyp, T>,
 }
 
-pub struct UnixMutXenBuffer<'a, 'hyp, T: Copy + ?Sized> {
+pub struct UnixMutXenBuffer<'a, 'hyp, T: Copy> {
     pub(super) original: &'a mut T,
     pub(super) buffer: XenCallBuffer<'hyp, T>,
 }
 
-impl<T: Copy + ?Sized> XenConstBuffer<T> for UnixConstXenBuffer<'_, '_, T> {
+impl<T: Copy> XenConstBuffer<T> for UnixConstXenBuffer<'_, '_, T> {
     fn as_hypercall_ptr(&self) -> *const T {
         self.buffer.ptr.as_ptr()
     }
 }
 
-impl<T: Copy + ?Sized> XenMutBuffer<T> for UnixMutXenBuffer<'_, '_, T> {
+impl<T: Copy> XenMutBuffer<T> for UnixMutXenBuffer<'_, '_, T> {
     fn as_hypercall_ptr(&mut self) -> *mut T {
         self.buffer.ptr.as_ptr()
     }
@@ -189,7 +189,7 @@ impl<T: Copy + ?Sized> XenMutBuffer<T> for UnixMutXenBuffer<'_, '_, T> {
     }
 }
 
-pub struct UnixConstXenSlice<'a, 'hyp, T: Copy + ?Sized> {
+pub struct UnixConstXenSlice<'a, 'hyp, T: Copy> {
     // As const objects are actually being copied they actually don't
     // need to hold a reference to their original counterpart.
     // Use a PhantomData to make the compiler happy.
@@ -197,18 +197,18 @@ pub struct UnixConstXenSlice<'a, 'hyp, T: Copy + ?Sized> {
     pub buffer: XenCallBuffer<'hyp, T>,
 }
 
-pub struct UnixMutXenSlice<'a, 'b, T: Copy + ?Sized> {
+pub struct UnixMutXenSlice<'a, 'b, T: Copy> {
     pub original: &'a mut [T],
     pub buffer: XenCallBuffer<'b, T>,
 }
 
-impl<T: Copy + ?Sized> XenConstBuffer<T> for UnixConstXenSlice<'_, '_, T> {
+impl<T: Copy> XenConstBuffer<T> for UnixConstXenSlice<'_, '_, T> {
     fn as_hypercall_ptr(&self) -> *const T {
         self.buffer.ptr.as_ptr()
     }
 }
 
-impl<T: Copy + ?Sized> XenMutBuffer<T> for UnixMutXenSlice<'_, '_, T> {
+impl<T: Copy> XenMutBuffer<T> for UnixMutXenSlice<'_, '_, T> {
     fn as_hypercall_ptr(&mut self) -> *mut T {
         self.buffer.ptr.as_ptr()
     }

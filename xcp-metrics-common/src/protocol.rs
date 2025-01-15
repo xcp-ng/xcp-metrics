@@ -6,8 +6,8 @@
 //! TODO: Protocol negociation
 use std::io::{self, Read, Write};
 
-use serde::{Deserialize, Serialize};
 use compact_str::CompactString;
+use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 use crate::metrics::{Metric, MetricType};
@@ -80,8 +80,8 @@ pub trait XcpMetricsStream {
     fn recv_message(&mut self) -> io::Result<ProtocolMessage> {
         let buffer = self.recv_message_raw()?;
 
-        Ok(ciborium::from_reader(buffer.as_ref())
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?)
+        ciborium::from_reader(buffer.as_ref())
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))
     }
 }
 
@@ -91,7 +91,7 @@ where
 {
     fn send_message_raw(&mut self, message: &[u8]) -> io::Result<()> {
         self.write_all(&(message.len() as u32).to_be_bytes())?;
-        self.write_all(&message)?;
+        self.write_all(message)?;
 
         Ok(())
     }
@@ -133,8 +133,8 @@ pub trait XcpMetricsAsyncStream {
     async fn recv_message_async(&mut self) -> io::Result<ProtocolMessage> {
         let buffer = self.recv_message_raw_async().await?;
 
-        Ok(ciborium::from_reader(buffer.as_ref())
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?)
+        ciborium::from_reader(buffer.as_ref())
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))
     }
 }
 
@@ -144,7 +144,7 @@ where
 {
     async fn send_message_raw_async(&mut self, message: &[u8]) -> io::Result<()> {
         self.write_u32(message.len() as u32).await?;
-        self.write_all(&message).await?;
+        self.write_all(message).await?;
 
         Ok(())
     }
