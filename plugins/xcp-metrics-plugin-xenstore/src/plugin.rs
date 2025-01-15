@@ -3,9 +3,9 @@ mod metrics;
 use std::collections::HashMap;
 
 use async_stream::stream;
+use compact_str::{CompactString, ToCompactString};
 use futures::{Stream, StreamExt};
 use radix_trie::Trie;
-use smol_str::{SmolStr, ToSmolStr};
 use tokio::net::UnixStream;
 use uuid::Uuid;
 
@@ -21,7 +21,7 @@ use metrics::{MemInfoFree, MemInfoTotal, MetricHandler, MetricHandlerEnum};
 #[derive(Default)]
 struct PluginState {
     /// Map each domid-subpath with a UUID.
-    metrics_map: HashMap<u16, HashMap<SmolStr, Uuid>>,
+    metrics_map: HashMap<u16, HashMap<CompactString, Uuid>>,
     /// Map each domid with the domain's UUID.
     domid_uuid_map: HashMap<u16, Uuid>,
 }
@@ -163,7 +163,7 @@ pub async fn run_plugin(
                 let mut labels: Vec<Label> = metric.labels.into_vec();
                 labels.push(Label {
                     name: "domain".into(),
-                    value: domain_uuid.as_hyphenated().to_smolstr(),
+                    value: domain_uuid.as_hyphenated().to_compact_string(),
                 });
                 metric.labels = labels.into_boxed_slice();
 
@@ -171,12 +171,12 @@ pub async fn run_plugin(
                     .metrics_map
                     .entry(domid)
                     .or_insert_with(|| HashMap::new())
-                    .entry(handler.family_name().to_smolstr())
+                    .entry(handler.family_name().into())
                     .or_insert_with(|| Uuid::new_v4());
 
                 stream
                     .send_message_async(ProtocolMessage::UpdateMetric(UpdateMetric {
-                        family_name: handler.family_name().to_smolstr(),
+                        family_name: CompactString::const_new(handler.family_name()),
                         metric,
                         uuid,
                     }))
@@ -194,7 +194,7 @@ pub async fn run_plugin(
 
                     stream
                         .send_message_async(ProtocolMessage::RemoveMetric(RemoveMetric {
-                            family_name: handler.family_name().to_smolstr(),
+                            family_name: handler.family_name().into(),
                             uuid,
                         }))
                         .await?;

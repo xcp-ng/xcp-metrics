@@ -1,8 +1,8 @@
 //! xcp-rrdd JSON data source parser and writer.
 use std::{borrow::Cow, time::SystemTime};
 
+use compact_str::{CompactString, ToCompactString};
 use serde::{de::Error, Deserialize, Serialize};
-use smol_str::{SmolStr, ToSmolStr};
 use uuid::Uuid;
 
 use crate::metrics::{Label, MetricValue, NumberValue};
@@ -182,8 +182,8 @@ pub struct DataSourceMetadataRaw {
 /// A metadata source.
 #[derive(Clone, PartialEq, Debug)]
 pub struct DataSourceMetadata {
-    pub description: SmolStr,
-    pub units: SmolStr,
+    pub description: CompactString,
+    pub units: CompactString,
     pub ds_type: DataSourceType,
     pub value: DataSourceValue,
     pub min: f32,
@@ -333,7 +333,7 @@ impl crate::metrics::Metric {
         Self {
             labels: vec![Label {
                 name: "owner".into(),
-                value: <Box<str>>::from(metadata.owner).to_smolstr(),
+                value: <Box<str>>::from(metadata.owner).to_compact_string(),
             }]
             .into_boxed_slice(),
             value: MetricValue::from_protocol_v2(metadata, value, created),

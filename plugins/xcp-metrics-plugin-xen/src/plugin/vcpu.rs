@@ -1,7 +1,7 @@
 use std::{collections::HashMap, iter, os::unix::net::UnixStream, time::Instant};
 
+use compact_str::ToCompactString;
 use smallvec::{smallvec, SmallVec};
-use smol_str::ToSmolStr;
 
 use xcp_metrics_common::{
     metrics::{Label, Metric, MetricType, MetricValue, NumberValue},
@@ -45,12 +45,12 @@ fn generate_vcpu_usage(
     (
         PluginMetricKind {
             family_name: "xen_vcpu_time",
-            submetric: Some(vcpu_info.vcpu.to_smolstr()),
+            submetric: Some(vcpu_info.vcpu.to_compact_string()),
         },
         Metric {
             labels: vec![Label {
                 name: "vcpu_id".into(),
-                value: vcpu_info.vcpu.to_smolstr(),
+                value: vcpu_info.vcpu.to_compact_string(),
             }]
             .into_boxed_slice(),
             value: MetricValue::Gauge(NumberValue::Double(f64::max(

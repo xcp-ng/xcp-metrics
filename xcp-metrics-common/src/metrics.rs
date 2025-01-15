@@ -2,12 +2,12 @@
 use std::{collections::HashMap, time::SystemTime};
 
 use serde::{Deserialize, Serialize};
-use smol_str::SmolStr;
+use compact_str::CompactString;
 
 /// Top level metric data structure.
 #[derive(Clone, Default, PartialEq, Debug)]
 pub struct MetricSet {
-    pub families: HashMap<SmolStr, MetricFamily>,
+    pub families: HashMap<CompactString, MetricFamily>,
 }
 
 /// A family of [Metric] sharing a [MetricType] and `unit`.
@@ -16,8 +16,8 @@ pub struct MetricFamily {
     // Number of references to this family.
     pub reference_count: usize,
     pub metric_type: MetricType,
-    pub unit: SmolStr,
-    pub help: SmolStr,
+    pub unit: CompactString,
+    pub help: CompactString,
 
     pub metrics: HashMap<uuid::Uuid, Metric>,
 }
@@ -52,8 +52,8 @@ impl std::fmt::Display for MetricType {
 
 #[derive(Clone, PartialEq, Debug, Eq, Hash, Serialize, Deserialize)]
 pub struct Label {
-    pub name: SmolStr,
-    pub value: SmolStr,
+    pub name: CompactString,
+    pub value: CompactString,
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
@@ -118,7 +118,7 @@ pub struct Exemplar {
 #[derive(Clone, Default, PartialEq, Debug, Serialize, Deserialize)]
 pub struct State {
     pub enabled: bool,
-    pub name: SmolStr,
+    pub name: CompactString,
 }
 
 #[derive(Clone, Copy, Default, PartialEq, Debug, Serialize, Deserialize)]

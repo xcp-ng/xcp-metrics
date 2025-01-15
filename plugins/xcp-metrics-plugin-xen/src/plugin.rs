@@ -4,9 +4,9 @@ mod vcpu;
 
 use std::{collections::HashMap, os::unix::net::UnixStream, thread, time::Duration};
 
+use compact_str::{CompactString, ToCompactString};
 use enum_dispatch::enum_dispatch;
 use smallvec::{smallvec, SmallVec};
-use smol_str::{SmolStr, ToSmolStr};
 use uuid::Uuid;
 
 use xcp_metrics_common::{
@@ -33,7 +33,7 @@ struct PluginState {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) struct PluginMetricKind {
     family_name: &'static str,
-    submetric: Option<SmolStr>,
+    submetric: Option<CompactString>,
 }
 
 #[enum_dispatch]
@@ -82,7 +82,7 @@ impl PluginState {
             .entry(domid.0)
             .or_insert_with(|| HashMap::new());
 
-        let family_name = kind.family_name.to_smolstr();
+        let family_name = kind.family_name.to_compact_string();
 
         let &mut uuid = domain_metrics.entry(kind).or_insert_with(|| Uuid::new_v4());
 
@@ -90,7 +90,7 @@ impl PluginState {
         let mut labels = metric.labels.into_vec();
         labels.push(Label {
             name: "domain".into(),
-            value: dom_uuid.as_hyphenated().to_smolstr(),
+            value: dom_uuid.as_hyphenated().to_compact_string(),
         });
         metric.labels = labels.into_boxed_slice();
 
@@ -108,7 +108,7 @@ impl PluginState {
         stream: &mut UnixStream,
         (kind, metric): (PluginMetricKind, Metric),
     ) -> anyhow::Result<()> {
-        let family_name = kind.family_name.to_smolstr();
+        let family_name = kind.family_name.to_compact_string();
         let &mut uuid = self
             .host_metrics
             .entry(kind)
@@ -190,7 +190,7 @@ pub fn run_plugin(stream: &mut UnixStream, hyp: &UnixXenHypercall) -> anyhow::Re
 
             for (PluginMetricKind { family_name, .. }, uuid) in domain_metrics {
                 stream.send_message(ProtocolMessage::RemoveMetric(RemoveMetric {
-                    family_name: family_name.to_smolstr(),
+                    family_name: family_name.into(),
                     uuid,
                 }))?;
             }

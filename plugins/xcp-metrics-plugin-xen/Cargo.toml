@@ -17,7 +17,7 @@ tracing = "0.1"
 tracing-subscriber = "0.3"
 
 uuid = "1.11"
-smol_str = "0.3"
+compact_str = "0.8"
 smallvec = "1.13"
 
 enum_dispatch = "0.3"

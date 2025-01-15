@@ -1,7 +1,7 @@
 use std::{iter, os::unix::net::UnixStream, time::Instant};
 
+use compact_str::ToCompactString;
 use smallvec::{smallvec, SmallVec};
-use smol_str::ToSmolStr;
 
 use xcp_metrics_common::{
     metrics::{Label, Metric, MetricType, MetricValue, NumberValue},
@@ -37,12 +37,12 @@ fn generate_pcpu_usage(
     (
         PluginMetricKind {
             family_name: "xen_cpu_time",
-            submetric: Some(cpu_id.to_smolstr()),
+            submetric: Some(cpu_id.to_compact_string()),
         },
         Metric {
             labels: vec![Label {
                 name: "cpu_id".into(),
-                value: cpu_id.to_smolstr(),
+                value: cpu_id.to_compact_string(),
             }]
             .into_boxed_slice(),
             value: MetricValue::Gauge(NumberValue::Double(f64::max(
@@ -136,12 +136,12 @@ impl XenMetric for PCpuFreq {
                 (
                     PluginMetricKind {
                         family_name: "xen_cpu_freq",
-                        submetric: Some(cpuid.to_smolstr()),
+                        submetric: Some(cpuid.to_compact_string()),
                     },
                     Metric {
                         labels: vec![Label {
                             name: "cpu_id".into(),
-                            value: cpuid.to_smolstr(),
+                            value: cpuid.to_compact_string(),
                         }]
                         .into_boxed_slice(),
                         value: MetricValue::Gauge(NumberValue::Int64(freq as i64)),

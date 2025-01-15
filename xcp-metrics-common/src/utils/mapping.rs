@@ -1,8 +1,8 @@
 //! xcp-metrics to protocol v2 mapping utilities
 use std::fmt::Write;
 
+use compact_str::CompactString;
 use serde::{Deserialize, Serialize};
-use smol_str::SmolStr;
 
 use crate::{
     metrics::{Label, Metric, MetricFamily, MetricType, MetricValue, NumberValue},
@@ -16,7 +16,7 @@ pub trait MetadataMapping {
         family_name: &str,
         family: &MetricFamily,
         metric: &Metric,
-    ) -> Option<(SmolStr, DataSourceMetadata)>;
+    ) -> Option<(CompactString, DataSourceMetadata)>;
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -28,7 +28,7 @@ impl MetadataMapping for DefaultMapping {
         family_name: &str,
         family: &MetricFamily,
         metric: &Metric,
-    ) -> Option<(SmolStr, DataSourceMetadata)> {
+    ) -> Option<(CompactString, DataSourceMetadata)> {
         let owner = metric
             .labels
             .iter()
@@ -118,7 +118,7 @@ impl MetadataMapping for CustomMapping {
         _: &str,
         family: &MetricFamily,
         metric: &Metric,
-    ) -> Option<(SmolStr, DataSourceMetadata)> {
+    ) -> Option<(CompactString, DataSourceMetadata)> {
         let owner = metric
             .labels
             .iter()

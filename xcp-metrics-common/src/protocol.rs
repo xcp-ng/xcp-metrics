@@ -7,7 +7,7 @@
 use std::io::{self, Read, Write};
 
 use serde::{Deserialize, Serialize};
-use smol_str::SmolStr;
+use compact_str::CompactString;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 use crate::metrics::{Metric, MetricType};
@@ -18,22 +18,22 @@ pub const MAX_PAYLOAD_SIZE: u32 = 512 * 1024; // 512 Ko
 /// Register a new metric family to the hub.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateFamily {
-    pub name: SmolStr,
+    pub name: CompactString,
     pub metric_type: MetricType,
-    pub unit: SmolStr,
-    pub help: SmolStr,
+    pub unit: CompactString,
+    pub help: CompactString,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 /// Remove a metric family.
 pub struct RemoveFamily {
-    pub name: SmolStr,
+    pub name: CompactString,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 /// Replace the values of a metric.
 pub struct UpdateMetric {
-    pub family_name: SmolStr,
+    pub family_name: CompactString,
     pub metric: Metric,
     pub uuid: uuid::Uuid,
 }
@@ -41,7 +41,7 @@ pub struct UpdateMetric {
 /// Remove a metric from the hub.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RemoveMetric {
-    pub family_name: SmolStr,
+    pub family_name: CompactString,
     pub uuid: uuid::Uuid,
 }
 
