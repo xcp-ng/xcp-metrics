@@ -4,21 +4,25 @@ mod vcpu;
 
 use std::{collections::HashMap, os::unix::net::UnixStream, thread, time::Duration};
 
-use cpu::PCpuXenMetric;
 use enum_dispatch::enum_dispatch;
-use memory::MemoryXenMetric;
 use smallvec::{smallvec, SmallVec};
 use smol_str::{SmolStr, ToSmolStr};
 use uuid::Uuid;
-use vcpu::VCpuXenMetric;
+
 use xcp_metrics_common::{
     metrics::{Label, Metric},
     protocol::{ProtocolMessage, RemoveMetric, UpdateMetric, XcpMetricsStream},
 };
 use xen::{
-    domctl::XenDomctlGetDomainInfo, hypercall::unix::UnixXenHypercall,
-    sysctl::SysctlGetDomainInfoList, DomId,
+    domctl::XenDomctlGetDomainInfo,
+    hypercall::unix::UnixXenHypercall,
+    sysctl::{SysctlGetDomainInfoList, SysctlPhysInfo, XenSysctlPhysInfo},
+    DomId,
 };
+
+use cpu::{PCpuFreq, PCpuUsage};
+use memory::DomainMemory;
+use vcpu::VCpuUsage;
 
 #[derive(Default)]
 struct PluginState {
@@ -38,6 +42,7 @@ pub(crate) trait XenMetric {
 
     fn read_host_metrics(
         &mut self,
+        _physinfo: XenSysctlPhysInfo,
         _hyp: &UnixXenHypercall,
     ) -> SmallVec<[(PluginMetricKind, Metric); 3]> {
         smallvec![]
@@ -58,9 +63,10 @@ pub(crate) trait XenMetric {
 
 #[enum_dispatch(XenMetric)]
 pub(crate) enum XenMetricEnum {
-    Memory(MemoryXenMetric),
-    PCpu(PCpuXenMetric),
-    VCpu(VCpuXenMetric),
+    Memory(DomainMemory),
+    PCpu(PCpuUsage),
+    VCpu(VCpuUsage),
+    CpuFreq(PCpuFreq),
 }
 
 impl PluginState {
@@ -121,9 +127,10 @@ impl PluginState {
 pub fn run_plugin(stream: &mut UnixStream, hyp: &UnixXenHypercall) -> anyhow::Result<()> {
     let mut state = PluginState::default();
     let metrics: &mut [XenMetricEnum] = &mut [
-        MemoryXenMetric.into(),
-        VCpuXenMetric::new().into(),
-        PCpuXenMetric::new(hyp).into(),
+        DomainMemory.into(),
+        VCpuUsage::new().into(),
+        PCpuUsage::new().into(),
+        PCpuFreq.into(),
     ];
 
     for xen_metric in metrics.as_ref() {
@@ -134,10 +141,14 @@ pub fn run_plugin(stream: &mut UnixStream, hyp: &UnixXenHypercall) -> anyhow::Re
         // Track what domains (still) exists.
         let mut found_domain = vec![0; 0];
 
+        let physinfo = hyp
+            .physinfo()
+            .inspect_err(|e| tracing::error!("physinfo hypercall failure {e}"))?;
+
         // Get host metrics
         for metric in metrics
             .iter_mut()
-            .map(|xen_metric| xen_metric.read_host_metrics(hyp))
+            .map(|xen_metric| xen_metric.read_host_metrics(physinfo, hyp))
             .flatten()
         {
             tracing::debug!("Pushing {metric:?}");

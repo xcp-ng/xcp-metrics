@@ -2,6 +2,7 @@ use std::{collections::HashMap, iter, os::unix::net::UnixStream, time::Instant};
 
 use smallvec::{smallvec, SmallVec};
 use smol_str::ToSmolStr;
+
 use xcp_metrics_common::{
     metrics::{Label, Metric, MetricType, MetricValue, NumberValue},
     protocol::{CreateFamily, ProtocolMessage, XcpMetricsStream},
@@ -9,18 +10,19 @@ use xcp_metrics_common::{
 use xen::{
     domctl::{DomctlGetVCpuInfo, XenDomctlGetDomainInfo, XenDomctlGetVCpuInfo},
     hypercall::unix::UnixXenHypercall,
+    sysctl::XenSysctlPhysInfo,
 };
 
 use super::{PluginMetricKind, XenMetric};
 
-pub struct VCpuXenMetric {
+pub struct VCpuUsage {
     // We need to keep track of the previous instant as latest_instant is ~now.
     previous_instant: Option<Instant>,
     latest_instant: Instant,
     prev_vcpu_infos: HashMap<u16, SmallVec<[XenDomctlGetVCpuInfo; 8]>>,
 }
 
-impl VCpuXenMetric {
+impl VCpuUsage {
     pub fn new() -> Self {
         Self {
             previous_instant: None,
@@ -59,7 +61,7 @@ fn generate_vcpu_usage(
     )
 }
 
-impl XenMetric for VCpuXenMetric {
+impl XenMetric for VCpuUsage {
     fn make_families(&self, stream: &mut UnixStream) -> anyhow::Result<()> {
         stream.send_message(ProtocolMessage::CreateFamily(CreateFamily {
             help: "Time taken running a VCPU".into(),
@@ -103,6 +105,7 @@ impl XenMetric for VCpuXenMetric {
 
     fn read_host_metrics(
         &mut self,
+        _physinfo: XenSysctlPhysInfo,
         _hyp: &UnixXenHypercall,
     ) -> SmallVec<[(PluginMetricKind, Metric); 3]> {
         self.previous_instant = Some(self.latest_instant);

@@ -1,6 +1,7 @@
 use std::os::unix::net::UnixStream;
 
 use smallvec::smallvec;
+
 use xcp_metrics_common::{
     metrics::{Metric, MetricType, MetricValue, NumberValue},
     protocol::{CreateFamily, ProtocolMessage, XcpMetricsStream},
@@ -11,9 +12,9 @@ use super::{PluginMetricKind, XenMetric};
 
 const PAGE_SIZE: u64 = 4096;
 
-pub struct MemoryXenMetric;
+pub struct DomainMemory;
 
-impl XenMetric for MemoryXenMetric {
+impl XenMetric for DomainMemory {
     fn make_families(&self, stream: &mut UnixStream) -> anyhow::Result<()> {
         stream.send_message(ProtocolMessage::CreateFamily(CreateFamily {
             help: "Memory reserved to a guest.".into(),

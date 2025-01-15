@@ -2,34 +2,28 @@ use std::{iter, os::unix::net::UnixStream, time::Instant};
 
 use smallvec::{smallvec, SmallVec};
 use smol_str::ToSmolStr;
+
 use xcp_metrics_common::{
     metrics::{Label, Metric, MetricType, MetricValue, NumberValue},
     protocol::{CreateFamily, ProtocolMessage, XcpMetricsStream},
 };
 use xen::{
-    hypercall::{unix::UnixXenHypercall, XenHypercall},
-    sysctl::{SysctlGetCpuInfo, SysctlPhysInfo, XenSysctlCpuinfo},
+    hypercall::unix::UnixXenHypercall,
+    sysctl::{SysctlGetCpuInfo, SysctlGetPmOp, XenSysctlCpuinfo, XenSysctlPhysInfo},
 };
 
 use super::{PluginMetricKind, XenMetric};
 
-pub struct PCpuXenMetric {
+// TODO: use a passed physinfo
+pub struct PCpuUsage {
     latest_instant: Instant,
-    nr_cpus: usize,
     prev_pcpu_infos: Option<Box<[XenSysctlCpuinfo]>>,
 }
 
-impl PCpuXenMetric {
-    pub fn new(hyp: &impl XenHypercall) -> Self {
-        let nr_cpus = hyp
-            .physinfo()
-            .map(|physinfo| physinfo.max_cpu_id)
-            .unwrap_or_default() as usize
-            + 1;
-
+impl PCpuUsage {
+    pub fn new() -> Self {
         Self {
             latest_instant: Instant::now(),
-            nr_cpus,
             prev_pcpu_infos: None,
         }
     }
@@ -64,7 +58,7 @@ fn generate_pcpu_usage(
     )
 }
 
-impl XenMetric for PCpuXenMetric {
+impl XenMetric for PCpuUsage {
     fn make_families(&self, stream: &mut UnixStream) -> anyhow::Result<()> {
         stream.send_message(ProtocolMessage::CreateFamily(CreateFamily {
             help: "Time taken running a CPU core".into(),
@@ -78,10 +72,11 @@ impl XenMetric for PCpuXenMetric {
 
     fn read_host_metrics(
         &mut self,
+        physinfo: XenSysctlPhysInfo,
         hyp: &UnixXenHypercall,
     ) -> SmallVec<[(PluginMetricKind, Metric); 3]> {
         let mut new_pcpu_infos: Vec<XenSysctlCpuinfo> =
-            vec![XenSysctlCpuinfo::default(); self.nr_cpus];
+            vec![XenSysctlCpuinfo::default(); (physinfo.max_cpu_id + 1) as _];
 
         match hyp.get_cpu_info(&mut new_pcpu_infos) {
             Ok(count) => new_pcpu_infos.truncate(count),
@@ -105,5 +100,54 @@ impl XenMetric for PCpuXenMetric {
         self.prev_pcpu_infos = Some(new_pcpu_infos.into_boxed_slice());
         self.latest_instant = Instant::now();
         metrics
+    }
+}
+
+pub struct PCpuFreq;
+
+impl XenMetric for PCpuFreq {
+    fn make_families(&self, stream: &mut UnixStream) -> anyhow::Result<()> {
+        stream.send_message(ProtocolMessage::CreateFamily(CreateFamily {
+            help: "Average frequency of a CPU core".into(),
+            name: "xen_cpu_freq".into(),
+            metric_type: MetricType::Gauge,
+            unit: "hz".into(),
+        }))?;
+
+        Ok(())
+    }
+
+    fn read_host_metrics(
+        &mut self,
+        physinfo: XenSysctlPhysInfo,
+        hyp: &UnixXenHypercall,
+    ) -> SmallVec<[(PluginMetricKind, Metric); 3]> {
+        (0..=physinfo.max_cpu_id)
+            .filter_map(|cpuid| {
+                // Ignore all failing reads.
+                hyp.get_cpufreq_avgfreq(cpuid)
+                    .inspect_err(|e| {
+                        tracing::error!("get_cpufreq_avg failure for cpuid:{cpuid}: {e}")
+                    })
+                    .ok()
+                    .map(|freq| (cpuid, freq))
+            })
+            .map(|(cpuid, freq)| {
+                (
+                    PluginMetricKind {
+                        family_name: "xen_cpu_freq",
+                        submetric: Some(cpuid.to_smolstr()),
+                    },
+                    Metric {
+                        labels: vec![Label {
+                            name: "cpu_id".into(),
+                            value: cpuid.to_smolstr(),
+                        }]
+                        .into_boxed_slice(),
+                        value: MetricValue::Gauge(NumberValue::Int64(freq as i64)),
+                    },
+                )
+            })
+            .collect()
     }
 }

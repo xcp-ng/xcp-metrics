@@ -1,3 +1,6 @@
+mod ffi;
+pub use ffi::*;
+
 use crate::{
     abi::get_xen_abi,
     domctl::XenDomctlGetDomainInfo,
@@ -5,86 +8,12 @@ use crate::{
     Align64, DomId,
 };
 
-#[repr(C)]
-#[derive(Clone, Copy, Debug, Default)]
-struct XenSysctlGetDomainInfoList {
-    /// IN
-    pub first_domain: DomId,
-    /// IN
-    pub max_domains: u32,
-    /// IN
-    pub buffer: Align64<*mut XenDomctlGetDomainInfo>,
-    /// OUT variables.
-    pub num_domains: u32,
-}
-
-#[repr(C)]
-#[derive(Clone, Copy, Debug, Default)]
-pub struct XenSysctlPhysInfo {
-    pub threads_per_core: u32,
-    pub cores_per_socket: u32,
-    pub nr_cpus: u32,
-    pub max_cpu_id: u32,
-    pub nr_nodes: u32,
-    pub max_node_id: u32,
-    pub cpu_khz: u32,
-    pub capabilities: u32,
-    pub arch_capabilities: u32,
-    pub pad: u32,
-    pub total_pages: Align64<u64>,
-    pub free_pages: Align64<u64>,
-    pub scrub_pages: Align64<u64>,
-    pub outstanding_pages: Align64<u64>,
-    pub max_mfn: Align64<u64>,
-    pub hw_cap: [u32; 8],
-}
-
-#[repr(C)]
-#[derive(Clone, Copy, Debug, Default)]
-pub struct XenSysctlCpuinfo {
-    pub idletime: Align64<u64>,
-}
-
-#[repr(C)]
-#[derive(Clone, Copy, Debug, Default)]
-pub struct XenSysctlGetCpuInfo {
-    /// IN
-    pub max_cpus: u32,
-    /// IN
-    pub info: Align64<*mut XenSysctlCpuinfo>,
-    /// OUT
-    pub nr_cpus: u32,
-}
-
-#[repr(C)]
-#[derive(Clone, Copy)]
-union XenSysctlParam {
-    pub getdomaininfolist: XenSysctlGetDomainInfoList,
-    pub physinfo: XenSysctlPhysInfo,
-    pub getcpuinfo: XenSysctlGetCpuInfo,
-    pub pad: [u8; 128],
-}
-
-#[repr(C)]
-#[derive(Clone, Copy)]
-struct XenSysctl {
-    pub cmd: u32,
-    pub interface_version: u32,
-    pub param: XenSysctlParam,
-}
-
 fn sysctl_interface_version() -> u32 {
     match get_xen_abi() {
         crate::abi::XenAbi::Xen417 => 0x15,
         crate::abi::XenAbi::Xen419 => 0x15,
     }
 }
-
-const HYPERVISOR_SYSCTL: usize = 35;
-
-const XEN_SYSCTL_PHYSINFO: u32 = 3;
-const XEN_SYSCTL_GETDOMAININFOLIST: u32 = 6;
-const XEN_SYSCTL_GETCPUINFO: u32 = 8;
 
 pub trait SysctlGetDomainInfoList
 where
@@ -254,3 +183,39 @@ where
 }
 
 impl<H: XenHypercall> SysctlGetCpuInfo for H {}
+
+pub trait SysctlGetPmOp
+where
+    Self: XenHypercall,
+{
+    fn get_cpufreq_avgfreq(&self, cpuid: u32) -> anyhow::Result<u64> {
+        let mut sysctl = XenSysctl {
+            cmd: XEN_SYSCTL_PM_OP,
+            interface_version: sysctl_interface_version(),
+            param: XenSysctlParam {
+                pm_op: XenSysctlPmOp {
+                    cmd: XEN_SYSCTL_PM_OP_CPUFREQ_AVG,
+                    cpuid,
+                    param: XenSysctlPmOpParam {
+                        get_avgfreq: Align64(0),
+                    },
+                },
+            },
+        };
+
+        unsafe {
+            let mut sysctl_buffer = self.make_mut_buffer(&mut sysctl)?;
+            let res = self.hypercall1(HYPERVISOR_SYSCTL, sysctl_buffer.as_hypercall_ptr() as _);
+
+            if res != 0 {
+                anyhow::bail!("sysctl_pm_op:cpufreq_avgfreq failed {}", res as isize)
+            }
+
+            sysctl_buffer.update();
+            drop(sysctl_buffer);
+            Ok(sysctl.param.pm_op.param.get_avgfreq.0)
+        }
+    }
+}
+
+impl<H: XenHypercall> SysctlGetPmOp for H {}
