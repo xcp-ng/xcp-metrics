@@ -12,25 +12,25 @@ xcp-metrics-common = { path = "../xcp-metrics-common", features = [
   "openmetrics",
 ] }
 
-anyhow = "1.0"
-futures = "0.3"
-tracing = "0.1"
-tracing-subscriber = "0.3"
+anyhow = { workspace = true }
+futures = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
 
-compact_str = "0.8"
+compact_str = { workspace = true }
 
 [dependencies.tokio]
-version = "1"
+workspace = true
 features = ["rt", "rt-multi-thread", "net", "fs", "macros", "sync"]
 
 [dependencies.serde]
-version = "1.0"
+workspace = true
 features = ["std", "derive"]
 
 [dependencies.uuid]
-version = "1.4"
+workspace = true
 features = ["std", "serde", "v4", "fast-rng"]
 
 [dependencies.clap]
-version = "4.5"
+workspace = true
 features = ["derive"]

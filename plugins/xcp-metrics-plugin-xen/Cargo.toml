@@ -11,17 +11,17 @@ edition = "2021"
 xcp-metrics-common = { path = "../../xcp-metrics-common" }
 xen = { path = "../../external/xen" }
 
-anyhow = "1.0"
+anyhow = { workspace = true }
 
-tracing = "0.1"
-tracing-subscriber = "0.3"
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
 
-uuid = "1.11"
-compact_str = "0.8"
-smallvec = "1.13"
+uuid = { workspace = true }
+compact_str = { workspace = true }
+smallvec = { workspace = true }
 
-enum_dispatch = "0.3"
+enum_dispatch = { workspace = true }
 
 [dependencies.clap]
-version = "4.3"
+workspace = true
 features = ["derive"]

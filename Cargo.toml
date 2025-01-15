@@ -14,3 +14,21 @@ members = [
 
 [profile.release]
 lto = true
+
+[workspace.dependencies]
+anyhow = "1.0"
+futures = "0.3"
+tracing = "0.1"
+compact_str = "0.8"
+smallvec = "1.13"
+tracing-subscriber = "0.3"
+enum_dispatch = "0.3"
+
+tokio = "1"
+async-stream = "0.3"
+
+serde = "1.0"
+serde_json = "1.0"
+
+uuid = "1.11"
+clap = "4.5"

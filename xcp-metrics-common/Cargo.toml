@@ -9,23 +9,23 @@ rust-version = "1.70" # we need only 1.66 but our deps want 1.70
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0"
-maplit = "1.0"
-compact_str = { version = "0.8", features = ["serde"] }
+anyhow = {workspace = true }
+compact_str = { workspace = true, features = ["serde"] }
 
 # xcp-metrics protocol v1
 ciborium = "0.2"
+maplit = "1.0"
 
 [dependencies.serde]
-version = "1.0"
+workspace = true
 features = ["std", "derive"]
 
 [dependencies.uuid]
-version = "1.11"
+workspace = true
 features = ["std", "serde", "v4", "fast-rng"]
 
 [dependencies.tokio]
-version = "1"
+workspace = true
 features = ["io-util"]
 
 # OpenMetrics support
@@ -43,7 +43,7 @@ version = "1.4"
 optional = true
 
 [dependencies.serde_json]
-version = "1.0"
+workspace = true
 optional = true
 
 [dependencies.indexmap]
