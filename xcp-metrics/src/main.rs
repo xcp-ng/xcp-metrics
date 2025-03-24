@@ -3,37 +3,37 @@ pub mod rpc;
 
 use std::{
     fs,
+    os::unix::net::UnixStream,
     path::{Path, PathBuf},
 };
 
-use clap::{command, Parser};
-use tokio::{net::UnixStream, select};
+use argh::FromArgs;
 
+use futures::{select, FutureExt};
 use xcp_metrics_common::protocol;
 
 /// xcp-metrics main daemon
-#[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
+#[derive(FromArgs, Debug)]
 struct Args {
-    /// Logging level
-    #[arg(short, long, default_value_t = tracing::Level::INFO)]
+    /// logging level
+    #[argh(option, short = 'l', default = "tracing::Level::INFO")]
     log_level: tracing::Level,
 
     /// xcp-metrics socket path
-    #[arg(long)]
+    #[argh(option, short = 'd')]
     daemon_path: Option<PathBuf>,
 }
 
 /// Check if the Unix socket is active and unlink it if it isn't.
 ///
 /// Returns true if the socket is active.
-async fn check_unix_socket(socket_path: &Path) -> anyhow::Result<bool> {
-    if !tokio::fs::try_exists(&socket_path).await? {
+fn check_unix_socket(socket_path: &Path) -> anyhow::Result<bool> {
+    if !Path::try_exists(&socket_path)? {
         // Socket doesn't exist.
         return Ok(false);
     }
 
-    match UnixStream::connect(&socket_path).await {
+    match UnixStream::connect(&socket_path) {
         Ok(_) => Ok(true),
         Err(e) => {
             if matches!(e.kind(), std::io::ErrorKind::ConnectionRefused) {
@@ -55,9 +55,8 @@ async fn check_unix_socket(socket_path: &Path) -> anyhow::Result<bool> {
     }
 }
 
-#[tokio::main]
-async fn main() {
-    let args = Args::parse();
+fn main() {
+    let args: Args = argh::from_env();
 
     let text_subscriber = tracing_subscriber::fmt()
         .with_ansi(true)
@@ -71,18 +70,20 @@ async fn main() {
         .daemon_path
         .unwrap_or_else(|| protocol::METRICS_SOCKET_PATH.into());
 
-    if check_unix_socket(Path::new(&socket_path)).await.unwrap() {
+    if check_unix_socket(Path::new(&socket_path)).unwrap() {
         tracing::error!("Unable to start: xcp-metrics socket is active");
         panic!("Unable to start: is xcp-metrics already running ?");
     }
 
-    let (hub, hub_channel) = hub::MetricsHub::default().start().await;
-    let rpc_task = rpc::run(&socket_path, hub_channel);
+    let hub = hub::MetricsHub::default();
+    let (hub_sender, hub_receiver) = flume::unbounded();
 
-    select! {
-        res = hub => tracing::warn!("Hub returned: {res:?}"),
-        res = rpc_task => tracing::warn!("RPC Socket returned: {res:?}"),
-    };
+    smol::block_on(async {
+        select! {
+            res = hub.run(hub_receiver).fuse() => tracing::warn!("Hub returned: {res:?}"),
+            res = rpc::run(&socket_path, hub_sender).fuse() => tracing::warn!("RPC Socket returned: {res:?}"),
+        }
+    });
 
     tracing::info!("Stopping");
 }

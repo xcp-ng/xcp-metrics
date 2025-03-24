@@ -70,24 +70,21 @@ fn invariance() {
 
 #[test]
 fn invariance_async() {
-    tokio::runtime::Builder::new_current_thread()
-        .build()
-        .unwrap()
-        .block_on(async {
-            let (metadata, header, buffer) = generate_test_rrdd();
+    smol::block_on(async {
+        let (metadata, header, buffer) = generate_test_rrdd();
 
-            let mut reader = buffer.as_slice();
-            let header_readed = RrddMessageHeader::parse_async(&mut reader).await.unwrap();
-            assert_eq!(header, header_readed);
+        let mut reader = buffer.as_slice();
+        let header_readed = RrddMessageHeader::parse_async(&mut reader).await.unwrap();
+        assert_eq!(header, header_readed);
 
-            let mut metadata_buffer = vec![0u8; header_readed.metadata_length as usize];
-            reader.read_exact(&mut metadata_buffer).unwrap();
-            let metadata_raw_readed: RrddMetadataRaw =
-                serde_json::from_slice(&metadata_buffer).unwrap();
-            let metadata_readed = metadata_raw_readed.try_into().unwrap();
+        let mut metadata_buffer = vec![0u8; header_readed.metadata_length as usize];
+        reader.read_exact(&mut metadata_buffer).unwrap();
+        let metadata_raw_readed: RrddMetadataRaw =
+            serde_json::from_slice(&metadata_buffer).unwrap();
+        let metadata_readed = metadata_raw_readed.try_into().unwrap();
 
-            assert_eq!(metadata, metadata_readed);
-        });
+        assert_eq!(metadata, metadata_readed);
+    });
 }
 
 #[test]

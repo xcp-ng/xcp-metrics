@@ -24,9 +24,8 @@ features = ["std", "derive"]
 workspace = true
 features = ["std", "serde", "v4", "fast-rng"]
 
-[dependencies.tokio]
+[dependencies.futures]
 workspace = true
-features = ["io-util"]
 
 # OpenMetrics support
 [dependencies.prost]
@@ -58,8 +57,6 @@ prost-build = { version = "0.13", optional = true }
 default = []
 rrdd_compat = ["dep:crc32fast", "dep:serde_json", "dep:indexmap"]
 openmetrics = ["dep:prost", "dep:prost-types", "dep:prost-build"]
-test = ["tokio/full"]
 
 [dev-dependencies]
-# https://github.com/rust-lang/cargo/issues/2911
-xcp-metrics-common = { path = ".", features = ["test"] }
+smol = { workspace = true }

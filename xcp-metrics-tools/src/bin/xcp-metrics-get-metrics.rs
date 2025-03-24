@@ -4,27 +4,26 @@ use std::{
     path::PathBuf,
 };
 
-use clap::Parser;
+use argh::FromArgs;
 use xcp_metrics_common::protocol::{self, FetchMetrics, XcpMetricsStream};
 
 /// Tool to get metrics from xcp-metrics in OpenMetrics format.
-#[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
+#[derive(FromArgs, Debug)]
 struct Args {
-    /// Path to the xcp-metrics daemon socket to fetch metrics from.
-    #[arg(short, long)]
+    /// path to the xcp-metrics daemon socket to fetch metrics from.
+    #[argh(option, short = 'd')]
     daemon_path: Option<PathBuf>,
 
-    /// Whether to use protocol buffers binary format.
-    #[arg(short, long, default_value_t = false)]
+    /// whether to use protocol buffers binary format.
+    #[argh(switch, short = 'b')]
     binary: bool,
 }
 
 fn main() {
-    let args = Args::parse();
+    let args: Args = argh::from_env();
     let daemon_path = args
         .daemon_path
-        .unwrap_or_else(|| protocol::METRICS_SOCKET_PATH.into());
+        .unwrap_or(protocol::METRICS_SOCKET_PATH.into());
 
     let mut client = UnixStream::connect(daemon_path).expect("Unable to connect to daemon");
 

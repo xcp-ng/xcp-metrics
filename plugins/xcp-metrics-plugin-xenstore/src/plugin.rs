@@ -6,7 +6,7 @@ use async_stream::stream;
 use compact_str::{CompactString, ToCompactString};
 use futures::{Stream, StreamExt};
 use radix_trie::Trie;
-use tokio::net::UnixStream;
+use smol::net::unix::UnixStream;
 use uuid::Uuid;
 
 use xcp_metrics_common::{
@@ -14,7 +14,7 @@ use xcp_metrics_common::{
     protocol::{CreateFamily, ProtocolMessage, RemoveMetric, UpdateMetric, XcpMetricsAsyncStream},
 };
 use xen::{domctl::DomctlGetDomainInfo, hypercall::XenHypercall};
-use xenstore_rs::{tokio::XsTokio, AsyncWatch, AsyncXs};
+use xenstore_rs::{smol::XsSmol, AsyncWatch, AsyncXs};
 
 use metrics::{MemInfoFree, MemInfoTotal, MetricHandler, MetricHandlerEnum};
 
@@ -67,7 +67,7 @@ async fn initialize_families(stream: &mut UnixStream) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn recursive_traversal(xs: XsTokio, path: String) -> impl Stream<Item = Box<str>> {
+fn recursive_traversal(xs: XsSmol, path: String) -> impl Stream<Item = Box<str>> + use<'_> {
     stream! {
         yield path.clone().into_boxed_str();
 
@@ -85,7 +85,7 @@ fn recursive_traversal(xs: XsTokio, path: String) -> impl Stream<Item = Box<str>
 pub async fn run_plugin(
     mut stream: UnixStream,
     hyp: impl XenHypercall,
-    xs: XsTokio,
+    xs: XsSmol<'_>,
 ) -> anyhow::Result<()> {
     initialize_families(&mut stream).await?;
 

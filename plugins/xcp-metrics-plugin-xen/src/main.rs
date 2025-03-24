@@ -2,25 +2,24 @@ mod plugin;
 
 use std::{os::unix::net::UnixStream, path::PathBuf};
 
-use clap::{command, Parser};
+use argh::FromArgs;
 use xcp_metrics_common::protocol::METRICS_SOCKET_PATH;
 use xen::hypercall::unix::UnixXenHypercall;
 
 /// xcp-metrics XenStore plugin.
-#[derive(Clone, Parser, Debug)]
-#[command(author, version, about, long_about = None)]
+#[derive(Clone, FromArgs, Debug)]
 struct Args {
-    /// Logging level
-    #[arg(short, long, default_value_t = tracing::Level::INFO)]
+    /// logging level
+    #[argh(option, short = 'l', default = "tracing::Level::INFO")]
     log_level: tracing::Level,
 
-    /// Target daemon.
-    #[arg(short, long)]
+    /// target daemon.
+    #[argh(option, short = 'd')]
     target: Option<PathBuf>,
 }
 
 fn main() {
-    let args = Args::parse();
+    let args: Args = argh::from_env();
 
     let text_subscriber = tracing_subscriber::fmt()
         .with_ansi(true)
@@ -30,13 +29,14 @@ fn main() {
 
     tracing::subscriber::set_global_default(text_subscriber).unwrap();
 
-    let mut rpc_stream = match UnixStream::connect(METRICS_SOCKET_PATH) {
-        Ok(stream) => stream,
-        Err(e) => {
-            tracing::error!("Unable to connect to xcp-metrics: {e}");
-            return;
-        }
-    };
+    let mut rpc_stream =
+        match UnixStream::connect(args.target.unwrap_or(METRICS_SOCKET_PATH.into())) {
+            Ok(stream) => stream,
+            Err(e) => {
+                tracing::error!("Unable to connect to xcp-metrics: {e}");
+                return;
+            }
+        };
 
     let hyp = match UnixXenHypercall::new() {
         Ok(xs) => xs,

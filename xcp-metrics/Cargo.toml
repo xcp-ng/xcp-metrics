@@ -19,9 +19,8 @@ tracing-subscriber = { workspace = true }
 
 compact_str = { workspace = true }
 
-[dependencies.tokio]
-workspace = true
-features = ["rt", "rt-multi-thread", "net", "fs", "macros", "sync"]
+smol = { workspace = true }
+flume = { workspace = true }
 
 [dependencies.serde]
 workspace = true
@@ -29,8 +28,8 @@ features = ["std", "derive"]
 
 [dependencies.uuid]
 workspace = true
-features = ["std", "serde", "v4", "fast-rng"]
+features = ["std", "serde"]
 
-[dependencies.clap]
+[dependencies.argh]
 workspace = true
-features = ["derive"]
+features = ["help"]

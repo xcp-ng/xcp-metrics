@@ -22,6 +22,6 @@ smallvec = { workspace = true }
 
 enum_dispatch = { workspace = true }
 
-[dependencies.clap]
+[dependencies.argh]
 workspace = true
-features = ["derive"]
+features = ["help"]

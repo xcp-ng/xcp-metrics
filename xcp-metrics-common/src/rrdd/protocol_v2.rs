@@ -6,9 +6,9 @@ use std::{
     time::{self, Duration, SystemTime},
 };
 
+use futures::io::AsyncRead;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
-use tokio::io::AsyncRead;
 
 use super::protocol_common::{
     DataSourceMetadata, DataSourceMetadataRaw, DataSourceParseError, DataSourceValue,
@@ -116,7 +116,7 @@ impl RrddMessageHeader {
 
         // Read the first part (all fields until datasource values)
         let mut first_part_buffer = [0u8; RRDD_HEADER_LENGTH_PART1];
-        tokio::io::AsyncReadExt::read_exact(input, &mut first_part_buffer).await?;
+        futures::AsyncReadExt::read_exact(input, &mut first_part_buffer).await?;
 
         let (data_checksum, metadata_checksum, values_count, timestamp) =
             Self::parse_first_part(first_part_buffer, &mut timestamp_buffer)?;
@@ -124,7 +124,7 @@ impl RrddMessageHeader {
         // Second part (values and metadata length)
         let mut second_part_buffer =
             vec![0u8; (8 * values_count + 4/* metadata length */) as usize];
-        tokio::io::AsyncReadExt::read_exact(input, &mut second_part_buffer).await?;
+        futures::AsyncReadExt::read_exact(input, &mut second_part_buffer).await?;
 
         let (values, metadata_length) = Self::parse_second_part(
             &second_part_buffer,

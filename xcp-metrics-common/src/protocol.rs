@@ -7,8 +7,8 @@
 use std::io::{self, Read, Write};
 
 use compact_str::CompactString;
+use futures::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use serde::{Deserialize, Serialize};
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 use crate::metrics::{Metric, MetricType};
 
@@ -143,7 +143,7 @@ where
     S: AsyncRead + AsyncWrite + Unpin,
 {
     async fn send_message_raw_async(&mut self, message: &[u8]) -> io::Result<()> {
-        self.write_u32(message.len() as u32).await?;
+        self.write(&(message.len() as u32).to_be_bytes()).await?;
         self.write_all(message).await?;
 
         Ok(())

@@ -5,9 +5,10 @@ Utilities to track changes between two [MetricSet].
 ```rust
 use std::time::SystemTime;
 use maplit::hashmap;
+use compact_str::CompactString;
 use xcp_metrics_common::{
     metrics::{
-        Metric, MetricFamily, MetricPoint, MetricSet, MetricType, MetricValue, NumberValue,
+        Metric, MetricFamily, MetricSet, MetricType, MetricValue, NumberValue,
     },
     utils::delta::MetricSetModel,
 };
@@ -17,11 +18,7 @@ let (test_metric_uuid, test_metric) = (
     uuid::Uuid::new_v4(),
     Metric {
         labels: [].into(),
-        metrics_point: [MetricPoint {
-            value: MetricValue::Gauge(NumberValue::Double(42.0)),
-            timestamp: SystemTime::now(),
-        }]
-        .into(),
+        value: MetricValue::Gauge(NumberValue::Double(42.0)),
     },
 );
 let test_family = MetricFamily {
@@ -29,6 +26,7 @@ let test_family = MetricFamily {
     unit: "test".into(),
     help: "test metric family".into(),
     metrics: hashmap! { test_metric_uuid => test_metric.clone() },
+    ..Default::default()
 };
 
 // Create a empty metric set and a metric set with test_family.
@@ -71,7 +69,7 @@ assert!(delta2.added_metrics.is_empty());
 // test_metric is removed
 assert_eq!(&delta2.removed_metrics, &[test_metric_uuid]);
 // test_family is now empty, thus 'orphaned'
-assert_eq!(&delta2.orphaned_families, &["test_family".into()]);
+assert_eq!(&delta2.orphaned_families, &["test_family"]);
 
 // Update set1 model to match set2, to do this, apply delta1 (difference between set1 and set2).
 set1_model.apply_delta(&delta1);

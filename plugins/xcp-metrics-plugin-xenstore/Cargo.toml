@@ -10,7 +10,7 @@ license = "AGPL-3.0-only"
 
 [dependencies]
 xcp-metrics-common = { path = "../../xcp-metrics-common" }
-xen = { path = "../../external/xen" } # for getting reliably guest uuid
+xen = { path = "../../external/xen" }                      # for getting reliably guest uuid
 
 compact_str = { workspace = true }
 enum_dispatch = { workspace = true }
@@ -20,14 +20,16 @@ anyhow = { workspace = true }
 futures = { workspace = true }
 async-stream = { workspace = true }
 
-tokio = { workspace = true, features = ["full"] }
+smol = { workspace = true }
 
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 
-xenstore-rs = { version = "0.8", features = ["async-tokio"] }
+xenstore-rs = { git = "https://github.com/xcp-ng/xenstore-rs.git", branch = "generic-async", features = [
+  "async-smol",
+] }
 radix_trie = "0.2"
 
-[dependencies.clap]
+[dependencies.argh]
 workspace = true
-features = ["derive"]
+features = ["help"]
