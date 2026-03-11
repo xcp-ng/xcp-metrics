@@ -2,20 +2,25 @@ name: Rust
 
 on:
   push:
+    branches: [ "*" ]
   pull_request:
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
 
+permissions:
+  contents: read
+
 jobs:
   build:
-    runs-on: ubuntu-latest
-    #container:
-    #  image: centos8 
+    runs-on: ubuntu-24.04
 
     steps:
-    - uses: actions/checkout@v3
-    - uses: dtolnay/rust-toolchain@1.70
+    - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      with:
+        persist-credentials: false
+    - run: rustup install stable
     - name: Installing dependency packages
       run: sudo apt update && sudo apt install -y libxen-dev protobuf-compiler
 
@@ -23,11 +28,13 @@ jobs:
       run: cargo build --verbose
 
   doc:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
-    - uses: actions/checkout@v3
-    - uses: dtolnay/rust-toolchain@1.70
+    - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      with:
+        persist-credentials: false
+    - run: rustup install stable
     - name: Installing dependency packages
       run: sudo apt update && sudo apt install -y libxen-dev protobuf-compiler
 
@@ -35,24 +42,26 @@ jobs:
       run: cargo doc --workspace --no-deps
 
     - name: Upload docs
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
         name: rustdoc-html
         path: ./target/doc
 
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
-    - uses: actions/checkout@v3
-    - uses: dtolnay/rust-toolchain@nightly
+    - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      with:
+        persist-credentials: false
+    - run: rustup install nightly
     - name: Installing dependency packages
       run: sudo apt update && sudo apt install -y libxen-dev protobuf-compiler
 
     - name: Run tests
       run: |
-        cargo clean
-        cargo test --verbose
+        cargo +nightly clean
+        cargo +nightly test --verbose
       env:
         CARGO_INCREMENTAL: '0'
         RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
@@ -64,7 +73,39 @@ jobs:
       run: grcov . -s . --binary-path ./target/debug/ -t html --branch --ignore-not-existing -o ./target/debug/coverage/
 
     - name: Upload test coverage report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
         name: coverage-html
         path: ./target/debug/coverage/
+
+  rustfmt:
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      with:
+        persist-credentials: false
+    - run: rustup install stable --component rustfmt
+    - run: cargo fmt --all --check
+
+  clippy:
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      with:
+        persist-credentials: false
+    - name: Installing dependency packages
+      run: sudo apt update && sudo apt install -y libxen-dev protobuf-compiler
+    - run: rustup install stable --component clippy
+    - run: cargo clippy --all-targets -- -D warnings
+
+  zizmor:
+    name: zizmor
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@b75a909f75acd358c2196fb9a5f1299a9a8868a4 # v6.7.0
+      - run: uvx zizmor .
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
