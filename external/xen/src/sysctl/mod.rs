@@ -59,7 +59,7 @@ where
         }
     }
 
-    fn iter_domains(&self) -> DomainIterator<Self> {
+    fn iter_domains(&self) -> DomainIterator<'_, Self> {
         DomainIterator {
             hypercall: self,
             current_domid: DomId(0),

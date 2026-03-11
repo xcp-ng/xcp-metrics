@@ -8,6 +8,7 @@ use crate::{
 };
 
 #[cfg(test)]
+#[allow(dead_code)]
 pub(crate) fn make_test_metrics_set() -> MetricSet {
     MetricSet {
         families: [
@@ -88,9 +89,10 @@ pub(crate) fn make_test_metrics_set() -> MetricSet {
     }
 }
 
+#[allow(dead_code)]
 fn assert_metrics_set_equals(a: &MetricSet, b: &MetricSet) {
     let metrics_model = MetricSetModel::from(a);
-    let delta = metrics_model.compute_delta(&b);
+    let delta = metrics_model.compute_delta(b);
 
     assert!(delta.added_families.is_empty());
     assert!(delta.added_metrics.is_empty());

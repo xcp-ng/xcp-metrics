@@ -28,12 +28,12 @@ struct Args {
 ///
 /// Returns true if the socket is active.
 fn check_unix_socket(socket_path: &Path) -> anyhow::Result<bool> {
-    if !Path::try_exists(&socket_path)? {
+    if !Path::try_exists(socket_path)? {
         // Socket doesn't exist.
         return Ok(false);
     }
 
-    match UnixStream::connect(&socket_path) {
+    match UnixStream::connect(socket_path) {
         Ok(_) => Ok(true),
         Err(e) => {
             if matches!(e.kind(), std::io::ErrorKind::ConnectionRefused) {

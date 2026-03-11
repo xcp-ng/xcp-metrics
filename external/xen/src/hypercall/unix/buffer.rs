@@ -29,7 +29,7 @@ const PAGE_SIZE: usize = 4096;
 
 impl UnixXenHypercall {
     /// Allocate a xencall (hypercall-safe) buffer
-    fn alloc_xencall<T>(&self, layout: Layout) -> Result<XenCallBuffer<T>, Errno> {
+    fn alloc_xencall<T>(&self, layout: Layout) -> Result<XenCallBuffer<'_, T>, Errno> {
         // TODO: It could be interesting to create a [std::alloc::Allocator] for these
         //       kind of objects. That way, we would be able to create several objects
         //       in a single page instead of allocating separate pages for each objects.
@@ -81,11 +81,11 @@ impl UnixXenHypercall {
         }
     }
 
-    pub(super) fn alloc_xencall_buffer<T>(&self) -> Result<XenCallBuffer<T>, Errno> {
+    pub(super) fn alloc_xencall_buffer<T>(&self) -> Result<XenCallBuffer<'_, T>, Errno> {
         self.alloc_xencall(Layout::new::<T>())
     }
 
-    pub(super) fn alloc_xencall_slice<T>(&self, n: usize) -> Result<XenCallBuffer<T>, Errno> {
+    pub(super) fn alloc_xencall_slice<T>(&self, n: usize) -> Result<XenCallBuffer<'_, T>, Errno> {
         self.alloc_xencall(Layout::array::<T>(n).map_err(|_| Errno::E2BIG)?)
     }
 }
