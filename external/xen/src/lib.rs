@@ -4,10 +4,10 @@
 //!   * hosted: `std`, and hypercalls mediated through `/dev/xen/privcmd`.
 //!   * freestanding: `no_std` and direct hypercalls. Meant for unikernels.
 
+pub mod abi;
+pub mod domctl;
 pub mod hypercall;
 pub mod sysctl;
-pub mod domctl;
-pub mod abi;
 
 /// Abstraction of a domain ID. This is the number used by Xen to identify a
 /// single domain at runtime.
