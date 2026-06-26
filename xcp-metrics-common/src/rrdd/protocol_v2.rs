@@ -40,6 +40,9 @@ impl From<io::Error> for RrddProtocolError {
     }
 }
 
+/// Type alias for the second part parse result containing values and metadata length
+type ParsedSecondPart = (Box<[[u8; 8]]>, u32);
+
 /// A parsed Rrdd message header (v2).
 #[derive(PartialEq, Eq, Debug)]
 pub struct RrddMessageHeader {
@@ -249,7 +252,7 @@ impl RrddMessageHeader {
         values_count: u32,
         timestamp_buffer: [u8; 8],
         data_checksum: u32,
-    ) -> Result<(Box<[[u8; 8]]>, u32), RrddProtocolError> {
+    ) -> Result<ParsedSecondPart, RrddProtocolError> {
         // Split values and metadata
         let (values_buffer, metadata_length_buffer) =
             second_part_buffer.split_at(8 * values_count as usize);

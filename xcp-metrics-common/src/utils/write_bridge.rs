@@ -2,6 +2,7 @@
 
 use std::{fmt, io};
 
+#[allow(dead_code)]
 pub struct WriterWrapper<'a, W: io::Write>(pub &'a mut W);
 
 impl<W: io::Write> fmt::Write for WriterWrapper<'_, W> {

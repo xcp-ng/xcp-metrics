@@ -1,8 +1,8 @@
 //! Common metrics data structures, mostly modelled after OpenMetrics.
 use std::{collections::HashMap, time::SystemTime};
 
-use serde::{Deserialize, Serialize};
 use compact_str::CompactString;
+use serde::{Deserialize, Serialize};
 
 /// Top level metric data structure.
 #[derive(Clone, Default, PartialEq, Debug)]

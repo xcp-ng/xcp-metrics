@@ -103,6 +103,7 @@ where
         let len = u32::from_be_bytes(prefix);
 
         if len > MAX_PAYLOAD_SIZE {
+            #[allow(clippy::incompatible_msrv)]
             return Err(io::Error::new(
                 io::ErrorKind::FileTooLarge,
                 "Payload is too large !",
@@ -143,7 +144,8 @@ where
     S: AsyncRead + AsyncWrite + Unpin,
 {
     async fn send_message_raw_async(&mut self, message: &[u8]) -> io::Result<()> {
-        self.write(&(message.len() as u32).to_be_bytes()).await?;
+        self.write_all(&(message.len() as u32).to_be_bytes())
+            .await?;
         self.write_all(message).await?;
 
         Ok(())
@@ -156,6 +158,7 @@ where
         let len = u32::from_be_bytes(prefix);
 
         if len > MAX_PAYLOAD_SIZE {
+            #[allow(clippy::incompatible_msrv)]
             return Err(io::Error::new(
                 io::ErrorKind::FileTooLarge,
                 "Payload is too large !",

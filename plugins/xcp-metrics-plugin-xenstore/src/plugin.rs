@@ -67,7 +67,7 @@ async fn initialize_families(stream: &mut UnixStream) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn recursive_traversal(xs: XsSmol, path: String) -> impl Stream<Item = Box<str>> + use<'_> {
+fn recursive_traversal(xs: XsSmol<'_>, path: String) -> impl Stream<Item = Box<str>> + use<'_> {
     stream! {
         yield path.clone().into_boxed_str();
 

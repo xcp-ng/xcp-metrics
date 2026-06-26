@@ -21,30 +21,62 @@ pub trait XenMutBuffer<T> {
     fn as_hypercall_ptr(&mut self) -> *mut T;
 
     /// Update original reference with new data.
+    ///
+    /// # Safety
+    /// The caller must ensure that the data pointed to in the buffer is valid for T.
     unsafe fn update(&mut self);
 }
 
 pub trait XenHypercall: Sized {
     type Error: Error + Send + Sync + 'static;
 
+    /// Issue a hypercall with 5 parameters.
+    ///
+    /// # Safety
+    /// The caller must ensure that `cmd` is a valid hypercall command and that
+    /// the parameters are valid for the specific hypercall.
     unsafe fn hypercall5(&self, cmd: usize, param: [usize; 5]) -> usize;
 
+    /// Issue a hypercall with 4 parameters.
+    ///
+    /// # Safety
+    /// The caller must ensure that `cmd` is a valid hypercall command and that
+    /// the parameters are valid for the specific hypercall.
     unsafe fn hypercall4(&self, cmd: usize, param: [usize; 4]) -> usize {
         self.hypercall5(cmd, [param[0], param[1], param[2], param[3], 0])
     }
 
+    /// Issue a hypercall with 3 parameters.
+    ///
+    /// # Safety
+    /// The caller must ensure that `cmd` is a valid hypercall command and that
+    /// the parameters are valid for the specific hypercall.
     unsafe fn hypercall3(&self, cmd: usize, param: [usize; 3]) -> usize {
         self.hypercall4(cmd, [param[0], param[1], param[2], 0])
     }
 
+    /// Issue a hypercall with 2 parameters.
+    ///
+    /// # Safety
+    /// The caller must ensure that `cmd` is a valid hypercall command and that
+    /// the parameters are valid for the specific hypercall.
     unsafe fn hypercall2(&self, cmd: usize, param: [usize; 2]) -> usize {
         self.hypercall3(cmd, [param[0], param[1], 0])
     }
 
+    /// Issue a hypercall with 1 parameter.
+    ///
+    /// # Safety
+    /// The caller must ensure that `cmd` is a valid hypercall command and that
+    /// the parameter is valid for the specific hypercall.
     unsafe fn hypercall1(&self, cmd: usize, param: usize) -> usize {
         self.hypercall2(cmd, [param, 0])
     }
 
+    /// Issue a hypercall with no parameters.
+    ///
+    /// # Safety
+    /// The caller must ensure that `cmd` is a valid hypercall command.
     unsafe fn hypercall0(&self, cmd: usize) -> usize {
         self.hypercall1(cmd, 0)
     }
